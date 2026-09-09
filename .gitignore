@@ -1,7 +1,9 @@
-node_modules/
+# build artifacts
 .next/
-coverage/
+out/
+node_modules/
+*.tsbuildinfo
+# env
+.env*.local
+# misc
 .DS_Store
-*.log
-.env*
-!.env.example
