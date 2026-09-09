@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import * as maplibregl from 'maplibre-gl';
+import type { GeoJSONSource, MapMouseEvent } from 'maplibre-gl';
 import { Business } from '@/lib/cuba-data';
 
 interface MapLibreMapProps {
@@ -16,58 +17,144 @@ interface MapLibreMapProps {
   onPinLocationChange?: (coords: { lat: number; lng: number }) => void;
   onMapClick?: (coords: { lat: number; lng: number }) => void;
   routeGeometry?: { type: 'LineString'; coordinates: [number, number][] } | null;
+  onViewportChange?: (bbox: [number, number, number, number], zoom: number) => void;
 }
 
 // Vector basemap — OpenFreeMap Positron (free, unlimited, no API key).
-// Rendered on GPU: crisp at any zoom, ~70% fewer requests than raster tiles.
 const BASEMAP_STYLE = 'https://tiles.openfreemap.org/styles/positron';
 
-function markerVisualState(biz: Business): {
-  badgeColor: string;
-  isVerified: boolean;
-  isReported: boolean;
-} {
-  const isReported = biz.reportsCount > 0;
-  const isVerified = biz.transferVerified && !isReported;
-  const badgeColor = isReported ? '#e11d48' : isVerified ? '#10b981' : '#f59e0b';
-  return { badgeColor, isVerified, isReported };
+const SOURCE_ID = 'businesses-source';
+const LAYER_CLUSTER_ID = 'clusters-layer';
+const LAYER_CLUSTER_COUNT_ID = 'cluster-count-layer';
+const LAYER_UNCLUSTERED_ID = 'unclustered-layer';
+
+// Pin badge colors (design system)
+const COLOR_VERIFIED = '#10b981';
+const COLOR_REPORTED = '#e11d48';
+const COLOR_PENDING = '#f59e0b';
+const COLOR_SELECTED = '#0f2942';
+
+function statusColor(biz: Business): string {
+  if (biz.reportsCount > 0) return COLOR_REPORTED;
+  if (biz.transferVerified) return COLOR_VERIFIED;
+  return COLOR_PENDING;
 }
 
-function buildMarkerElement(biz: Business, isSelected: boolean): HTMLElement {
-  const { badgeColor, isVerified, isReported } = markerVisualState(biz);
+// Runtime-canvas pin icon: colored rounded pin with category emoji + status pip.
+// Avoids shipping dozens of PNG assets; rendered once per (category,state) pair.
+function makePinIcon(
+  emoji: string,
+  color: string,
+  opts: { selected?: boolean; activeNow?: boolean } = {}
+): HTMLCanvasElement {
+  const scale = 2; // retina
+  const size = 36 * scale;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size * 1.25;
+  const ctx = canvas.getContext('2d')!;
 
-  const el = document.createElement('div');
-  el.className =
-    'transfercuba-marker-container cursor-pointer transition-transform duration-200 hover:scale-110';
-  el.style.zIndex = isSelected ? '100' : '10';
+  const cx = size / 2;
+  const headR = 15 * scale;
+  const headCy = headR + 2 * scale;
+  const tailY = headCy + headR + 6 * scale;
 
-  el.innerHTML = `
-    <div class="relative flex flex-col items-center group">
-      ${biz.transferActiveNow
-        ? `
-        <span class="absolute -top-1 -right-1 flex h-3 w-3">
-          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border border-white"></span>
-        </span>
-      `
-        : ''}
+  // Pin head (rounded square)
+  const headSize = headR * 2;
+  const headX = cx - headR;
+  ctx.save();
+  ctx.shadowColor = 'rgba(15, 41, 66, 0.30)';
+  ctx.shadowBlur = 6 * scale;
+  ctx.shadowOffsetY = 2 * scale;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.roundRect(headX, headCy - headR, headSize, headSize, 9 * scale);
+  ctx.fill();
+  ctx.restore();
 
-      <div style="background-color: ${isSelected ? '#0f2942' : badgeColor}; box-shadow: 0 4px 10px rgba(15, 41, 66, 0.28);"
-           class="w-9 h-9 rounded-xl border-2 border-white flex items-center justify-center text-white text-base transition-all ${isSelected ? 'ring-4 ring-cerulean/40 scale-110' : ''}">
-        <span>${biz.categoryIcon}</span>
-      </div>
+  // White border
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 2 * scale;
+  ctx.beginPath();
+  ctx.roundRect(headX, headCy - headR, headSize, headSize, 9 * scale);
+  ctx.stroke();
 
-      <div style="background-color: ${isSelected ? '#0f2942' : badgeColor};"
-           class="w-2.5 h-2.5 rotate-45 -mt-1"></div>
+  // Tail triangle
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(cx - 5 * scale, headCy + headR - 1 * scale);
+  ctx.lineTo(cx + 5 * scale, headCy + headR - 1 * scale);
+  ctx.lineTo(cx, tailY);
+  ctx.closePath();
+  ctx.fill();
 
-      <div class="absolute -bottom-1 px-1.5 rounded-full text-[9px] font-black uppercase text-white shadow-sm"
-           style="background-color: ${badgeColor};">
-        ${isVerified ? '✓' : isReported ? '⚠' : '⏳'}
-      </div>
-    </div>
-  `;
+  // Category emoji
+  ctx.font = `${14 * scale}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(emoji, cx, headCy);
 
-  return el;
+  // Status / selection pip
+  const pipColor = opts.selected ? '#ffffff' : color;
+  const pipBg = opts.selected ? COLOR_SELECTED : '#ffffff';
+  ctx.beginPath();
+  ctx.arc(cx + headR - 2 * scale, headCy - headR + 2 * scale, 5.5 * scale, 0, Math.PI * 2);
+  ctx.fillStyle = pipBg;
+  ctx.fill();
+  ctx.lineWidth = 1.5 * scale;
+  ctx.strokeStyle = '#ffffff';
+  ctx.stroke();
+
+  if (opts.selected) {
+    ctx.font = `bold ${7 * scale}px sans-serif`;
+    ctx.fillStyle = COLOR_SELECTED;
+    ctx.fillText('✓', cx + headR - 2 * scale, headCy - headR + 2.5 * scale);
+  } else {
+    ctx.beginPath();
+    ctx.arc(cx + headR - 2 * scale, headCy - headR + 2 * scale, 2 * scale, 0, Math.PI * 2);
+    ctx.fillStyle = pipColor;
+    ctx.fill();
+  }
+
+  // "Active now" beacon dot (top-left)
+  if (opts.activeNow) {
+    ctx.beginPath();
+    ctx.arc(cx - headR + 2 * scale, headCy - headR + 2 * scale, 4 * scale, 0, Math.PI * 2);
+    ctx.fillStyle = COLOR_VERIFIED;
+    ctx.fill();
+    ctx.lineWidth = 1.5 * scale;
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+  }
+
+  return canvas;
+}
+
+function iconIdFor(biz: Business, selected: boolean): string {
+  const state = selected ? 'sel' : statusColor(biz) === COLOR_VERIFIED ? 'v' : statusColor(biz) === COLOR_REPORTED ? 'r' : 'p';
+  return `pin-${biz.categoryIcon}-${state}-${biz.transferActiveNow ? 'on' : 'off'}`;
+}
+
+function businessesToGeoJSON(businesses: Business[]): GeoJSON.FeatureCollection {
+  return {
+    type: 'FeatureCollection',
+    features: businesses.map((biz) => ({
+      type: 'Feature' as const,
+      id: biz.id,
+      properties: {
+        id: biz.id,
+        name: biz.name,
+        categoryIcon: biz.categoryIcon,
+        status: biz.reportsCount > 0 ? 'reported' : biz.transferVerified ? 'verified' : 'pending',
+        activeNow: biz.transferActiveNow,
+        selected: false
+      },
+      geometry: {
+        type: 'Point' as const,
+        coordinates: [biz.lng, biz.lat]
+      }
+    }))
+  };
 }
 
 export default function MapLibreMap({
@@ -81,14 +168,17 @@ export default function MapLibreMap({
   pinLocation,
   onPinLocationChange,
   onMapClick,
-  routeGeometry
+  routeGeometry,
+  onViewportChange
 }: MapLibreMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<maplibregl.Map | null>(null);
-  const markersByIdRef = useRef<Map<string, maplibregl.Marker>>(new Map());
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
   const pinMarkerRef = useRef<maplibregl.Marker | null>(null);
   const lastViewRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null);
+  const iconsCacheRef = useRef<Set<string>>(new Set());
+  const businessesByIdRef = useRef<Map<string, Business>>(new Map());
+  const selectionStateRef = useRef<string | null>(null);
 
   const centerLat = center[0];
   const centerLng = center[1];
@@ -96,32 +186,31 @@ export default function MapLibreMap({
   const callbacksRef = useRef({
     isPinningMode,
     onPinLocationChange,
-    onMapClick
+    onMapClick,
+    onViewportChange
   });
 
   useEffect(() => {
     callbacksRef.current = {
       isPinningMode,
       onPinLocationChange,
-      onMapClick
+      onMapClick,
+      onViewportChange
     };
-  }, [isPinningMode, onPinLocationChange, onMapClick]);
+  }, [isPinningMode, onPinLocationChange, onMapClick, onViewportChange]);
 
   // Initialize MapLibre GL instance
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
-    const markersById = markersByIdRef.current;
+    const iconsCache = iconsCacheRef.current;
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      // Vector style: glyphs + sprites resolved from the style itself.
       style: BASEMAP_STYLE,
-      center: [centerLng, centerLat], // MapLibre uses [lng, lat]
+      center: [centerLng, centerLat],
       zoom: zoom,
       attributionControl: false,
-      // Instant tile swap on zoom — no crossfade lag on slow connections.
       fadeDuration: 0,
-      // Keep a large browser-side tile cache for fluid pan/zoom.
       maxTileCacheSize: 400,
       transformRequest: (url: string) => {
         return { url };
@@ -141,13 +230,11 @@ export default function MapLibreMap({
           err.message.includes('aborted')
         ))
       ) {
-        // Benign tile load cancellation (e.g. while rapidly panning or zooming)
         return;
       }
       console.warn('MapLibre map notification:', e);
     });
 
-    // Add navigation controls (zoom in/out, compass)
     map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
     map.addControl(
       new maplibregl.AttributionControl({
@@ -176,8 +263,8 @@ export default function MapLibreMap({
       resizeObserver.observe(mapContainerRef.current);
     }
 
-    // Map click handler
-    map.on('click', (e) => {
+    // Map click handler (pinning / generic clicks)
+    map.on('click', (e: MapMouseEvent) => {
       const current = callbacksRef.current;
       if (current.isPinningMode && current.onPinLocationChange) {
         current.onPinLocationChange({ lat: e.lngLat.lat, lng: e.lngLat.lng });
@@ -186,18 +273,33 @@ export default function MapLibreMap({
       }
     });
 
+    // Viewport change (debounced) — feeds Sprint 3 server queries
+    let moveendTimer: ReturnType<typeof setTimeout> | null = null;
+    map.on('moveend', () => {
+      if (moveendTimer) clearTimeout(moveendTimer);
+      moveendTimer = setTimeout(() => {
+        const cb = callbacksRef.current.onViewportChange;
+        if (!cb || !mapInstanceRef.current) return;
+        const b = mapInstanceRef.current.getBounds();
+        cb(
+          [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()],
+          mapInstanceRef.current.getZoom()
+        );
+      }, 250);
+    });
+
     return () => {
+      if (moveendTimer) clearTimeout(moveendTimer);
       if (resizeTimer) clearTimeout(resizeTimer);
       resizeObserver.disconnect();
-      markersById.clear();
+      iconsCache.clear();
       map.remove();
       mapInstanceRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sync center and zoom — only animate when the target is meaningfully
-  // different from the current view (avoids redundant flyTo animations).
+  // Sync center and zoom — only when meaningfully different
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
@@ -219,64 +321,198 @@ export default function MapLibreMap({
     });
   }, [centerLat, centerLng, zoom]);
 
-  // Render business markers — reconciled by id: only added/removed/updated
-  // markers touch the DOM instead of rebuilding every marker on each change.
+  // Businesses GeoJSON layer — cluster + symbol pins (GPU rendered)
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    const markersById = markersByIdRef.current;
-    const nextIds = new Set(businesses.map((b) => b.id));
+    // index for click resolution
+    businessesByIdRef.current = new Map(businesses.map((b) => [b.id, b]));
 
-    // Remove markers no longer present
-    for (const [id, marker] of markersById) {
-      if (!nextIds.has(id)) {
-        marker.remove();
-        markersById.delete(id);
-      }
-    }
-
-    businesses.forEach((biz) => {
-      const isSelected = selectedBusiness?.id === biz.id;
-      const existing = markersById.get(biz.id);
-
-      if (existing) {
-        // Update position in case coords changed
-        existing.setLngLat([biz.lng, biz.lat]);
-        // Update selection visuals only when selection changed for this marker
-        const el = existing.getElement();
-        const wasSelected = el.dataset.selected === 'true';
-        if (wasSelected !== isSelected) {
-          const fresh = buildMarkerElement(biz, isSelected);
-          fresh.dataset.selected = String(isSelected);
-          fresh.addEventListener('click', (e) => {
-            e.stopPropagation();
-            onSelectBusiness(biz);
-          });
-          // MapLibre keeps an internal reference to the original element:
-          // rebuild the marker wrapper preserving coordinates.
-          const replacement = new maplibregl.Marker({ element: fresh })
-            .setLngLat(existing.getLngLat())
-            .addTo(map);
-          existing.remove();
-          markersById.set(biz.id, replacement);
-        }
-        return;
-      }
-
-      // New marker
-      const el = buildMarkerElement(biz, isSelected);
-      el.dataset.selected = String(isSelected);
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        onSelectBusiness(biz);
+    const setupLayers = () => {
+      // Register any new runtime icons for this batch of businesses
+      businesses.forEach((biz) => {
+        [false, true].forEach((sel) => {
+          const id = iconIdFor(biz, sel);
+          if (!map.hasImage(id) && !iconsCacheRef.current.has(id)) {
+            iconsCacheRef.current.add(id);
+            const img = new Image();
+            img.src = makePinIcon(biz.categoryIcon, statusColor(biz), {
+              selected: sel,
+              activeNow: biz.transferActiveNow
+            }).toDataURL('image/png');
+            map.addImage(id, img);
+          }
+        });
       });
-      const marker = new maplibregl.Marker({ element: el })
-        .setLngLat([biz.lng, biz.lat])
-        .addTo(map);
-      markersById.set(biz.id, marker);
-    });
-  }, [businesses, selectedBusiness, onSelectBusiness]);
+
+      if (!map.getSource(SOURCE_ID)) {
+        map.addSource(SOURCE_ID, {
+          type: 'geojson',
+          data: businessesToGeoJSON(businesses),
+          cluster: true,
+          clusterRadius: 55,
+          clusterMaxZoom: 14,
+          clusterProperties: {
+            active: ['+', ['case', ['get', 'activeNow'], 1, 0]]
+          }
+        });
+
+        // Clusters: navy bubble with count
+        map.addLayer({
+          id: LAYER_CLUSTER_ID,
+          type: 'circle',
+          source: SOURCE_ID,
+          filter: ['has', 'point_count'],
+          paint: {
+            'circle-color': COLOR_SELECTED,
+            'circle-radius': [
+              'step',
+              ['get', 'point_count'],
+              16,
+              10,
+              20,
+              25,
+              24
+            ],
+            'circle-opacity': 0.92,
+            'circle-stroke-width': 3,
+            'circle-stroke-color': '#ffffff'
+          }
+        });
+
+        map.addLayer({
+          id: LAYER_CLUSTER_COUNT_ID,
+          type: 'symbol',
+          source: SOURCE_ID,
+          filter: ['has', 'point_count'],
+          layout: {
+            'text-field': ['get', 'point_count_abbreviated'],
+            'text-font': ['Noto Sans Regular'],
+            'text-size': 12
+          },
+          paint: {
+            'text-color': '#ffffff'
+          }
+        });
+
+        // Individual pins: runtime icon by state, selection via feature-state
+        map.addLayer({
+          id: LAYER_UNCLUSTERED_ID,
+          type: 'symbol',
+          source: SOURCE_ID,
+          filter: ['!', ['has', 'point_count']],
+          layout: {
+            'icon-image': [
+              'case',
+              ['boolean', ['feature-state', 'selected'], false],
+              ['concat', 'pin-', ['get', 'categoryIcon'], '-sel-', ['case', ['get', 'activeNow'], 'on', 'off']],
+              ['concat', 'pin-', ['get', 'categoryIcon'], '-', ['get', 'status'], '-', ['case', ['get', 'activeNow'], 'on', 'off']]
+            ],
+            'icon-allow-overlap': false,
+            'icon-ignore-placement': true,
+            'icon-anchor': 'bottom',
+            'icon-padding': 4
+          }
+        });
+
+        // Cluster click → zoom into cluster
+        map.on('click', LAYER_CLUSTER_ID, (e) => {
+          const feature = e.features?.[0];
+          if (!feature) return;
+          const clusterId = feature.properties?.cluster_id;
+          const src = map.getSource(SOURCE_ID) as GeoJSONSource;
+          src
+            .getClusterExpansionZoom(Number(clusterId))
+            .then((targetZoom: number) => {
+              const coords = feature.geometry;
+              if (coords.type !== 'Point') return;
+              map.easeTo({
+                center: coords.coordinates as [number, number],
+                zoom: targetZoom,
+                duration: 600
+              });
+            })
+            .catch(() => {});
+        });
+
+        map.on('click', LAYER_UNCLUSTERED_ID, (e) => {
+          const feature = e.features?.[0];
+          const id = feature?.properties?.id as string | undefined;
+          const biz = businessesByIdRef.current.get(String(id));
+          if (biz) onSelectBusiness(biz);
+        });
+
+        // Cursor pointers
+        map.on('mouseenter', LAYER_CLUSTER_ID, () => {
+          map.getCanvas().style.cursor = 'pointer';
+        });
+        map.on('mouseleave', LAYER_CLUSTER_ID, () => {
+          map.getCanvas().style.cursor = '';
+        });
+        map.on('mouseenter', LAYER_UNCLUSTERED_ID, () => {
+          map.getCanvas().style.cursor = 'pointer';
+        });
+        map.on('mouseleave', LAYER_UNCLUSTERED_ID, () => {
+          map.getCanvas().style.cursor = '';
+        });
+
+        // Hover popup: business name (desktop nicety)
+        const popup = new maplibregl.Popup({
+          closeButton: false,
+          closeOnClick: false,
+          offset: 14,
+          anchor: 'bottom'
+        });
+        map.on('mouseenter', LAYER_UNCLUSTERED_ID, (e) => {
+          const feature = e.features?.[0];
+          if (!feature) return;
+          const coords = feature.geometry;
+          if (coords.type !== 'Point') return;
+          popup
+            .setLngLat(coords.coordinates as [number, number])
+            .setHTML(
+              `<div style="font-family:'Plus Jakarta Sans',sans-serif;background:#0f2942;color:#fff;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 8px 16px -4px rgba(15,41,66,0.3)">
+                ${feature.properties?.name ?? ''}
+              </div>`
+            )
+            .addTo(map);
+        });
+        map.on('mouseleave', LAYER_UNCLUSTERED_ID, () => popup.remove());
+      } else {
+        // Update data in place — cheap, no layer rebuild
+        (map.getSource(SOURCE_ID) as GeoJSONSource).setData(businessesToGeoJSON(businesses));
+      }
+    };
+
+    if (map.isStyleLoaded()) {
+      setupLayers();
+    } else {
+      map.once('style.load', setupLayers);
+    }
+  }, [businesses, onSelectBusiness]);
+
+  // Selection highlight via feature-state (no marker recreation)
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !map.getSource(SOURCE_ID)) return;
+
+    const prevId = selectionStateRef.current;
+    const nextId = selectedBusiness?.id ?? null;
+
+    const applyState = (id: string, selected: boolean) => {
+      try {
+        map.setFeatureState({ source: SOURCE_ID, id }, { selected });
+      } catch {
+        // feature not in viewport — ignore
+      }
+    };
+
+    if (prevId && prevId !== nextId) applyState(prevId, false);
+    if (nextId && nextId !== prevId) applyState(nextId, true);
+
+    selectionStateRef.current = nextId;
+  }, [selectedBusiness, businesses]);
 
   // Render User Location GPS Marker
   useEffect(() => {
@@ -357,7 +593,6 @@ export default function MapLibreMap({
     const layerId = 'osrm-route-layer';
 
     const updateRouteLayer = () => {
-      // Remove existing route layer & source
       if (map.getLayer(layerId)) {
         map.removeLayer(layerId);
       }
@@ -390,7 +625,6 @@ export default function MapLibreMap({
           }
         });
 
-        // Fit bounds to route
         const coords = routeGeometry.coordinates;
         if (coords.length > 0) {
           const bounds = coords.reduce(
