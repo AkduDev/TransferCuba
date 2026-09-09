@@ -23,9 +23,9 @@ export default function RouteInfoBar({
   const osmRouteUrl = `https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${business.lat}%2C${business.lng}#map=15/${business.lat}/${business.lng}`;
 
   return (
-    <div className="absolute top-[96px] sm:top-[104px] left-2.5 right-2.5 md:left-auto md:right-6 md:top-3 md:translate-x-0 z-30 w-auto max-w-[calc(100vw-20px)] sm:max-w-sm md:max-w-md bg-slate-900/95 text-white backdrop-blur-md px-3 py-2 sm:px-4 sm:py-2.5 rounded-2xl shadow-2xl border border-slate-700/80 flex items-center justify-between gap-2 sm:gap-3 animate-in fade-in slide-in-from-top-2 pointer-events-auto">
+    <div className="absolute top-[96px] sm:top-[104px] left-2.5 right-2.5 md:left-auto md:right-6 md:top-3 md:translate-x-0 z-30 w-auto max-w-[calc(100vw-20px)] sm:max-w-sm md:max-w-md bg-slate-900/95 text-white backdrop-blur-md px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg shadow-level-4 border border-slate-700/80 flex items-center justify-between gap-2 sm:gap-3 animate-in fade-in slide-in-from-top-2 pointer-events-auto">
       <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md flex-shrink-0">
+        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-emerald-brand text-white flex items-center justify-center shadow-level-2 flex-shrink-0">
           <Navigation className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         </div>
         <div className="min-w-0">

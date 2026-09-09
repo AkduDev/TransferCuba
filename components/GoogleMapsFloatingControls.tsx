@@ -50,11 +50,11 @@ export default function GoogleMapsFloatingControls({
       <button
         onClick={onRegisterClick}
         id="fab-gm-register"
-        className="flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-slate-950 hover:bg-slate-800 text-white font-extrabold text-xs shadow-xl shadow-slate-950/20 border border-slate-800 hover:border-emerald-500/50 active:scale-95 transition-all group"
+        className="flex items-center gap-2 px-4 h-11 rounded-full bg-navy hover:bg-navy-hover text-white font-bold text-xs shadow-level-2 border border-navy-hover active:scale-95 transition-all"
         title="Registrar mi negocio gratis"
       >
-        <PlusCircle className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
-        <span className="font-display">+ Registrar</span>
+        <PlusCircle className="w-4 h-4 text-emerald-brand" />
+        <span>Registrar</span>
       </button>
 
       {/* GPS Locate / My Location Circular Button */}
@@ -62,14 +62,14 @@ export default function GoogleMapsFloatingControls({
         onClick={onNearMeClick}
         id="fab-gm-gps"
         aria-label="Centrar en mi ubicación"
-        className={`w-11 h-11 rounded-full bg-white shadow-xl shadow-slate-900/15 border flex items-center justify-center active:scale-90 transition-all ${
-          hasUserLocation 
-            ? 'text-blue-600 border-blue-400 ring-2 ring-blue-400/30' 
-            : 'text-slate-700 hover:text-slate-950 border-slate-200 hover:bg-slate-50'
+        className={`w-11 h-11 rounded-full bg-white shadow-level-2 border flex items-center justify-center active:scale-90 transition-all ${
+          hasUserLocation
+            ? 'text-cerulean border-cerulean ring-2 ring-cerulean/25'
+            : 'text-slate-600 hover:text-navy border-border-subtle hover:bg-slate-50'
         }`}
         title={hasUserLocation ? 'Ubicación GPS fijada' : 'Centrar en mi ubicación'}
       >
-        <Navigation className={`w-5 h-5 ${isLocating ? 'animate-spin text-emerald-600' : ''}`} />
+        <Navigation className={`w-5 h-5 ${isLocating ? 'animate-spin text-cerulean' : ''}`} />
       </button>
     </div>
   );

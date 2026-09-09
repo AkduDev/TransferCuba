@@ -15,110 +15,62 @@ import {
   Navigation,
   MessageCircle,
   Phone,
-  ShieldCheck
+  ShieldCheck,
+  BadgeCheck
 } from 'lucide-react';
 import { Business, formatDistance } from '@/lib/cuba-data';
 
 export interface CategoryStyle {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
-  badgeBg: string;
-  badgeText: string;
   iconBg: string;
-  iconText: string;
-  borderColor: string;
 }
 
 export function getCategoryStyle(categoryKey: string): CategoryStyle {
   const cat = (categoryKey || '').toLowerCase();
 
   if (cat.includes('comida') || cat.includes('restaurante')) {
-    return {
-      icon: Utensils,
-      label: 'Restaurante / Comida',
-      badgeBg: 'bg-orange-50',
-      badgeText: 'text-orange-700',
-      iconBg: 'bg-orange-500',
-      iconText: 'text-white',
-      borderColor: 'border-orange-200'
-    };
+    return { icon: Utensils, label: 'Gastronomía', iconBg: 'bg-saffron/10 text-saffron' };
   }
   if (cat.includes('cafe') || cat.includes('cafeteria') || cat.includes('panaderia')) {
-    return {
-      icon: Coffee,
-      label: 'Cafetería & Panadería',
-      badgeBg: 'bg-amber-50',
-      badgeText: 'text-amber-800',
-      iconBg: 'bg-amber-600',
-      iconText: 'text-white',
-      borderColor: 'border-amber-200'
-    };
+    return { icon: Coffee, label: 'Cafetería', iconBg: 'bg-saffron/10 text-saffron' };
   }
   if (cat.includes('tienda') || cat.includes('mercado')) {
-    return {
-      icon: ShoppingBag,
-      label: 'Tienda & Mercado',
-      badgeBg: 'bg-blue-50',
-      badgeText: 'text-blue-700',
-      iconBg: 'bg-blue-600',
-      iconText: 'text-white',
-      borderColor: 'border-blue-200'
-    };
+    return { icon: ShoppingBag, label: 'Tienda', iconBg: 'bg-cerulean/10 text-cerulean' };
   }
   if (cat.includes('farmacia') || cat.includes('salud')) {
-    return {
-      icon: Pill,
-      label: 'Farmacia & Salud',
-      badgeBg: 'bg-rose-50',
-      badgeText: 'text-rose-700',
-      iconBg: 'bg-rose-600',
-      iconText: 'text-white',
-      borderColor: 'border-rose-200'
-    };
+    return { icon: Pill, label: 'Farmacia', iconBg: 'bg-crimson/10 text-crimson' };
   }
   if (cat.includes('servicio') || cat.includes('celular') || cat.includes('reparacion')) {
-    return {
-      icon: Smartphone,
-      label: 'Servicios & Celulares',
-      badgeBg: 'bg-indigo-50',
-      badgeText: 'text-indigo-700',
-      iconBg: 'bg-indigo-600',
-      iconText: 'text-white',
-      borderColor: 'border-indigo-200'
-    };
+    return { icon: Smartphone, label: 'Servicios', iconBg: 'bg-cerulean/10 text-cerulean' };
   }
   if (cat.includes('ferreteria') || cat.includes('hogar')) {
-    return {
-      icon: Wrench,
-      label: 'Ferretería & Hogar',
-      badgeBg: 'bg-amber-50',
-      badgeText: 'text-amber-900',
-      iconBg: 'bg-amber-700',
-      iconText: 'text-white',
-      borderColor: 'border-amber-300'
-    };
+    return { icon: Wrench, label: 'Ferretería', iconBg: 'bg-slate-500/10 text-slate-600' };
   }
   if (cat.includes('ropa') || cat.includes('calzado') || cat.includes('moda')) {
-    return {
-      icon: Shirt,
-      label: 'Ropa & Calzado',
-      badgeBg: 'bg-purple-50',
-      badgeText: 'text-purple-700',
-      iconBg: 'bg-purple-600',
-      iconText: 'text-white',
-      borderColor: 'border-purple-200'
-    };
+    return { icon: Shirt, label: 'Ropa', iconBg: 'bg-cerulean-dark/10 text-cerulean-dark' };
   }
 
-  return {
-    icon: Store,
-    label: 'Comercio',
-    badgeBg: 'bg-slate-100',
-    badgeText: 'text-slate-700',
-    iconBg: 'bg-sky-600',
-    iconText: 'text-white',
-    borderColor: 'border-slate-200'
-  };
+  return { icon: Store, label: 'Comercio', iconBg: 'bg-slate-500/10 text-slate-600' };
+}
+
+/* Badges de pago — tokens del design system Stitch */
+function PaymentBadge({ kind }: { kind: 'tm' | 'ez' | 'qr' | 'cash' }) {
+  const styles = {
+    tm: { cls: 'bg-tm-bg text-tm-text border-tm-border', label: 'TM', title: 'Transfermóvil' },
+    ez: { cls: 'bg-ez-bg text-ez-text border-ez-border', label: 'EZ', title: 'EnZona' },
+    qr: { cls: 'bg-qr-bg text-qr-text border-border-subtle', label: 'QR', title: 'Código QR' },
+    cash: { cls: 'bg-ash-bg text-ash-text border-emerald-200', label: 'CUP', title: 'Efectivo' }
+  }[kind];
+
+  return (
+    <span
+      title={styles.title}
+      className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide ${styles.cls}`}
+    >
+      {styles.label}
+    </span>
+  );
 }
 
 interface GoogleMapsPlaceCardProps {
@@ -139,185 +91,130 @@ export default function GoogleMapsPlaceCard({
 
   return (
     <article
-      id={`place-card-${business.id}`}
       onClick={() => onSelect(business)}
-      className={`group relative p-3.5 sm:p-4 border-b border-slate-200/80 cursor-pointer transition-colors duration-150 text-left ${
-        isSelected
-          ? 'bg-blue-50/70 border-blue-200'
-          : 'bg-white hover:bg-slate-50 active:bg-slate-100'
+      className={`group bg-card border border-border-subtle rounded-xl p-3.5 cursor-pointer transition-all duration-150 text-left shadow-level-1 hover:shadow-level-2 hover:border-border-strong ${
+        isSelected ? 'ring-2 ring-cerulean/40 border-cerulean' : ''
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
-        {/* Main Content Column */}
+      {/* Top: nombre + verificación + miniatura */}
+      <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">
-          {/* Top Row: Category colored icon badge + Business Name */}
-          <div className="flex items-center gap-2 mb-1 min-w-0">
-            {/* Specific Google Maps category colored icon */}
-            <div
-              className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center flex-shrink-0 shadow-xs ${catStyle.iconBg} ${catStyle.iconText}`}
-              title={catStyle.label}
-            >
-              <CategoryIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </div>
-
-            <h4 className="text-sm sm:text-base font-bold text-slate-900 group-hover:text-blue-600 transition-colors truncate font-display">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <h4 className="text-[15px] font-bold text-text-primary truncate leading-snug group-hover:text-cerulean-dark transition-colors">
               {business.name}
             </h4>
-
             {business.transferVerified && (
-              <span title="Verificado DevParadise">
-                <ShieldCheck className="w-4 h-4 text-blue-600 flex-shrink-0" />
-              </span>
+              <BadgeCheck className="w-4 h-4 text-emerald-brand flex-shrink-0" aria-label="Verificado" />
             )}
           </div>
 
-          {/* Row 2: Rating, reviews count & category */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-normal mt-0.5 flex-wrap">
-            <div className="flex items-center gap-1">
-              <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-              <span className="font-bold text-slate-800">
-                {business.rating ? business.rating.toFixed(1) : '4.8'}
-              </span>
-              <span className="text-slate-400 font-normal">
-                ({business.reviewsCount || 16})
-              </span>
-            </div>
-            <span className="text-slate-300">·</span>
-            <span className={`font-medium ${catStyle.badgeText}`}>
-              {business.category}
-            </span>
-          </div>
-
-          {/* Row 3: Distance info in subtle muted color & location */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-normal mt-1 flex-wrap">
-            {business.distanceMeters !== undefined ? (
+          {/* Ubicación + distancia en una línea */}
+          <p className="text-xs text-text-muted mt-1 truncate">
+            {business.distanceMeters !== undefined && (
               <>
-                <span className="inline-flex items-center gap-1 text-slate-500 font-medium">
-                  <Navigation className="w-3 h-3 text-slate-400" />
-                  <span>A {formatDistance(business.distanceMeters)}</span>
+                <span className="font-semibold text-navy">
+                  {formatDistance(business.distanceMeters)}
                 </span>
-                <span className="text-slate-300">·</span>
+                <span className="mx-1">·</span>
               </>
-            ) : null}
-            <span className="text-slate-500 truncate">
-              {business.neighborhood ? `${business.neighborhood}, ` : ''}{business.municipality}
+            )}
+            {business.municipality}
+            {business.neighborhood ? `, ${business.neighborhood}` : ''}
+          </p>
+
+          {/* Rating discreto */}
+          <div className="flex items-center gap-1 mt-1.5 text-xs">
+            <Star className="w-3.5 h-3.5 text-saffron fill-saffron" />
+            <span className="font-bold text-text-primary">
+              {business.rating ? business.rating.toFixed(1) : '4.8'}
             </span>
-          </div>
-
-          {/* Row 4: Status and Payment Badges */}
-          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-            <span
-              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                business.transferActiveNow
-                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200/80'
-                  : 'bg-amber-50 text-amber-800 border border-amber-200/80'
-              }`}
-            >
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  business.transferActiveNow ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
-                }`}
-              />
-              <span>{business.transferActiveNow ? 'Transferencia activa' : 'Solo efectivo'}</span>
-            </span>
-
-            {/* Payment channel pills */}
-            {business.transferDetails?.transfermovil && (
-              <span
-                className="px-1.5 py-0.5 rounded text-[9px] font-black bg-blue-50 text-blue-700 border border-blue-200/70"
-                title="Acepta Transfermóvil"
-              >
-                TM
-              </span>
-            )}
-            {business.transferDetails?.enzona && (
-              <span
-                className="px-1.5 py-0.5 rounded text-[9px] font-black bg-purple-50 text-purple-700 border border-purple-200/70"
-                title="Acepta EnZona"
-              >
-                EZ
-              </span>
-            )}
-            {business.transferDetails?.qrPayment && (
-              <span
-                className="px-1.5 py-0.5 rounded text-[9px] font-black bg-slate-100 text-slate-700 border border-slate-200"
-                title="Acepta código QR"
-              >
-                QR
-              </span>
-            )}
-          </div>
-
-          {/* Row 5: Action buttons */}
-          <div className="flex items-center gap-1.5 mt-2.5 pt-2 border-t border-slate-100">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onCalculateRoute?.(business);
-              }}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 transition-colors active:scale-95"
-              title="Trazar ruta hacia este lugar"
-            >
-              <Navigation className="w-3.5 h-3.5" />
-              <span>Ruta</span>
-            </button>
-
-            {business.whatsapp && (
-              <a
-                href={`https://wa.me/${
-                  business.whatsapp.replace(/[^0-9]/g, '').startsWith('53')
-                    ? business.whatsapp.replace(/[^0-9]/g, '')
-                    : `53${business.whatsapp.replace(/[^0-9]/g, '')}`
-                }?text=${encodeURIComponent(
-                  `Hola ${business.name}, los vi en TransferCuba. Quisiera consultar disponibilidad.`
-                )}`}
-                target="_blank"
-                rel="noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors active:scale-95"
-                title="Escribir por WhatsApp"
-              >
-                <MessageCircle className="w-3.5 h-3.5" />
-                <span>WhatsApp</span>
-              </a>
-            )}
-
-            {business.phone && (
-              <a
-                href={`tel:${business.phone}`}
-                onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors active:scale-95"
-                title="Llamar al negocio"
-              >
-                <Phone className="w-3.5 h-3.5" />
-                <span>Llamar</span>
-              </a>
-            )}
+            <span className="text-text-muted">({business.reviewsCount || 16})</span>
+            <span className="mx-1 text-slate-300">·</span>
+            <span className="text-text-muted">{catStyle.label}</span>
           </div>
         </div>
 
-        {/* Right Column: Place Thumbnail */}
-        <div className="w-20 h-20 sm:w-22 sm:h-22 rounded-xl overflow-hidden relative shadow-xs border border-slate-200/80 bg-slate-100 flex-shrink-0 self-start">
+        {/* Miniatura */}
+        <div className="w-[72px] h-[72px] rounded-lg overflow-hidden relative border border-border-subtle bg-slate-100 flex-shrink-0">
           {business.photos && business.photos.length > 0 ? (
             <Image
               src={business.photos[0]}
               alt={business.name}
               fill
               className="object-cover group-hover:scale-105 transition-transform duration-300"
-              sizes="88px"
+              sizes="72px"
               referrerPolicy="no-referrer"
             />
           ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-slate-100 to-slate-200 text-xl group-hover:scale-105 transition-transform">
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center shadow-xs ${catStyle.iconBg} ${catStyle.iconText}`}
-              >
-                <CategoryIcon className="w-4 h-4" />
-              </div>
-              <span className="text-[9px] font-bold text-slate-500 mt-1 truncate max-w-[70px] text-center px-1">
-                {business.category}
-              </span>
+            <div className={`w-full h-full flex items-center justify-center ${catStyle.iconBg}`}>
+              <CategoryIcon className="w-6 h-6" />
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* Divider + badges de pago (código de color nacional) */}
+      <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-border-subtle flex-wrap">
+        <span
+          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+            business.transferActiveNow
+              ? 'bg-emerald-brand/10 text-emerald-brand'
+              : 'bg-saffron/10 text-saffron'
+          }`}
+        >
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${
+              business.transferActiveNow ? 'bg-emerald-brand animate-pulse' : 'bg-saffron'
+            }`}
+          />
+          {business.transferActiveNow ? 'Transferencia activa' : 'Sin transfer'}
+        </span>
+
+        {business.transferDetails?.transfermovil && <PaymentBadge kind="tm" />}
+        {business.transferDetails?.enzona && <PaymentBadge kind="ez" />}
+        {business.transferDetails?.qrPayment && <PaymentBadge kind="qr" />}
+        {business.transferDetails?.cash && <PaymentBadge kind="cash" />}
+
+        {/* Acciones esenciales alineadas a la derecha */}
+        <div className="ml-auto flex items-center gap-1">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onCalculateRoute?.(business);
+            }}
+            aria-label="Cómo llegar"
+            title="Cómo llegar"
+            className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-500 hover:text-cerulean-dark hover:bg-slate-100 active:scale-95 transition-all"
+          >
+            <Navigation className="w-4 h-4" />
+          </button>
+          {business.whatsapp && (
+            <a
+              href={`https://wa.me/${
+                business.whatsapp.replace(/[^0-9]/g, '').startsWith('53')
+                  ? business.whatsapp.replace(/[^0-9]/g, '')
+                  : `53${business.whatsapp.replace(/[^0-9]/g, '')}`
+              }`}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              aria-label="WhatsApp"
+              title="Escribir por WhatsApp"
+              className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-500 hover:text-emerald-brand hover:bg-slate-100 active:scale-95 transition-all"
+            >
+              <MessageCircle className="w-4 h-4" />
+            </a>
+          )}
+          {business.phone && (
+            <a
+              href={`tel:${business.phone}`}
+              onClick={(e) => e.stopPropagation()}
+              aria-label="Llamar"
+              title="Llamar al negocio"
+              className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-500 hover:text-navy hover:bg-slate-100 active:scale-95 transition-all"
+            >
+              <Phone className="w-4 h-4" />
+            </a>
           )}
         </div>
       </div>

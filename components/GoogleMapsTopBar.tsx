@@ -1,17 +1,16 @@
 'use client';
 
 import React from 'react';
-import { 
-  Search, 
-  Menu, 
-  X, 
-  Navigation, 
-  SlidersHorizontal,
-  RotateCcw,
-  Sparkles,
+import {
+  Search,
+  Menu,
+  X,
+  Navigation,
   MapPin,
-  Check,
-  Lock
+  ChevronDown,
+  Lock,
+  SlidersHorizontal,
+  RotateCcw
 } from 'lucide-react';
 import { CATEGORIES } from '@/lib/cuba-data';
 
@@ -38,6 +37,16 @@ interface GoogleMapsTopBarProps {
   onAdminClick?: () => void;
 }
 
+const CATEGORY_EMOJI: Record<string, string> = {
+  comida: '🍽️',
+  tiendas: '🛍️',
+  farmacias: '💊',
+  cafeterias: '☕',
+  servicios: '📱',
+  ferreteria: '🔧',
+  ropa: '👕'
+};
+
 export default function GoogleMapsTopBar({
   searchQuery,
   onSearchChange,
@@ -60,191 +69,198 @@ export default function GoogleMapsTopBar({
   onResetFilters,
   onAdminClick
 }: GoogleMapsTopBarProps) {
-  return (
-    <div 
-      id="google-maps-top-bar"
-      className="absolute top-[max(0.625rem,env(safe-area-inset-top,0.625rem))] left-2.5 right-2.5 md:right-auto md:left-4 z-30 pointer-events-auto flex flex-col gap-1.5 sm:gap-2 max-w-[calc(100vw-20px)]"
-    >
-      {/* Google Maps Floating Search Capsule */}
-      <div className="h-11 sm:h-12 w-full md:w-[390px] xl:w-[410px] flex items-center justify-between bg-white rounded-2xl shadow-xl shadow-slate-900/15 border border-slate-200/90 px-2 sm:px-3 transition-all focus-within:ring-2 focus-within:ring-emerald-500/30 focus-within:border-emerald-500">
-        {/* Hamburger Menu button - Centered with flexbox */}
-        <button
-          onClick={onMenuClick}
-          id="btn-gm-menu"
-          aria-label="Menú principal TransferCuba"
-          className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 active:scale-95 transition-all flex-shrink-0"
-          title="Menú y provincias"
-        >
-          <Menu className="w-5 h-5 text-slate-700" />
-        </button>
+  const chipBase =
+    'inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-[13px] font-semibold whitespace-nowrap border transition-all active:scale-95 flex-shrink-0 min-h-[44px]';
+  const chipIdle =
+    'bg-white border-border-subtle text-slate-600 hover:bg-slate-50 hover:border-border-strong shadow-level-1';
+  const chipActive =
+    'bg-navy border-navy text-white shadow-level-2';
 
-        {/* TransferCuba Mini Logo - Compact on larger screens, hidden on mobile for 1-line search space */}
-        <div className="hidden sm:flex items-center gap-1 pl-1.5 pr-2.5 border-r border-slate-200/80 mr-1.5 select-none flex-shrink-0">
-          <span className="text-sm">🇨🇺</span>
-          <span className="text-xs font-black text-slate-900 font-display tracking-tight">
-            Transfer<span className="text-emerald-600">Cuba</span>
-          </span>
+  return (
+    <div className="absolute top-3 left-3 right-3 md:left-6 md:right-auto z-30 pointer-events-auto flex flex-col gap-2.5 max-w-full">
+      {/* Row 1: Navbar navy + búsqueda integrada (desktop) */}
+      <div className="flex items-center gap-2">
+        {/* Navbar brand (desktop) */}
+        <div className="hidden md:flex items-center gap-2.5 h-12 px-4 bg-navy text-white rounded-lg shadow-level-2 select-none">
+          <button
+            onClick={onMenuClick}
+            aria-label="Menú principal TransferCuba"
+            className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-300 hover:text-white hover:bg-navy-hover active:scale-95 transition-all"
+            title="Menú y provincias"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <div className="flex items-center gap-1.5 border-l border-white/15 pl-3">
+            <span className="text-sm font-extrabold tracking-tight">
+              Transfer<span className="text-cerulean-light">Cuba</span>
+            </span>
+          </div>
         </div>
 
-        {/* Search Input - Expands fully in a single line on mobile */}
-        <div className="relative flex-1 flex items-center min-w-0 mx-1.5 sm:mx-2">
-          <Search className="w-4 h-4 text-slate-400 mr-1.5 flex-shrink-0 sm:hidden" />
+        {/* Hamburger (mobile, fuera del navbar) */}
+        <button
+          onClick={onMenuClick}
+          aria-label="Menú principal TransferCuba"
+          className="md:hidden flex items-center justify-center w-11 h-11 rounded-lg bg-white border border-border-subtle text-slate-700 shadow-level-1 active:scale-95 transition-all"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
+        {/* Search sticky bar */}
+        <div className="flex-1 md:max-w-[480px] h-11 md:h-12 flex items-center bg-white rounded-lg border border-border-subtle shadow-level-3 px-3 gap-2 transition-all focus-within:border-cerulean focus-within:ring-2 focus-within:ring-cerulean/25">
+          <Search className="w-4.5 h-4.5 text-slate-400 flex-shrink-0" />
           <input
             type="text"
-            id="input-gm-search"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Buscar negocios, servicios..."
-            className="w-full text-xs sm:text-sm bg-transparent text-slate-900 font-medium placeholder:text-slate-400 focus:outline-none truncate"
+            placeholder="Buscar negocios, direcciones…"
+            className="flex-1 min-w-0 text-sm bg-transparent text-text-primary font-medium placeholder:text-slate-400 focus:outline-none"
           />
           {searchQuery && (
             <button
               onClick={() => onSearchChange('')}
-              className="flex items-center justify-center p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors mr-0.5 flex-shrink-0"
               aria-label="Borrar búsqueda"
+              className="flex items-center justify-center w-6 h-6 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors flex-shrink-0"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           )}
+          <div className="hidden sm:flex items-center gap-1 border-l border-border-subtle pl-2 flex-shrink-0">
+            <button
+              onClick={onNearMeClick}
+              aria-label="Buscar cerca de mí"
+              className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all ${
+                hasUserLocation
+                  ? 'text-cerulean bg-tm-bg'
+                  : 'text-slate-500 hover:text-cerulean hover:bg-slate-100'
+              }`}
+              title={hasUserLocation ? 'Ubicación activa' : 'Cerca de mí'}
+            >
+              <Navigation
+                className={`w-4 h-4 ${isLocating ? 'animate-spin text-cerulean' : ''}`}
+              />
+            </button>
+            <button
+              onClick={onToggleFiltersModal}
+              aria-label="Filtros avanzados"
+              className={`relative flex items-center justify-center w-8 h-8 rounded-lg transition-all ${
+                hasActiveFilters
+                  ? 'text-cerulean bg-tm-bg'
+                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+              title="Filtros avanzados"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              {hasActiveFilters && (
+                <span className="w-2 h-2 rounded-full bg-cerulean absolute top-1.5 right-1.5 ring-2 ring-white" />
+              )}
+            </button>
+          </div>
         </div>
 
-        {/* Action icons inside the search capsule - Centered with flexbox when < 640px */}
-        <div className="flex items-center justify-center gap-0.5 sm:gap-1 border-l border-slate-200/90 pl-1 sm:pl-1.5 flex-shrink-0">
-          {/* GPS Near Me button - Centered with flexbox */}
-          <button
-            onClick={onNearMeClick}
-            id="btn-gm-near-me"
-            className={`flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-xl transition-all ${
-              hasUserLocation 
-                ? 'text-blue-600 bg-blue-50 font-bold' 
-                : 'text-slate-600 hover:text-emerald-700 hover:bg-slate-100'
-            }`}
-            title={hasUserLocation ? 'Ubicación activa (GPS)' : 'Buscar cerca de mí'}
-          >
-            <Navigation className={`w-4 h-4 ${isLocating ? 'animate-spin text-emerald-600' : ''}`} />
-          </button>
-
-          {/* Advanced filters button - Centered with flexbox */}
-          <button
-            onClick={onToggleFiltersModal}
-            id="btn-gm-filters"
-            className={`flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-xl transition-all relative ${
-              hasActiveFilters 
-                ? 'text-emerald-700 bg-emerald-50 font-bold' 
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-            title="Filtros avanzados"
-          >
-            <SlidersHorizontal className="w-4 h-4" />
-            {hasActiveFilters && (
-              <span className="w-2 h-2 rounded-full bg-emerald-600 absolute top-1.5 right-1.5 ring-2 ring-white" />
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Google Maps Horizontal Category Chips Bar with smooth touch scrolling */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none select-none w-full max-w-[calc(100vw-20px)] md:max-w-[calc(100vw-40px)] touch-pan-x scroll-smooth">
-        {/* Province Quick Pill */}
+        {/* Province selector pill (desktop) */}
         <button
           onClick={onProvinceClick}
-          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold bg-white/95 hover:bg-white text-slate-800 shadow-md shadow-slate-900/10 border border-slate-200/90 whitespace-nowrap active:scale-95 transition-all flex-shrink-0"
+          className="hidden lg:inline-flex items-center gap-1.5 h-12 px-4 rounded-lg bg-white border border-border-subtle shadow-level-1 text-sm font-semibold text-slate-700 hover:bg-slate-50 active:scale-95 transition-all"
         >
-          <span>📍</span>
-          <span className="truncate max-w-[110px]">{selectedProvince === 'all' ? 'Toda Cuba' : selectedProvince}</span>
+          <MapPin className="w-4 h-4 text-cerulean" />
+          <span className="max-w-[140px] truncate">
+            {selectedProvince === 'all' ? 'Toda Cuba' : selectedProvince}
+          </span>
+          <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
         </button>
+      </div>
 
-        {/* Live Transfer Status Chip */}
+      {/* Row 2: Chips — fila única, orden lógico, sin saturar */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none select-none max-w-[calc(100vw-24px)] md:max-w-[calc(100vw-48px)] touch-pan-x scroll-smooth">
+        {/* Chip clave: Activo AHORA (verde = transferencia viva) */}
         <button
           onClick={onToggleOnlyActiveNow}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shadow-md shadow-slate-900/10 border active:scale-95 transition-all flex-shrink-0 ${
+          className={`${chipBase} ${
             onlyActiveNow
-              ? 'bg-emerald-600 text-white border-emerald-600 shadow-emerald-600/20'
-              : 'bg-white/95 hover:bg-white text-slate-800 border-slate-200/90'
+              ? 'bg-emerald-brand border-emerald-brand text-white shadow-level-2'
+              : `${chipIdle} text-emerald-brand`
           }`}
         >
-          <span className={`w-2 h-2 rounded-full ${onlyActiveNow ? 'bg-white animate-pulse' : 'bg-emerald-500 animate-beacon'}`} />
-          <span>Activo AHORA</span>
+          <span
+            className={`w-2 h-2 rounded-full ${
+              onlyActiveNow ? 'bg-white animate-pulse' : 'bg-emerald-brand animate-beacon'
+            }`}
+          />
+          <span>Activo ahora</span>
         </button>
 
-        {/* Verification Status Chips */}
-        <button
-          onClick={() => onFilterVerificationChange(filterVerification === 'verified' ? 'all' : 'verified')}
-          className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shadow-md shadow-slate-900/10 border active:scale-95 transition-all flex-shrink-0 ${
-            filterVerification === 'verified'
-              ? 'bg-blue-600 text-white border-blue-600'
-              : 'bg-white/95 hover:bg-white text-slate-800 border-slate-200/90'
-          }`}
-        >
-          <span>🟢</span>
-          <span>Verificados</span>
-        </button>
-
-        <button
-          onClick={() => onFilterVerificationChange(filterVerification === 'pending' ? 'all' : 'pending')}
-          className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shadow-md shadow-slate-900/10 border active:scale-95 transition-all flex-shrink-0 ${
-            filterVerification === 'pending'
-              ? 'bg-amber-600 text-white border-amber-600'
-              : 'bg-white/95 hover:bg-white text-slate-800 border-slate-200/90'
-          }`}
-        >
-          <span>🟡</span>
-          <span>Pendientes</span>
-        </button>
-
-        <button
-          onClick={() => onFilterVerificationChange(filterVerification === 'reported' ? 'all' : 'reported')}
-          className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shadow-md shadow-slate-900/10 border active:scale-95 transition-all flex-shrink-0 ${
-            filterVerification === 'reported'
-              ? 'bg-rose-600 text-white border-rose-600'
-              : 'bg-white/95 hover:bg-white text-slate-800 border-slate-200/90'
-          }`}
-        >
-          <span>🔴</span>
-          <span>Reportados</span>
-        </button>
-
-        {/* Categories Chips */}
-        {CATEGORIES.filter(c => c.id !== 'all').map((cat) => {
+        {/* Categorías (una sola fila, emoji + nombre corto) */}
+        {CATEGORIES.filter((c) => c.id !== 'all').map((cat) => {
           const isSelected = selectedCategory === cat.id;
           return (
             <button
               key={cat.id}
               onClick={() => onCategoryChange(isSelected ? 'all' : cat.id)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shadow-md shadow-slate-900/10 border active:scale-95 transition-all flex-shrink-0 ${
-                isSelected
-                  ? 'bg-slate-950 text-white border-slate-950'
-                  : 'bg-white/95 hover:bg-white text-slate-800 border-slate-200/90'
-              }`}
+              className={`${chipBase} ${isSelected ? chipActive : chipIdle}`}
             >
-              <span>{cat.icon === 'Utensils' ? '🍕' : cat.icon === 'ShoppingBag' ? '🛒' : cat.icon === 'Pill' ? '💊' : cat.icon === 'Coffee' ? '☕' : cat.icon === 'Smartphone' ? '📱' : cat.icon === 'Wrench' ? '🔧' : '👕'}</span>
+              <span>{CATEGORY_EMOJI[cat.id] ?? '🏪'}</span>
               <span>{cat.label.split('&')[0].trim()}</span>
             </button>
           );
         })}
 
-        {/* Admin shortcut chip */}
-        {onAdminClick && (
-          <button
-            onClick={onAdminClick}
-            id="chip-admin-login"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-md shadow-slate-900/15 border border-slate-700 whitespace-nowrap active:scale-95 transition-all flex-shrink-0"
-            title="Panel de Administración (Requiere clave)"
-          >
-            <Lock className="w-3 h-3 text-amber-400" />
-            <span>Admin</span>
-          </button>
-        )}
+        {/* Provincia (mobile) */}
+        <button
+          onClick={onProvinceClick}
+          className={`${chipBase} ${chipIdle} md:hidden`}
+        >
+          <MapPin className="w-3.5 h-3.5 text-cerulean" />
+          <span className="max-w-[110px] truncate">
+            {selectedProvince === 'all' ? 'Toda Cuba' : selectedProvince}
+          </span>
+        </button>
 
-        {/* Reset chip if filters active */}
+        {/* Verificación como chip único cíclico (menos ruido visual) */}
+        {(['verified', 'pending', 'reported'] as const).map((v) => {
+          const isActive = filterVerification === v;
+          const label = v === 'verified' ? 'Verificados' : v === 'pending' ? 'Pendientes' : 'Reportados';
+          const dot =
+            v === 'verified'
+              ? 'bg-emerald-brand'
+              : v === 'pending'
+                ? 'bg-saffron'
+                : 'bg-crimson';
+          return (
+            <button
+              key={v}
+              onClick={() =>
+                onFilterVerificationChange(isActive ? 'all' : v)
+              }
+              className={`${chipBase} ${isActive ? chipActive : chipIdle}`}
+            >
+              <span className={`w-2 h-2 rounded-full ${dot} ${isActive ? '' : ''}`} />
+              <span>{label}</span>
+            </button>
+          );
+        })}
+
+        {/* Reset */}
         {hasActiveFilters && (
           <button
             onClick={onResetFilters}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 shadow-sm border border-slate-200 whitespace-nowrap flex-shrink-0"
+            className="inline-flex items-center gap-1 h-9 px-3 rounded-full text-[13px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 border border-transparent whitespace-nowrap active:scale-95 transition-all flex-shrink-0"
             title="Restablecer filtros"
           >
-            <RotateCcw className="w-3 h-3" />
+            <RotateCcw className="w-3.5 h-3.5" />
             <span>Limpiar</span>
+          </button>
+        )}
+
+        {/* Admin discreto al final */}
+        {onAdminClick && (
+          <button
+            onClick={onAdminClick}
+            className={`${chipBase} ${chipIdle} text-slate-400`}
+            title="Panel de Administración"
+          >
+            <Lock className="w-3.5 h-3.5" />
+            <span>Admin</span>
           </button>
         )}
       </div>

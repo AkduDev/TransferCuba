@@ -547,11 +547,11 @@ export default function Home() {
   );
 
   return (
-    <main className="relative h-screen w-screen overflow-hidden bg-slate-950 font-sans select-none">
+    <main className="relative h-screen w-screen overflow-hidden bg-canvas font-sans select-none">
       {/* Toast Notification Alert */}
       {toastMessage && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-slate-950/95 text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-2xl shadow-2xl border border-slate-700/80 flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200 pointer-events-none">
-          <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-navy/95 text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-lg shadow-level-3 border border-navy-hover flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200 pointer-events-none">
+          <Sparkles className="w-4 h-4 text-emerald-brand flex-shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}
@@ -562,9 +562,9 @@ export default function Home() {
       </div>
 
       {/* Map Attribution Badge */}
-      <div className="absolute bottom-2 left-2 z-10 hidden sm:flex items-center gap-1.5 bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-lg shadow-sm border border-slate-200 text-[10px] font-semibold text-slate-600 pointer-events-none">
-        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-        <span>MapLibre GL JS · OpenStreetMap Cuba · OSRM</span>
+      <div className="absolute bottom-2 left-2 z-10 hidden sm:flex items-center gap-1.5 bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-md shadow-level-1 border border-border-subtle text-[10px] font-semibold text-text-muted pointer-events-none">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-brand animate-pulse" />
+        <span>MapLibre GL JS · OpenStreetMap · OSRM</span>
       </div>
 
       {/* 2. Google Maps Floating Top Bar with Search & Category / Verification Ribbon */}
@@ -642,10 +642,10 @@ export default function Home() {
 
       {/* Pinning Mode Confirmation Floating Control */}
       {isPinningMode && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-white p-3 rounded-2xl shadow-2xl border border-slate-200 animate-in slide-in-from-bottom-5">
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-white p-3 rounded-xl shadow-level-4 border border-border-subtle animate-in slide-in-from-bottom-5">
           <button
             onClick={handleConfirmPinLocation}
-            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md flex items-center gap-2"
+            className="px-5 py-2.5 bg-emerald-brand hover:bg-emerald-600 text-white font-bold text-xs sm:text-sm rounded-lg shadow-level-1 flex items-center gap-2"
           >
             <Check className="w-4 h-4" />
             <span>Confirmar esta ubicación</span>
@@ -655,7 +655,7 @@ export default function Home() {
               setIsPinningMode(false);
               setIsRegisterModalOpen(true);
             }}
-            className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs sm:text-sm rounded-xl"
+            className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs sm:text-sm rounded-lg"
           >
             Cancelar
           </button>

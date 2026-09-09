@@ -1,5 +1,54 @@
 @import "tailwindcss";
 
+@theme {
+  /* Brand — Modern Caribbean Fintech Directory (Stitch design system) */
+  --color-navy: #0f2942;
+  --color-navy-deep: #001428;
+  --color-navy-hover: #1e3a5f;
+  --color-cerulean: #0284c7;
+  --color-cerulean-dark: #006398;
+  --color-cerulean-light: #5bb8fe;
+  --color-emerald-brand: #10b981;
+  --color-mint: #059669;
+  --color-crimson: #e11d48;
+  --color-saffron: #f59e0b;
+  --color-canvas: #f8fafc;
+  --color-surface: #ffffff;
+  --color-card: #ffffff;
+  --color-border-subtle: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+  --color-text-primary: #0f172a;
+  --color-text-muted: #64748b;
+
+  /* Payment channel badges */
+  --color-tm-bg: #e0f2fe;
+  --color-tm-text: #0284c7;
+  --color-tm-border: #bae6fd;
+  --color-ez-bg: #ffe4e6;
+  --color-ez-text: #e11d48;
+  --color-ez-border: #fecdd3;
+  --color-qr-bg: #f1f5f9;
+  --color-qr-text: #334155;
+  --color-ash-bg: #ecfdf5;
+  --color-ash-text: #059669;
+
+  /* Elevation levels (soft tinted ambient shadows) */
+  --shadow-level-1: 0 1px 3px 0 rgba(15, 41, 66, 0.04), 0 1px 2px -1px rgba(15, 41, 66, 0.03);
+  --shadow-level-2: 0 8px 16px -4px rgba(15, 41, 66, 0.08), 0 2px 4px -2px rgba(15, 41, 66, 0.04);
+  --shadow-level-3: 0 12px 24px -6px rgba(15, 41, 66, 0.12);
+  --shadow-level-4: 0 20px 30px -10px rgba(15, 41, 66, 0.2);
+
+  /* Radios del design system */
+  --radius-input: 0.5rem;
+  --radius-card: 0.75rem;
+  --radius-panel: 1rem;
+  --radius-xl: 1.5rem;
+
+  /* Tipografía ya con fallbacks; Plus Jakarta Sans se carga en layout */
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
 @layer base {
   html, body {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -7,13 +56,13 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  h1, h2, h3, .font-display {
-    font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
-    letter-spacing: -0.02em;
+  h1, h2, h3, h4, .font-display {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    letter-spacing: -0.01em;
   }
 }
 
-/* Custom sleek scrollbars */
+/* Scrollbars finos y discretos */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -32,13 +81,21 @@
   background: #94a3b8;
 }
 
+/* Ocultar scrollbar en chips horizontales */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 /* MapLibre GL JS canvas */
 .maplibregl-canvas {
-  font-family: 'Plus Jakarta Sans', system-ui, sans-serif !important;
   outline: none;
 }
 
-/* Status beacons & smooth animations */
+/* Beacon de estado en vivo */
 @keyframes beacon-ping {
   0% {
     transform: scale(0.95);

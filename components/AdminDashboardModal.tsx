@@ -124,7 +124,7 @@ export default function AdminDashboardModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-2 sm:p-5 overflow-y-auto">
-      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-4xl max-h-[94dvh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-lg sm:rounded-xl shadow-level-4 border border-border-subtle/90 w-full max-w-4xl max-h-[94dvh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* =========================================================================
             VIEW 1: ADMIN LOGIN SCREEN (If not authenticated)
@@ -132,9 +132,9 @@ export default function AdminDashboardModal({
         {!isAuthenticated ? (
           <div className="flex flex-col h-full">
             {/* Login Header */}
-            <div className="px-4 sm:px-6 py-4 sm:py-5 bg-slate-950 text-white flex items-center justify-between border-b border-slate-800 flex-shrink-0">
+            <div className="px-4 sm:px-6 py-4 sm:py-5 bg-navy text-white flex items-center justify-between border-b border-slate-800 flex-shrink-0">
               <div className="flex items-center gap-2.5 sm:gap-3">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center shadow-inner flex-shrink-0">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-saffron/100/20 border border-amber-500/40 text-amber-400 flex items-center justify-center shadow-inner flex-shrink-0">
                   <Lock className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
                 <div>
@@ -153,12 +153,12 @@ export default function AdminDashboardModal({
 
             {/* Login Body Form */}
             <div className="p-6 sm:p-10 flex-1 flex flex-col items-center justify-center bg-slate-50/60 overflow-y-auto">
-              <div className="w-full max-w-md bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-xl space-y-5">
+              <div className="w-full max-w-md bg-white rounded-lg p-6 sm:p-8 border border-border-subtle shadow-level-3 space-y-5">
                 <div className="text-center space-y-1">
-                  <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center mx-auto shadow-xs">
+                  <div className="w-12 h-12 rounded-lg bg-tm-bg border border-tm-border text-cerulean-dark flex items-center justify-center mx-auto shadow-xs">
                     <KeyRound className="w-6 h-6" />
                   </div>
-                  <h3 className="text-base sm:text-lg font-bold text-slate-900 font-display">
+                  <h3 className="text-base sm:text-lg font-bold text-text-primary font-display">
                     Panel Restringido para Administradores
                   </h3>
                   <p className="text-xs text-slate-500">
@@ -167,8 +167,8 @@ export default function AdminDashboardModal({
                 </div>
 
                 {authError && (
-                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center gap-2 animate-in fade-in">
-                    <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                  <div className="p-3 rounded-xl bg-ez-bg/50 border border-ez-border text-xs text-crimson flex items-center gap-2 animate-in fade-in">
+                    <AlertTriangle className="w-4 h-4 text-crimson flex-shrink-0" />
                     <span>{authError}</span>
                   </div>
                 )}
@@ -176,7 +176,7 @@ export default function AdminDashboardModal({
                 <form onSubmit={handleLogin} className="space-y-4">
                   {/* Username */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700 block">
+                    <label className="text-xs font-bold text-slate-600 block">
                       Usuario
                     </label>
                     <div className="relative">
@@ -192,14 +192,14 @@ export default function AdminDashboardModal({
                           setAuthError('');
                         }}
                         placeholder="ej. admin"
-                        className="w-full text-sm pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/50"
+                        className="w-full text-sm pl-9 pr-3 py-2.5 rounded-lg border border-border-subtle focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/50"
                       />
                     </div>
                   </div>
 
                   {/* Password */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700 block">
+                    <label className="text-xs font-bold text-slate-600 block">
                       Contraseña
                     </label>
                     <div className="relative">
@@ -215,12 +215,12 @@ export default function AdminDashboardModal({
                           setAuthError('');
                         }}
                         placeholder="••••••••"
-                        className="w-full text-sm pl-9 pr-10 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/50 font-mono"
+                        className="w-full text-sm pl-9 pr-10 py-2.5 rounded-lg border border-border-subtle focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/50 font-mono"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-700"
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
                         title={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -231,7 +231,7 @@ export default function AdminDashboardModal({
                   {/* Submit Button */}
                   <button
                     type="submit"
-                    className="w-full py-2.5 px-4 bg-slate-950 hover:bg-slate-800 text-white font-bold text-sm rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                    className="w-full py-2.5 px-4 bg-slate-950 hover:bg-slate-800 text-white font-bold text-sm rounded-xl shadow-level-2 hover:shadow-level-2 transition-all flex items-center justify-center gap-2"
                   >
                     <Lock className="w-4 h-4" />
                     <span>Iniciar Sesión en Administración</span>
@@ -239,21 +239,21 @@ export default function AdminDashboardModal({
                 </form>
 
                 {/* Demo Credentials Quick Tip Box */}
-                <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200/80 text-xs text-blue-900 space-y-2">
+                <div className="p-3 rounded-xl bg-tm-bg/70 border border-tm-border/80 text-xs text-blue-900 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="font-bold flex items-center gap-1">
-                      <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                      <Sparkles className="w-3.5 h-3.5 text-cerulean-dark" />
                       Credenciales de acceso rápido:
                     </span>
                     <button
                       type="button"
                       onClick={handleFillDemoCredentials}
-                      className="text-[11px] font-bold text-blue-700 hover:text-blue-900 underline underline-offset-2"
+                      className="text-[11px] font-bold text-cerulean-dark hover:text-blue-900 underline underline-offset-2"
                     >
                       Autocompletar
                     </button>
                   </div>
-                  <div className="font-mono text-[11px] text-blue-800 bg-white/70 px-2 py-1.5 rounded-lg border border-blue-200/60 flex items-center justify-between">
+                  <div className="font-mono text-[11px] text-blue-800 bg-white/70 px-2 py-1.5 rounded-lg border border-tm-border/60 flex items-center justify-between">
                     <span>Usuario: <strong>admin</strong></span>
                     <span>Contraseña: <strong>admin</strong></span>
                   </div>
@@ -267,9 +267,9 @@ export default function AdminDashboardModal({
           ========================================================================== */
           <div className="flex flex-col h-full">
             {/* Header */}
-            <div className="px-4 sm:px-6 py-3 sm:py-4 bg-slate-950 text-white flex items-center justify-between flex-shrink-0 border-b border-slate-800">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 bg-navy text-white flex items-center justify-between flex-shrink-0 border-b border-slate-800">
               <div className="flex items-center gap-2.5 sm:gap-3">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-blue-600/20 border border-blue-500/40 text-blue-400 flex items-center justify-center font-black text-xs sm:text-sm font-display shadow-inner flex-shrink-0">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-cerulean/20 border border-blue-500/40 text-blue-400 flex items-center justify-center font-black text-xs sm:text-sm font-display shadow-inner flex-shrink-0">
                   DP
                 </div>
                 <div>
@@ -305,28 +305,28 @@ export default function AdminDashboardModal({
             </div>
 
             {/* Stats Metrics Cards */}
-            <div className="p-3 sm:p-5 bg-slate-50 border-b border-slate-200/80 grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+            <div className="p-3 sm:p-5 bg-slate-50 border-b border-border-subtle/80 grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
               {/* Pending for approval Card */}
               <div 
                 onClick={() => setFilterTab('pending')}
-                className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs ${
+                className={`p-3 sm:p-3.5 rounded-lg border transition-all cursor-pointer shadow-xs ${
                   filterTab === 'pending'
-                    ? 'bg-amber-50/80 border-amber-400 ring-2 ring-amber-400/20 shadow-sm'
-                    : 'bg-white border-slate-200/90 hover:border-amber-300'
+                    ? 'bg-saffron/10/80 border-amber-400 ring-2 ring-amber-400/20 shadow-level-1'
+                    : 'bg-white border-border-subtle/90 hover:border-saffron/40'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <p className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-amber-800 font-display">
+                  <p className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-saffron font-display">
                     Por Aprobar
                   </p>
                   {pendingBusinesses.length > 0 && (
-                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                    <span className="w-2 h-2 rounded-full bg-saffron/100 animate-ping" />
                   )}
                 </div>
-                <p className="text-xl sm:text-2xl font-black text-amber-600 mt-0.5 sm:mt-1 font-display">
+                <p className="text-xl sm:text-2xl font-black text-saffron mt-0.5 sm:mt-1 font-display">
                   {pendingBusinesses.length}
                 </p>
-                <span className="text-[10px] sm:text-[11px] text-amber-700 font-bold flex items-center gap-1 mt-0.5">
+                <span className="text-[10px] sm:text-[11px] text-saffron font-bold flex items-center gap-1 mt-0.5">
                   <Clock className="w-3 h-3 flex-shrink-0" />
                   <span className="truncate">{pendingBusinesses.length === 1 ? '1 pendiente' : `${pendingBusinesses.length} pendientes`}</span>
                 </span>
@@ -335,16 +335,16 @@ export default function AdminDashboardModal({
               {/* Active Businesses */}
               <div 
                 onClick={() => setFilterTab('active')}
-                className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs ${
+                className={`p-3 sm:p-3.5 rounded-lg border transition-all cursor-pointer shadow-xs ${
                   filterTab === 'active'
-                    ? 'bg-emerald-50/80 border-emerald-400 ring-2 ring-emerald-400/20 shadow-sm'
-                    : 'bg-white border-slate-200/90 hover:border-emerald-300'
+                    ? 'bg-emerald-50/80 border-emerald-400 ring-2 ring-cerulean/40/20 shadow-level-1'
+                    : 'bg-white border-border-subtle/90 hover:border-emerald-300'
                 }`}
               >
                 <p className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-slate-500 font-display">
                   Publicados (Activos)
                 </p>
-                <p className="text-xl sm:text-2xl font-black text-emerald-600 mt-0.5 sm:mt-1 font-display">{activeBusinesses.length}</p>
+                <p className="text-xl sm:text-2xl font-black text-emerald-brand mt-0.5 sm:mt-1 font-display">{activeBusinesses.length}</p>
                 <span className="text-[10px] sm:text-[11px] text-emerald-700 font-bold flex items-center gap-1 mt-0.5">
                   <CheckCircle2 className="w-3 h-3 flex-shrink-0" /> <span className="truncate">Visibles en mapa</span>
                 </span>
@@ -353,17 +353,17 @@ export default function AdminDashboardModal({
               {/* Verified Sello DP */}
               <div 
                 onClick={() => setFilterTab('verified')}
-                className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs ${
+                className={`p-3 sm:p-3.5 rounded-lg border transition-all cursor-pointer shadow-xs ${
                   filterTab === 'verified'
-                    ? 'bg-blue-50/80 border-blue-400 ring-2 ring-blue-400/20 shadow-sm'
-                    : 'bg-white border-slate-200/90 hover:border-blue-300'
+                    ? 'bg-tm-bg/80 border-blue-400 ring-2 ring-blue-400/20 shadow-level-1'
+                    : 'bg-white border-border-subtle/90 hover:border-tm-border'
                 }`}
               >
                 <p className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-slate-500 font-display">
                   Sello Verificado
                 </p>
-                <p className="text-xl sm:text-2xl font-black text-blue-600 mt-0.5 sm:mt-1 font-display">{verifiedBusinesses}</p>
-                <span className="text-[10px] sm:text-[11px] text-blue-700 font-bold flex items-center gap-1 mt-0.5">
+                <p className="text-xl sm:text-2xl font-black text-cerulean-dark mt-0.5 sm:mt-1 font-display">{verifiedBusinesses}</p>
+                <span className="text-[10px] sm:text-[11px] text-cerulean-dark font-bold flex items-center gap-1 mt-0.5">
                   <ShieldCheck className="w-3 h-3 flex-shrink-0" /> <span className="truncate">Comercios auditados</span>
                 </span>
               </div>
@@ -371,31 +371,31 @@ export default function AdminDashboardModal({
               {/* Reports */}
               <div 
                 onClick={() => setFilterTab('reported')}
-                className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs ${
+                className={`p-3 sm:p-3.5 rounded-lg border transition-all cursor-pointer shadow-xs ${
                   filterTab === 'reported'
-                    ? 'bg-rose-50/80 border-rose-400 ring-2 ring-rose-400/20 shadow-sm'
-                    : 'bg-white border-slate-200/90 hover:border-rose-300'
+                    ? 'bg-ez-bg/60 border-crimson/50 ring-2 ring-rose-400/20 shadow-level-1'
+                    : 'bg-white border-border-subtle/90 hover:border-ez-border'
                 }`}
               >
                 <p className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-slate-500 font-display">
                   Reportes
                 </p>
-                <p className="text-xl sm:text-2xl font-black text-rose-600 mt-0.5 sm:mt-1 font-display">{totalReported}</p>
-                <span className="text-[10px] sm:text-[11px] text-rose-700 font-bold flex items-center gap-1 mt-0.5">
+                <p className="text-xl sm:text-2xl font-black text-crimson mt-0.5 sm:mt-1 font-display">{totalReported}</p>
+                <span className="text-[10px] sm:text-[11px] text-crimson font-bold flex items-center gap-1 mt-0.5">
                   <AlertTriangle className="w-3 h-3 flex-shrink-0" /> <span className="truncate">Alertas ciudadanas</span>
                 </span>
               </div>
             </div>
 
             {/* Filters and Search toolbar */}
-            <div className="px-3 sm:px-6 py-2.5 sm:py-3.5 border-b border-slate-200/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3 bg-white">
+            <div className="px-3 sm:px-6 py-2.5 sm:py-3.5 border-b border-border-subtle/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3 bg-white">
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none touch-pan-x">
                 <button
                   onClick={() => setFilterTab('pending')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
                     filterTab === 'pending'
-                      ? 'bg-amber-500 text-white shadow-sm'
-                      : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
+                      ? 'bg-saffron/100 text-white shadow-level-1'
+                      : 'bg-saffron/10 text-saffron hover:bg-amber-100 border border-saffron/30'
                   }`}
                 >
                   <Clock className="w-3.5 h-3.5" />
@@ -406,7 +406,7 @@ export default function AdminDashboardModal({
                   onClick={() => setFilterTab('active')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex-shrink-0 ${
                     filterTab === 'active'
-                      ? 'bg-emerald-600 text-white shadow-sm'
+                      ? 'bg-emerald-brand text-white shadow-level-1'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
@@ -417,7 +417,7 @@ export default function AdminDashboardModal({
                   onClick={() => setFilterTab('all')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex-shrink-0 ${
                     filterTab === 'all'
-                      ? 'bg-slate-950 text-white shadow-sm'
+                      ? 'bg-navy text-white shadow-level-1'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
@@ -428,7 +428,7 @@ export default function AdminDashboardModal({
                   onClick={() => setFilterTab('verified')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex-shrink-0 ${
                     filterTab === 'verified'
-                      ? 'bg-blue-600 text-white shadow-sm'
+                      ? 'bg-cerulean text-white shadow-level-1'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
@@ -439,7 +439,7 @@ export default function AdminDashboardModal({
                   onClick={() => setFilterTab('reported')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex-shrink-0 ${
                     filterTab === 'reported'
-                      ? 'bg-rose-600 text-white shadow-sm'
+                      ? 'bg-crimson text-white shadow-level-1'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
@@ -452,7 +452,7 @@ export default function AdminDashboardModal({
                 <select
                   value={selectedProvinceFilter}
                   onChange={(e) => setSelectedProvinceFilter(e.target.value)}
-                  className="text-xs py-1.5 px-3 rounded-xl border border-slate-200/90 bg-white font-medium focus:ring-2 focus:ring-slate-900"
+                  className="text-xs py-1.5 px-3 rounded-lg border border-border-subtle/90 bg-white font-medium focus:ring-2 focus:ring-slate-900"
                 >
                   <option value="all">Todas las provincias</option>
                   {CUBAN_PROVINCES.map(p => (
@@ -465,11 +465,11 @@ export default function AdminDashboardModal({
             {/* List of Businesses (Dual responsive view) */}
             <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-slate-50/50">
               {filteredList.length === 0 ? (
-                <div className="text-center py-16 px-4 bg-white rounded-2xl border border-slate-200 space-y-2">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                <div className="text-center py-16 px-4 bg-white rounded-lg border border-border-subtle space-y-2">
+                  <div className="w-12 h-12 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
                     <Store className="w-6 h-6" />
                   </div>
-                  <p className="text-sm font-bold text-slate-800 font-display">No hay registros en esta sección</p>
+                  <p className="text-sm font-bold text-slate-600 font-display">No hay registros en esta sección</p>
                   <p className="text-xs text-slate-500">
                     {filterTab === 'pending'
                       ? '¡Excelente! No hay negocios pendientes de aprobación en este momento.'
@@ -485,28 +485,28 @@ export default function AdminDashboardModal({
                       return (
                         <div 
                           key={biz.id}
-                          className={`p-3.5 rounded-2xl border transition-all ${
+                          className={`p-3.5 rounded-lg border transition-all ${
                             isPending 
-                              ? 'bg-amber-50/50 border-amber-300 shadow-sm' 
-                              : 'bg-white border-slate-200 shadow-xs'
+                              ? 'bg-saffron/10/50 border-saffron/40 shadow-level-1' 
+                              : 'bg-white border-border-subtle shadow-xs'
                           }`}
                         >
                           {/* Business info row */}
                           <div className="flex items-start gap-2.5">
-                            <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-base flex-shrink-0">
+                            <div className="w-9 h-9 rounded-xl bg-slate-100 border border-border-subtle flex items-center justify-center text-base flex-shrink-0">
                               {biz.category === 'comida' ? '🍕' : biz.category === 'farmacias' ? '💊' : '🏪'}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between gap-1">
-                                <h4 className="font-extrabold text-slate-900 font-display text-sm truncate">
+                                <h4 className="font-extrabold text-text-primary font-display text-sm truncate">
                                   {biz.name}
                                 </h4>
                                 {isPending ? (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 whitespace-nowrap flex-shrink-0">
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-saffron border border-saffron/40 whitespace-nowrap flex-shrink-0">
                                     🟡 Pendiente
                                   </span>
                                 ) : biz.status === 'rejected' ? (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200 whitespace-nowrap flex-shrink-0">
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-crimson border border-ez-border whitespace-nowrap flex-shrink-0">
                                     Rechazado
                                   </span>
                                 ) : (
@@ -517,7 +517,7 @@ export default function AdminDashboardModal({
                               </div>
                               <p className="text-[11px] text-slate-500 truncate mt-0.5">{biz.address}</p>
                               <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-600">
-                                <span className="font-bold text-slate-800">{biz.municipality}</span>
+                                <span className="font-bold text-slate-600">{biz.municipality}</span>
                                 <span className="text-slate-400">·</span>
                                 <span className="text-slate-500">{biz.province}</span>
                               </div>
@@ -525,13 +525,13 @@ export default function AdminDashboardModal({
                           </div>
 
                           {/* Quick toggles row */}
-                          <div className="grid grid-cols-2 gap-2 mt-3 pt-2.5 border-t border-slate-200/80">
+                          <div className="grid grid-cols-2 gap-2 mt-3 pt-2.5 border-t border-border-subtle/80">
                             <button
                               onClick={() => onToggleTransferActive(biz.id)}
                               className={`py-1.5 px-2 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors ${
                                 biz.transferActiveNow
                                   ? 'bg-emerald-100 text-emerald-950 border border-emerald-300'
-                                  : 'bg-amber-50 text-amber-900 border border-amber-200'
+                                  : 'bg-saffron/10 text-saffron border border-saffron/30'
                               }`}
                             >
                               <Power className="w-3 h-3" />
@@ -542,8 +542,8 @@ export default function AdminDashboardModal({
                               onClick={() => onToggleVerify(biz.id)}
                               className={`py-1.5 px-2 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors border ${
                                 biz.transferVerified
-                                  ? 'bg-blue-50 border-blue-300 text-blue-900'
-                                  : 'bg-slate-50 border-slate-200 text-slate-600'
+                                  ? 'bg-tm-bg border-tm-border text-blue-900'
+                                  : 'bg-slate-50 border-border-subtle text-slate-600'
                               }`}
                             >
                               <ShieldCheck className="w-3 h-3" />
@@ -557,14 +557,14 @@ export default function AdminDashboardModal({
                               <>
                                 <button
                                   onClick={() => onApproveBusiness?.(biz.id)}
-                                  className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                                  className="flex-1 py-2 px-3 rounded-xl bg-emerald-brand hover:bg-emerald-brand text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-level-1 active:scale-95 transition-all"
                                 >
                                   <Check className="w-4 h-4" />
                                   <span>Aprobar publicación</span>
                                 </button>
                                 <button
                                   onClick={() => onRejectBusiness?.(biz.id)}
-                                  className="py-2 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs flex items-center justify-center gap-1 active:scale-95 transition-all"
+                                  className="py-2 px-3 rounded-xl bg-ez-bg/50 hover:bg-rose-100 text-crimson border border-ez-border font-bold text-xs flex items-center justify-center gap-1 active:scale-95 transition-all"
                                 >
                                   <X className="w-4 h-4" />
                                   <span>Rechazar</span>
@@ -577,14 +577,14 @@ export default function AdminDashboardModal({
                                     onSelectBusiness(biz);
                                     onClose();
                                   }}
-                                  className="flex-1 py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
+                                  className="flex-1 py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
                                 >
                                   <Eye className="w-3.5 h-3.5 text-slate-600" />
                                   <span>Ver en mapa</span>
                                 </button>
                                 <button
                                   onClick={() => onDeleteBusiness(biz.id)}
-                                  className="p-2 rounded-xl text-rose-500 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors"
+                                  className="p-2 rounded-xl text-rose-500 hover:bg-ez-bg/50 border border-transparent hover:border-ez-border transition-colors"
                                   title="Eliminar negocio"
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -598,9 +598,9 @@ export default function AdminDashboardModal({
                   </div>
 
                   {/* DESKTOP VIEW: Full Table (md+) */}
-                  <div className="hidden md:block border border-slate-200/90 rounded-2xl overflow-hidden shadow-sm bg-white">
+                  <div className="hidden md:block border border-border-subtle/90 rounded-lg overflow-hidden shadow-level-1 bg-white">
                     <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-100/70 border-b border-slate-200/80 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                      <thead className="bg-slate-100/70 border-b border-border-subtle/80 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
                         <tr>
                           <th className="py-3.5 px-4 font-display">Negocio</th>
                           <th className="py-3.5 px-3 font-display">Ubicación</th>
@@ -614,15 +614,15 @@ export default function AdminDashboardModal({
                         {filteredList.map((biz) => {
                           const isPending = biz.status === 'pending';
                           return (
-                            <tr key={biz.id} className={`transition-colors ${isPending ? 'bg-amber-50/40 hover:bg-amber-50/70' : 'hover:bg-slate-50/90'}`}>
+                            <tr key={biz.id} className={`transition-colors ${isPending ? 'bg-saffron/10/40 hover:bg-saffron/10' : 'hover:bg-slate-50/90'}`}>
                               {/* Business info */}
                               <td className="py-3.5 px-4">
                                 <div className="flex items-center gap-3">
-                                  <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-center font-bold text-base shadow-sm flex-shrink-0">
+                                  <div className="w-9 h-9 rounded-xl bg-slate-100 border border-border-subtle/80 flex items-center justify-center font-bold text-base shadow-level-1 flex-shrink-0">
                                     {biz.category === 'comida' ? '🍕' : biz.category === 'farmacias' ? '💊' : '🏪'}
                                   </div>
                                   <div className="min-w-0">
-                                    <p className="font-extrabold text-slate-900 font-display text-sm leading-tight truncate">
+                                    <p className="font-extrabold text-text-primary font-display text-sm leading-tight truncate">
                                       {biz.name}
                                     </p>
                                     <p className="text-[11px] text-slate-500 mt-0.5 truncate max-w-xs">{biz.address}</p>
@@ -635,20 +635,20 @@ export default function AdminDashboardModal({
 
                               {/* Location */}
                               <td className="py-3.5 px-3 text-slate-600">
-                                <span className="font-bold text-slate-800 font-display block">{biz.municipality}</span>
+                                <span className="font-bold text-slate-600 font-display block">{biz.municipality}</span>
                                 <span className="text-slate-400 text-[11px]">{biz.province}</span>
                               </td>
 
                               {/* Publication Status Badge */}
                               <td className="py-3.5 px-3">
                                 {isPending ? (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-saffron border border-saffron/40">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-saffron/100 animate-pulse" />
                                     <span>🟡 Pendiente</span>
                                   </span>
                                 ) : biz.status === 'rejected' ? (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
-                                    <XCircle className="w-3 h-3 text-rose-600" />
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-crimson border border-ez-border">
+                                    <XCircle className="w-3 h-3 text-crimson" />
                                     <span>Rechazado</span>
                                   </span>
                                 ) : (
@@ -666,7 +666,7 @@ export default function AdminDashboardModal({
                                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-colors ${
                                     biz.transferActiveNow
                                       ? 'bg-emerald-100 text-emerald-900 hover:bg-emerald-200'
-                                      : 'bg-amber-100 text-amber-900 hover:bg-amber-200'
+                                      : 'bg-amber-100 text-saffron hover:bg-amber-200'
                                   }`}
                                 >
                                   <Power className="w-3 h-3" />
@@ -680,8 +680,8 @@ export default function AdminDashboardModal({
                                   onClick={() => onToggleVerify(biz.id)}
                                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border transition-all ${
                                     biz.transferVerified
-                                      ? 'bg-blue-50 border-blue-200 text-blue-700'
-                                      : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
+                                      ? 'bg-tm-bg border-tm-border text-cerulean-dark'
+                                      : 'bg-slate-50 border-border-subtle text-slate-500 hover:bg-slate-100'
                                   }`}
                                 >
                                   <ShieldCheck className="w-3.5 h-3.5" />
@@ -696,7 +696,7 @@ export default function AdminDashboardModal({
                                     <>
                                       <button
                                         onClick={() => onApproveBusiness?.(biz.id)}
-                                        className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-sm active:scale-95 transition-all"
+                                        className="px-3 py-1.5 rounded-xl bg-emerald-brand hover:bg-emerald-brand text-white font-bold text-xs flex items-center gap-1 shadow-level-1 active:scale-95 transition-all"
                                         title="Aprobar y publicar en el mapa"
                                       >
                                         <Check className="w-3.5 h-3.5" />
@@ -704,7 +704,7 @@ export default function AdminDashboardModal({
                                       </button>
                                       <button
                                         onClick={() => onRejectBusiness?.(biz.id)}
-                                        className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs flex items-center gap-1 active:scale-95 transition-all"
+                                        className="px-2.5 py-1.5 rounded-xl bg-ez-bg/50 hover:bg-rose-100 text-crimson border border-ez-border font-bold text-xs flex items-center gap-1 active:scale-95 transition-all"
                                         title="Rechazar publicación"
                                       >
                                         <X className="w-3.5 h-3.5" />
@@ -718,14 +718,14 @@ export default function AdminDashboardModal({
                                           onSelectBusiness(biz);
                                           onClose();
                                         }}
-                                        className="p-2 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                                        className="p-2 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-text-primary transition-colors"
                                         title="Ver en mapa y detalles"
                                       >
                                         <Eye className="w-4 h-4" />
                                       </button>
                                       <button
                                         onClick={() => onDeleteBusiness(biz.id)}
-                                        className="p-2 rounded-xl text-rose-500 hover:bg-rose-50 hover:text-rose-700 transition-colors"
+                                        className="p-2 rounded-xl text-rose-500 hover:bg-ez-bg/50 hover:text-crimson transition-colors"
                                         title="Eliminar registro"
                                       >
                                         <Trash2 className="w-4 h-4" />
@@ -745,16 +745,16 @@ export default function AdminDashboardModal({
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200/90 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+            <div className="px-6 py-4 bg-slate-50 border-t border-border-subtle/90 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />
                 <p className="font-medium">
-                  Sesión activa como <strong className="text-slate-900">admin</strong>. Los cambios aprobados se reflejan en vivo en el mapa.
+                  Sesión activa como <strong className="text-text-primary">admin</strong>. Los cambios aprobados se reflejan en vivo en el mapa.
                 </p>
               </div>
               <button
                 onClick={onClose}
-                className="px-5 py-2 rounded-xl bg-slate-950 text-white font-bold hover:bg-slate-900 transition-colors w-full sm:w-auto"
+                className="px-5 py-2 rounded-xl bg-navy text-white font-bold hover:bg-slate-900 transition-colors w-full sm:w-auto"
               >
                 Cerrar panel
               </button>

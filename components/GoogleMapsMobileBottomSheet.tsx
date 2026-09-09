@@ -152,7 +152,7 @@ export default function GoogleMapsMobileBottomSheet({
 
   return (
     <div
-      className={`md:hidden fixed bottom-0 inset-x-0 z-30 bg-white rounded-t-3xl shadow-[0_-8px_30px_rgba(0,0,0,0.18)] border-t border-slate-200/90 flex flex-col transition-[height] duration-300 ease-out overflow-hidden pointer-events-auto pb-[env(safe-area-inset-bottom,0px)] ${heightClass}`}
+      className={`md:hidden fixed bottom-0 inset-x-0 z-30 bg-white rounded-t-2xl shadow-level-4 border-t border-border-subtle flex flex-col transition-[height] duration-300 ease-out overflow-hidden pointer-events-auto pb-[env(safe-area-inset-bottom,0px)] ${heightClass}`}
     >
       {/* Google Maps Drag Pill Handle Header with enhanced touch target */}
       <div
@@ -187,13 +187,13 @@ export default function GoogleMapsMobileBottomSheet({
               </h3>
               <div className="flex items-center gap-2 mt-0.5 text-[10px] sm:text-[11px]">
                 <span className={`inline-flex items-center gap-1 font-bold ${
-                  selectedBusiness.transferActiveNow ? 'text-emerald-700' : 'text-amber-700'
+                  selectedBusiness.transferActiveNow ? 'text-emerald-brand' : 'text-saffron'
                 }`}>
-                  <span className={`w-2 h-2 rounded-full ${selectedBusiness.transferActiveNow ? 'bg-emerald-500 animate-beacon' : 'bg-amber-500'}`} />
-                  <span className="truncate">{selectedBusiness.transferActiveNow ? 'Transferencia activa hoy' : 'Solo efectivo'}</span>
+                  <span className={`w-2 h-2 rounded-full ${selectedBusiness.transferActiveNow ? 'bg-emerald-brand animate-beacon' : 'bg-saffron'}`} />
+                  <span className="truncate">{selectedBusiness.transferActiveNow ? 'Transferencia activa hoy' : 'Sin transferencia'}</span>
                 </span>
                 {selectedBusiness.distanceMeters !== undefined && (
-                  <span className="text-blue-700 font-bold bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200 flex-shrink-0">
+                  <span className="text-cerulean-dark font-bold bg-tm-bg px-1.5 py-0.5 rounded border border-tm-border flex-shrink-0">
                     {formatDistance(selectedBusiness.distanceMeters)}
                   </span>
                 )}
@@ -227,7 +227,7 @@ export default function GoogleMapsMobileBottomSheet({
               )}`}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-2 rounded-xl bg-emerald-600 text-white font-bold text-[11px] sm:text-xs shadow-md shadow-emerald-700/20 active:scale-95 transition-all text-center whitespace-nowrap min-h-[38px]"
+              className="flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-2 rounded-lg bg-emerald-brand text-white font-bold text-[11px] sm:text-xs shadow-level-1 active:scale-95 transition-all text-center whitespace-nowrap min-h-[38px]"
             >
               <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
               <span>WhatsApp</span>
@@ -239,7 +239,7 @@ export default function GoogleMapsMobileBottomSheet({
                 onCalculateRoute?.(selectedBusiness);
                 setSheetState('peek');
               }}
-              className="flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-2 rounded-xl bg-blue-600 text-white font-bold text-[11px] sm:text-xs shadow-md shadow-blue-700/20 active:scale-95 transition-all text-center whitespace-nowrap min-h-[38px]"
+              className="flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-2 rounded-lg bg-cerulean text-white font-bold text-[11px] sm:text-xs shadow-level-1 active:scale-95 transition-all text-center whitespace-nowrap min-h-[38px]"
               title="Trazar ruta en el mapa (OSRM)"
             >
               <Navigation className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
@@ -250,7 +250,7 @@ export default function GoogleMapsMobileBottomSheet({
             {selectedBusiness.phone ? (
               <a
                 href={`tel:${selectedBusiness.phone}`}
-                className="flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-2 rounded-xl bg-slate-100 text-slate-800 font-bold text-[11px] sm:text-xs border border-slate-200 active:scale-95 transition-all text-center whitespace-nowrap min-h-[38px]"
+                className="flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-2 rounded-lg bg-white text-navy font-bold text-[11px] sm:text-xs border border-border-subtle active:scale-95 transition-all text-center whitespace-nowrap min-h-[38px]"
               >
                 <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-700 flex-shrink-0" />
                 <span>Llamar</span>
@@ -258,7 +258,7 @@ export default function GoogleMapsMobileBottomSheet({
             ) : (
               <button
                 onClick={() => handleShare(selectedBusiness)}
-                className="flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-2 rounded-xl bg-slate-100 text-slate-800 font-bold text-[11px] sm:text-xs border border-slate-200 active:scale-95 transition-all text-center whitespace-nowrap min-h-[38px]"
+                className="flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-2 rounded-lg bg-white text-navy font-bold text-[11px] sm:text-xs border border-border-subtle active:scale-95 transition-all text-center whitespace-nowrap min-h-[38px]"
               >
                 <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-700 flex-shrink-0" />
                 <span>{copied ? 'Copiado' : 'Compartir'}</span>
@@ -384,21 +384,21 @@ export default function GoogleMapsMobileBottomSheet({
         ========================================================================== */
         <div className="flex-1 flex flex-col overflow-hidden px-3.5 pb-2">
           {/* Peek Summary Bar */}
-          <div 
+          <div
             onClick={toggleExpand}
             className="flex items-center justify-between py-1.5 cursor-pointer flex-shrink-0"
           >
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-xs font-extrabold text-slate-800 font-display">
-                {businesses.length} {businesses.length === 1 ? 'negocio encontrado' : 'negocios encontrados'}
+              <span className="w-2 h-2 rounded-full bg-emerald-brand animate-pulse" />
+              <span className="text-xs font-extrabold text-text-primary">
+                {businesses.length} {businesses.length === 1 ? 'negocio' : 'negocios'}
               </span>
-              <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                {businesses.filter(b => b.transferActiveNow).length} activos
+              <span className="text-[10px] text-emerald-brand font-bold bg-emerald-brand/10 px-2 py-0.5 rounded-full">
+                {businesses.filter((b) => b.transferActiveNow).length} activos
               </span>
             </div>
 
-            <div className="flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50/80 px-2.5 py-1 rounded-full border border-emerald-200/70">
+            <div className="flex items-center gap-1 text-xs font-bold text-cerulean-dark bg-tm-bg px-2.5 py-1 rounded-full border border-tm-border">
               <span>{sheetState === 'peek' ? 'Ver lista' : 'Minimizar'}</span>
               {sheetState === 'peek' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
             </div>
@@ -406,7 +406,7 @@ export default function GoogleMapsMobileBottomSheet({
 
           {/* Scrollable list of cards when half or full */}
           {sheetState !== 'peek' && (
-            <div className="flex-1 overflow-y-auto bg-white -mx-3.5 pt-1 pb-12">
+            <div className="flex-1 overflow-y-auto bg-canvas -mx-3.5 p-3 pb-12 space-y-2.5">
               {businesses.length === 0 ? (
                 <div className="text-center py-12 px-4 space-y-2">
                   <div className="w-12 h-12 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto text-slate-400">

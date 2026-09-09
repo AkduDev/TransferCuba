@@ -380,13 +380,13 @@ export default function RegisterBusinessModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl max-h-[94vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 bg-navy-deep/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-level-4 border border-border-subtle w-full max-w-xl max-h-[94vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="px-5 py-4 bg-slate-900 text-white flex items-center justify-between flex-shrink-0">
+        <div className="px-5 py-4 bg-navy text-white flex items-center justify-between flex-shrink-0">
           <div>
             <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-lg bg-emerald-600 text-white text-xs">
+              <span className="p-1.5 rounded-lg bg-emerald-brand text-white text-xs">
                 <Store className="w-4 h-4" />
               </span>
               <h2 className="text-lg font-bold">Registrar Negocio en TransferCuba</h2>
@@ -421,7 +421,7 @@ export default function RegisterBusinessModal({
               {/* Commercial Name */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-slate-700">
+                  <label className="text-xs font-semibold text-slate-600">
                     Nombre comercial *
                   </label>
                   {name.length > 0 && (
@@ -441,17 +441,17 @@ export default function RegisterBusinessModal({
                     }}
                     onBlur={() => markTouched('name')}
                     placeholder="ej. Café & Market Habana"
-                    className={`w-full text-sm px-3 py-2 pr-9 rounded-xl border transition-all ${
+                    className={`w-full text-sm px-3 py-2 pr-9 rounded-lg border transition-all ${
                       (touched.name || showAllErrors) && !nameValidation.isValid
-                        ? 'border-rose-400 focus:ring-2 focus:ring-rose-400/30 bg-rose-50/20'
+                        ? 'border-crimson/50 focus:ring-2 focus:ring-crimson/25 bg-ez-bg/40'
                         : touched.name && nameValidation.isValid
-                        ? 'border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 bg-emerald-50/10'
-                        : 'border-slate-200 focus:ring-2 focus:ring-emerald-500'
+                        ? 'border-emerald-500 focus:ring-2 focus:ring-emerald-brand/25 bg-emerald-50/10'
+                        : 'border-border-subtle focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean'
                     }`}
                   />
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                     {touched.name && nameValidation.isValid && (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 animate-in zoom-in-50" />
+                      <CheckCircle2 className="w-4 h-4 text-emerald-brand animate-in zoom-in-50" />
                     )}
                     {(touched.name || showAllErrors) && !nameValidation.isValid && (
                       <AlertCircle className="w-4 h-4 text-rose-500 animate-in zoom-in-50" />
@@ -459,7 +459,7 @@ export default function RegisterBusinessModal({
                   </div>
                 </div>
                 {(touched.name || showAllErrors) && !nameValidation.isValid && (
-                  <p className="text-[11px] text-rose-600 mt-1 flex items-center gap-1 font-medium">
+                  <p className="text-[11px] text-crimson mt-1 flex items-center gap-1 font-medium">
                     <AlertCircle className="w-3 h-3 flex-shrink-0" />
                     <span>{nameValidation.message}</span>
                   </p>
@@ -468,13 +468,13 @@ export default function RegisterBusinessModal({
 
               {/* Category */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
                   Categoría principal
                 </label>
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="w-full text-sm px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                  className="w-full text-sm px-3 py-2 rounded-lg border border-border-subtle focus:outline-none focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean bg-white"
                 >
                   {CATEGORIES.filter(c => c.id !== 'all').map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.label}</option>
@@ -486,7 +486,7 @@ export default function RegisterBusinessModal({
             {/* Description */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-semibold text-slate-700">
+                <label className="text-xs font-semibold text-slate-600">
                   Breve descripción de productos o servicios
                 </label>
                 <span className="text-[10px] text-slate-400 font-mono">
@@ -499,7 +499,7 @@ export default function RegisterBusinessModal({
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="ej. Pan recién salido del horno, pizzas, refrescos fríos y pagos directos por QR..."
                 rows={2}
-                className="w-full text-sm px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full text-sm px-3 py-2 rounded-lg border border-border-subtle focus:outline-none focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean"
               />
             </div>
           </div>
@@ -512,11 +512,11 @@ export default function RegisterBusinessModal({
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Provincia</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Provincia</label>
                 <select
                   value={province}
                   onChange={(e) => handleProvinceChange(e.target.value)}
-                  className="w-full text-sm px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                  className="w-full text-sm px-3 py-2 rounded-lg border border-border-subtle focus:outline-none focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean bg-white"
                 >
                   {CUBAN_PROVINCES.map(p => (
                     <option key={p.name} value={p.name}>{p.name}</option>
@@ -525,11 +525,11 @@ export default function RegisterBusinessModal({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Municipio</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Municipio</label>
                 <select
                   value={municipality}
                   onChange={(e) => setMunicipality(e.target.value)}
-                  className="w-full text-sm px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                  className="w-full text-sm px-3 py-2 rounded-lg border border-border-subtle focus:outline-none focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean bg-white"
                 >
                   {currentProvinceData.municipalities.map(m => (
                     <option key={m} value={m}>{m}</option>
@@ -541,7 +541,7 @@ export default function RegisterBusinessModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Address */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
                   Dirección textual (Calle y números) *
                 </label>
                 <div className="relative">
@@ -555,17 +555,17 @@ export default function RegisterBusinessModal({
                     }}
                     onBlur={() => markTouched('address')}
                     placeholder="ej. Calle 23 #456 e/ J e I"
-                    className={`w-full text-sm px-3 py-2 pr-9 rounded-xl border transition-all ${
+                    className={`w-full text-sm px-3 py-2 pr-9 rounded-lg border transition-all ${
                       (touched.address || showAllErrors) && !addressValidation.isValid
-                        ? 'border-rose-400 focus:ring-2 focus:ring-rose-400/30 bg-rose-50/20'
+                        ? 'border-crimson/50 focus:ring-2 focus:ring-crimson/25 bg-ez-bg/40'
                         : touched.address && addressValidation.isValid
-                        ? 'border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 bg-emerald-50/10'
-                        : 'border-slate-200 focus:ring-2 focus:ring-emerald-500'
+                        ? 'border-emerald-500 focus:ring-2 focus:ring-emerald-brand/25 bg-emerald-50/10'
+                        : 'border-border-subtle focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean'
                     }`}
                   />
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                     {touched.address && addressValidation.isValid && (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 animate-in zoom-in-50" />
+                      <CheckCircle2 className="w-4 h-4 text-emerald-brand animate-in zoom-in-50" />
                     )}
                     {(touched.address || showAllErrors) && !addressValidation.isValid && (
                       <AlertCircle className="w-4 h-4 text-rose-500 animate-in zoom-in-50" />
@@ -573,7 +573,7 @@ export default function RegisterBusinessModal({
                   </div>
                 </div>
                 {(touched.address || showAllErrors) && !addressValidation.isValid && (
-                  <p className="text-[11px] text-rose-600 mt-1 flex items-center gap-1 font-medium">
+                  <p className="text-[11px] text-crimson mt-1 flex items-center gap-1 font-medium">
                     <AlertCircle className="w-3 h-3 flex-shrink-0" />
                     <span>{addressValidation.message}</span>
                   </p>
@@ -582,7 +582,7 @@ export default function RegisterBusinessModal({
 
               {/* Neighborhood */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
                   Reparto o Zona (opcional)
                 </label>
                 <input
@@ -590,16 +590,16 @@ export default function RegisterBusinessModal({
                   value={neighborhood}
                   onChange={(e) => setNeighborhood(e.target.value)}
                   placeholder="ej. Vedado / Miramar / Santos Suárez"
-                  className="w-full text-sm px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full text-sm px-3 py-2 rounded-lg border border-border-subtle focus:outline-none focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean"
                 />
               </div>
             </div>
 
             {/* Asistente Nominatim OpenStreetMap (Opción B del usuario) */}
-            <div className="p-3 bg-slate-50/90 rounded-xl border border-slate-200 space-y-2">
+            <div className="p-3 bg-slate-50/90 rounded-lg border border-border-subtle space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                  <Compass className="w-3.5 h-3.5 text-blue-600" />
+                <span className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                  <Compass className="w-3.5 h-3.5 text-cerulean-dark" />
                   <span>Asistente de Calles con Nominatim OSM</span>
                 </span>
                 <span className="text-[10px] text-slate-400 font-semibold">OpenStreetMap Cuba</span>
@@ -613,7 +613,7 @@ export default function RegisterBusinessModal({
                   value={nominatimQuery}
                   onChange={(e) => setNominatimQuery(e.target.value)}
                   placeholder={address.trim() ? address : 'ej. Calle 23 e/ L y M, Vedado'}
-                  className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-border-strong bg-white focus:outline-none focus:ring-1 focus:ring-cerulean/25"
                 />
                 <button
                   type="button"
@@ -627,7 +627,7 @@ export default function RegisterBusinessModal({
                     setIsSearchingNominatim(false);
                   }}
                   disabled={isSearchingNominatim}
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm flex items-center gap-1 transition-colors flex-shrink-0"
+                  className="px-3 py-1.5 bg-cerulean hover:bg-cerulean-dark text-white text-xs font-bold rounded-lg shadow-level-1 flex items-center gap-1 transition-colors flex-shrink-0"
                 >
                   <SearchIcon className="w-3 h-3" />
                   <span>{isSearchingNominatim ? 'Buscando...' : 'Buscar OSM'}</span>
@@ -635,7 +635,7 @@ export default function RegisterBusinessModal({
               </div>
 
               {nominatimResults.length > 0 && (
-                <div className="p-2 bg-white rounded-lg border border-blue-200 space-y-1 max-h-36 overflow-y-auto">
+                <div className="p-2 bg-white rounded-lg border border-tm-border space-y-1 max-h-36 overflow-y-auto">
                   <p className="text-[10px] font-bold text-slate-500 uppercase">Selecciona para fijar el pin:</p>
                   {nominatimResults.map((item) => (
                     <button
@@ -654,9 +654,9 @@ export default function RegisterBusinessModal({
                           setNominatimResults([]);
                         }
                       }}
-                      className="w-full text-left p-1.5 hover:bg-blue-50 rounded text-[11px] text-slate-700 border-b border-slate-100 last:border-0 flex items-start gap-1.5 transition-colors"
+                      className="w-full text-left p-1.5 hover:bg-tm-bg rounded text-[11px] text-slate-600 border-b border-slate-100 last:border-0 flex items-start gap-1.5 transition-colors"
                     >
-                      <MapPin className="w-3 h-3 text-emerald-600 flex-shrink-0 mt-0.5" />
+                      <MapPin className="w-3 h-3 text-emerald-brand flex-shrink-0 mt-0.5" />
                       <span className="line-clamp-2">{item.display_name}</span>
                     </button>
                   ))}
@@ -670,14 +670,14 @@ export default function RegisterBusinessModal({
             </div>
 
             {/* Visual Map Pin Placement */}
-            <div className={`p-3 rounded-xl border transition-colors flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+            <div className={`p-3 rounded-lg border transition-colors flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
               pinLocation 
                 ? 'bg-emerald-50/60 border-emerald-200' 
-                : 'bg-blue-50 border-blue-200'
+                : 'bg-tm-bg border-tm-border'
             }`}>
               <div className="flex items-start gap-2.5">
                 <MapPin className={`w-5 h-5 mt-0.5 flex-shrink-0 ${
-                  pinLocation ? 'text-emerald-600' : 'text-blue-600'
+                  pinLocation ? 'text-emerald-brand' : 'text-cerulean-dark'
                 }`} />
                 <div>
                   <div className="flex items-center gap-2">
@@ -685,12 +685,12 @@ export default function RegisterBusinessModal({
                       {pinLocation ? '✓ Punto exacto fijado en el mapa' : '📍 Colocar ubicación visualmente en el mapa'}
                     </p>
                     {pinLocation && (
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-[10px] text-white font-bold">
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-brand text-[10px] text-white font-bold">
                         Confirmado
                       </span>
                     )}
                   </div>
-                  <p className={`text-[11px] mt-0.5 ${pinLocation ? 'text-emerald-700 font-mono' : 'text-blue-700'}`}>
+                  <p className={`text-[11px] mt-0.5 ${pinLocation ? 'text-emerald-700 font-mono' : 'text-cerulean-dark'}`}>
                     {pinLocation 
                       ? `Lat: ${pinLocation.lat.toFixed(5)}, Lng: ${pinLocation.lng.toFixed(5)}` 
                       : `Si no marcas el punto, se posicionará en el centro de ${municipality}.`}
@@ -700,8 +700,8 @@ export default function RegisterBusinessModal({
               <button
                 type="button"
                 onClick={onStartPinning}
-                className={`w-full sm:w-auto px-3.5 py-1.5 rounded-lg text-white text-xs font-semibold shadow-sm flex items-center justify-center gap-1.5 flex-shrink-0 transition-colors ${
-                  pinLocation ? 'bg-emerald-700 hover:bg-emerald-800' : 'bg-blue-600 hover:bg-blue-700'
+                className={`w-full sm:w-auto px-3.5 py-1.5 rounded-lg text-white text-xs font-semibold shadow-level-1 flex items-center justify-center gap-1.5 flex-shrink-0 transition-colors ${
+                  pinLocation ? 'bg-emerald-700 hover:bg-emerald-800' : 'bg-cerulean hover:bg-cerulean-dark'
                 }`}
               >
                 <Crosshair className="w-3.5 h-3.5" />
@@ -733,7 +733,7 @@ export default function RegisterBusinessModal({
             {acceptsTransfer && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
                 <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
-                  transfermovil ? 'border-emerald-300 bg-emerald-50/50' : 'border-slate-200 hover:bg-slate-50'
+                  transfermovil ? 'border-emerald-300 bg-emerald-50/50' : 'border-border-subtle hover:bg-slate-50'
                 }`}>
                   <input
                     type="checkbox"
@@ -742,13 +742,13 @@ export default function RegisterBusinessModal({
                       setTransfermovil(e.target.checked);
                       markTouched('payments');
                     }}
-                    className="rounded text-emerald-600 focus:ring-emerald-500"
+                    className="rounded text-emerald-brand focus:ring-emerald-brand/25"
                   />
-                  <span className="font-semibold text-slate-800">Transfermóvil</span>
+                  <span className="font-semibold text-slate-600">Transfermóvil</span>
                 </label>
 
                 <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
-                  enzona ? 'border-blue-300 bg-blue-50/50' : 'border-slate-200 hover:bg-slate-50'
+                  enzona ? 'border-tm-border bg-tm-bg/50' : 'border-border-subtle hover:bg-slate-50'
                 }`}>
                   <input
                     type="checkbox"
@@ -757,13 +757,13 @@ export default function RegisterBusinessModal({
                       setEnzona(e.target.checked);
                       markTouched('payments');
                     }}
-                    className="rounded text-blue-600 focus:ring-blue-500"
+                    className="rounded text-cerulean-dark focus:ring-cerulean/25"
                   />
-                  <span className="font-semibold text-slate-800">EnZona</span>
+                  <span className="font-semibold text-slate-600">EnZona</span>
                 </label>
 
                 <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
-                  qrPayment ? 'border-indigo-300 bg-indigo-50/50' : 'border-slate-200 hover:bg-slate-50'
+                  qrPayment ? 'border-indigo-300 bg-indigo-50/50' : 'border-border-subtle hover:bg-slate-50'
                 }`}>
                   <input
                     type="checkbox"
@@ -774,11 +774,11 @@ export default function RegisterBusinessModal({
                     }}
                     className="rounded text-indigo-600 focus:ring-indigo-500"
                   />
-                  <span className="font-semibold text-slate-800">Código QR en Caja</span>
+                  <span className="font-semibold text-slate-600">Código QR en Caja</span>
                 </label>
 
                 <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
-                  onlineGateway ? 'border-purple-300 bg-purple-50/50' : 'border-slate-200 hover:bg-slate-50'
+                  onlineGateway ? 'border-purple-300 bg-purple-50/50' : 'border-border-subtle hover:bg-slate-50'
                 }`}>
                   <input
                     type="checkbox"
@@ -789,11 +789,11 @@ export default function RegisterBusinessModal({
                     }}
                     className="rounded text-purple-600 focus:ring-purple-500"
                   />
-                  <span className="font-semibold text-slate-800">Pago en línea</span>
+                  <span className="font-semibold text-slate-600">Pago en línea</span>
                 </label>
 
                 <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
-                  cash ? 'border-slate-300 bg-slate-100/50' : 'border-slate-200 hover:bg-slate-50'
+                  cash ? 'border-border-strong bg-slate-100/50' : 'border-border-subtle hover:bg-slate-50'
                 }`}>
                   <input
                     type="checkbox"
@@ -801,23 +801,23 @@ export default function RegisterBusinessModal({
                     onChange={(e) => setCash(e.target.checked)}
                     className="rounded text-slate-600 focus:ring-slate-500"
                   />
-                  <span className="font-semibold text-slate-800">Efectivo CUP</span>
+                  <span className="font-semibold text-slate-600">Efectivo CUP</span>
                 </label>
               </div>
             )}
 
             {/* Error if acceptsTransfer is true but no gateway is checked */}
             {(touched.payments || showAllErrors) && !paymentValidation.isValid && (
-              <p className="text-[11px] text-rose-600 mt-1 flex items-center gap-1 font-medium bg-rose-50 p-2 rounded-lg border border-rose-200">
-                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-rose-600" />
+              <p className="text-[11px] text-crimson mt-1 flex items-center gap-1 font-medium bg-ez-bg/50 p-2 rounded-lg border border-ez-border">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-crimson" />
                 <span>{paymentValidation.message}</span>
               </p>
             )}
 
             {/* Real-time transfer status at moment of opening */}
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
+            <div className="p-3 rounded-xl bg-slate-50 border border-border-subtle flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-bold text-slate-800">
+                <p className="text-xs font-bold text-slate-600">
                   ¿Están recibiendo transferencia en este momento?
                 </p>
                 <p className="text-[11px] text-slate-500">
@@ -830,8 +830,8 @@ export default function RegisterBusinessModal({
                   onClick={() => setTransferActiveNow(true)}
                   className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
                     transferActiveNow
-                      ? 'bg-emerald-600 text-white shadow-sm'
-                      : 'bg-white text-slate-600 border border-slate-200'
+                      ? 'bg-emerald-brand text-white shadow-level-1'
+                      : 'bg-white text-slate-600 border border-border-subtle'
                   }`}
                 >
                   🟢 Sí, activa
@@ -841,8 +841,8 @@ export default function RegisterBusinessModal({
                   onClick={() => setTransferActiveNow(false)}
                   className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
                     !transferActiveNow
-                      ? 'bg-amber-600 text-white shadow-sm'
-                      : 'bg-white text-slate-600 border border-slate-200'
+                      ? 'bg-saffron text-white shadow-level-1'
+                      : 'bg-white text-slate-600 border border-border-subtle'
                   }`}
                 >
                   🟡 No ahora
@@ -866,7 +866,7 @@ export default function RegisterBusinessModal({
               {/* WHATSAPP INPUT WITH REAL-TIME VALIDATION */}
               <div className="sm:col-span-2">
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                  <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
                     <span>Número de WhatsApp</span>
                     <span className="text-rose-500">*</span>
                     <span className="text-[11px] font-normal text-slate-400">
@@ -878,7 +878,7 @@ export default function RegisterBusinessModal({
                   <button
                     type="button"
                     onClick={handleApplyPresetWhatsApp}
-                    className="text-[11px] text-emerald-600 hover:text-emerald-800 font-semibold underline underline-offset-2 flex items-center gap-1"
+                    className="text-[11px] text-emerald-brand hover:text-emerald-800 font-semibold underline underline-offset-2 flex items-center gap-1"
                   >
                     <Sparkles className="w-3 h-3" />
                     <span>Rellenar ejemplo (+53 5284 9102)</span>
@@ -886,8 +886,8 @@ export default function RegisterBusinessModal({
                 </div>
 
                 {/* Input with prefix badge */}
-                <div className="relative flex rounded-xl shadow-sm">
-                  <div className="inline-flex items-center px-3 rounded-l-xl border border-r-0 border-slate-200 bg-slate-50 text-slate-700 text-xs font-bold gap-1.5 select-none flex-shrink-0">
+                <div className="relative flex rounded-xl shadow-level-1">
+                  <div className="inline-flex items-center px-3 rounded-l-xl border border-r-0 border-border-subtle bg-slate-50 text-slate-600 text-xs font-bold gap-1.5 select-none flex-shrink-0">
                     <span className="text-base leading-none">🇨🇺</span>
                     <span>+53</span>
                   </div>
@@ -904,16 +904,16 @@ export default function RegisterBusinessModal({
                     placeholder="5284 9102  o  +53 5284 9102"
                     className={`flex-1 min-w-0 text-sm px-3 py-2.5 pr-10 rounded-r-xl border transition-all font-mono ${
                       (touched.whatsapp || showAllErrors) && !waValidation.isValid
-                        ? 'border-rose-400 focus:ring-2 focus:ring-rose-400/30 bg-rose-50/20'
+                        ? 'border-crimson/50 focus:ring-2 focus:ring-crimson/25 bg-ez-bg/40'
                         : touched.whatsapp && waValidation.isValid
-                        ? 'border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 bg-emerald-50/10 text-emerald-950 font-bold'
-                        : 'border-slate-200 focus:ring-2 focus:ring-emerald-500'
+                        ? 'border-emerald-500 focus:ring-2 focus:ring-emerald-brand/25 bg-emerald-50/10 text-emerald-950 font-bold'
+                        : 'border-border-subtle focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean'
                     }`}
                   />
 
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
                     {touched.whatsapp && waValidation.isValid && (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600 animate-in zoom-in-50" />
+                      <CheckCircle2 className="w-5 h-5 text-emerald-brand animate-in zoom-in-50" />
                     )}
                     {(touched.whatsapp || showAllErrors) && !waValidation.isValid && (
                       <AlertCircle className="w-5 h-5 text-rose-500 animate-in zoom-in-50" />
@@ -925,11 +925,11 @@ export default function RegisterBusinessModal({
                 <div className="mt-1.5 space-y-1">
                   {/* Invalid or typing feedback */}
                   {(touched.whatsapp || showAllErrors) && !waValidation.isValid && (
-                    <div className="p-2 rounded-lg bg-rose-50 border border-rose-200 text-[11px] text-rose-700 flex items-start gap-1.5 animate-in fade-in duration-150">
-                      <AlertCircle className="w-3.5 h-3.5 text-rose-600 mt-0.5 flex-shrink-0" />
+                    <div className="p-2 rounded-lg bg-ez-bg/50 border border-ez-border text-[11px] text-crimson flex items-start gap-1.5 animate-in fade-in duration-150">
+                      <AlertCircle className="w-3.5 h-3.5 text-crimson mt-0.5 flex-shrink-0" />
                       <div className="flex-1">
                         <p className="font-semibold">{waValidation.errorMessage}</p>
-                        <p className="text-[10px] text-rose-600 mt-0.5">
+                        <p className="text-[10px] text-crimson mt-0.5">
                           Ejemplo válido: <span className="font-mono font-bold">+53 5284 9102</span> o simplemente <span className="font-mono font-bold">52849102</span>
                         </p>
                       </div>
@@ -940,7 +940,7 @@ export default function RegisterBusinessModal({
                   {waValidation.isValid && (
                     <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-800 flex items-center justify-between gap-2 animate-in fade-in duration-150">
                       <div className="flex items-center gap-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-brand flex-shrink-0" />
                         <span>
                           Formato válido: <strong className="font-mono">{waValidation.formatted}</strong>
                           {waValidation.isInternational && ' (Internacional)'}
@@ -977,7 +977,7 @@ export default function RegisterBusinessModal({
               {/* Optional Phone */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                  <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
                     <Phone className="w-3 h-3 text-slate-400" />
                     <span>Teléfono fijo alternativo (opcional)</span>
                   </label>
@@ -991,21 +991,21 @@ export default function RegisterBusinessModal({
                   }}
                   onBlur={() => markTouched('phone')}
                   placeholder="ej. +53 7830 1234 o 78301234"
-                  className={`w-full text-sm px-3 py-2 rounded-xl border transition-all ${
+                  className={`w-full text-sm px-3 py-2 rounded-lg border transition-all ${
                     touched.phone && !phoneValidation.isValid
-                      ? 'border-rose-400 bg-rose-50/20'
-                      : 'border-slate-200 focus:ring-2 focus:ring-emerald-500'
+                      ? 'border-crimson/50 bg-ez-bg/40'
+                      : 'border-border-subtle focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean'
                   }`}
                 />
                 {touched.phone && !phoneValidation.isValid && (
-                  <p className="text-[11px] text-rose-600 mt-1">{phoneValidation.message}</p>
+                  <p className="text-[11px] text-crimson mt-1">{phoneValidation.message}</p>
                 )}
               </div>
 
               {/* Business Hours */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                  <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
                     <Clock className="w-3 h-3 text-slate-400" />
                     <span>Horario de atención</span>
                   </label>
@@ -1015,7 +1015,7 @@ export default function RegisterBusinessModal({
                   value={hours}
                   onChange={(e) => setHours(e.target.value)}
                   placeholder="08:00 — 20:00 (Lunes a Sábado)"
-                  className="w-full text-sm px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full text-sm px-3 py-2 rounded-lg border border-border-subtle focus:outline-none focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean"
                 />
               </div>
             </div>
@@ -1038,8 +1038,8 @@ export default function RegisterBusinessModal({
                   onClick={() => setSelectedPhotoPreset(img.url)}
                   className={`relative cursor-pointer rounded-xl overflow-hidden h-20 border-2 transition-all group ${
                     selectedPhotoPreset === img.url 
-                      ? 'border-emerald-500 ring-2 ring-emerald-400/40 shadow-sm' 
-                      : 'border-slate-200 opacity-75 hover:opacity-100'
+                      ? 'border-emerald-500 ring-2 ring-cerulean/40 shadow-level-1' 
+                      : 'border-border-subtle opacity-75 hover:opacity-100'
                   }`}
                 >
                   <Image 
@@ -1051,7 +1051,7 @@ export default function RegisterBusinessModal({
                     sizes="180px"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
-                  <span className="absolute bottom-1.5 left-1.5 text-[11px] font-bold text-white drop-shadow-sm">
+                  <span className="absolute bottom-1.5 left-1.5 text-[11px] font-bold text-white drop-shadow-level-1">
                     {img.label}
                   </span>
                   {selectedPhotoPreset === img.url && (
@@ -1066,12 +1066,12 @@ export default function RegisterBusinessModal({
 
           {/* Validation summary banner if submit attempted with errors */}
           {showAllErrors && !isFormValid && (
-            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 space-y-1 animate-in fade-in">
+            <div className="p-3 rounded-xl bg-ez-bg/50 border border-ez-border text-xs text-crimson space-y-1 animate-in fade-in">
               <p className="font-bold flex items-center gap-1.5">
-                <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                <AlertCircle className="w-4 h-4 text-crimson flex-shrink-0" />
                 Por favor, corrige los siguientes campos antes de publicar:
               </p>
-              <ul className="list-disc list-inside space-y-0.5 text-rose-700 pl-1 text-[11px]">
+              <ul className="list-disc list-inside space-y-0.5 text-crimson pl-1 text-[11px]">
                 {!nameValidation.isValid && <li>Nombre comercial: {nameValidation.message}</li>}
                 {!addressValidation.isValid && <li>Dirección: {addressValidation.message}</li>}
                 {!waValidation.isValid && <li>WhatsApp: {waValidation.errorMessage}</li>}
@@ -1082,8 +1082,8 @@ export default function RegisterBusinessModal({
           )}
 
           {/* Submit CTA with Moderation Notice */}
-          <div className="pt-4 border-t border-slate-200 space-y-3">
-            <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
+          <div className="pt-4 border-t border-border-subtle space-y-3">
+            <div className="p-3 rounded-xl bg-saffron/10 border border-saffron/30 text-xs text-saffron flex items-start gap-2">
               <span className="text-base leading-none">🛡️</span>
               <p className="leading-relaxed">
                 <strong>Aprobación de administrador:</strong> Tu negocio se guardará en estado <strong>Pendiente</strong>. Una vez revisado y aprobado por el administrador, aparecerá automáticamente en el mapa público y en las búsquedas.
@@ -1094,7 +1094,7 @@ export default function RegisterBusinessModal({
               <div className="text-xs text-slate-500 hidden sm:block">
                 {isFormValid ? (
                   <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <CheckCircle2 className="w-4 h-4 text-emerald-brand" />
                     Formulario listo para enviar
                   </span>
                 ) : (
@@ -1108,17 +1108,17 @@ export default function RegisterBusinessModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 font-medium"
+                  className="px-4 py-2 text-sm text-slate-600 hover:text-text-primary font-medium"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   id="btn-submit-biz"
-                  className={`px-6 py-2.5 rounded-xl text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 w-full sm:w-auto ${
+                  className={`px-6 py-2.5 rounded-xl text-white font-bold text-sm shadow-level-2 transition-all flex items-center justify-center gap-2 w-full sm:w-auto ${
                     isFormValid 
-                      ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20 hover:shadow-lg' 
-                      : 'bg-emerald-600 hover:bg-emerald-700 opacity-90'
+                      ? 'bg-emerald-brand hover:bg-emerald-brand shadow-emerald-600/20 hover:shadow-level-2' 
+                      : 'bg-emerald-brand hover:bg-emerald-brand opacity-90'
                   }`}
                 >
                   <Check className="w-4 h-4" />

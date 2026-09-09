@@ -64,11 +64,11 @@ export default function LocationPickerModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/90 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-xl shadow-level-4 border border-border-subtle/90 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="px-6 py-5 bg-slate-950 text-white flex items-center justify-between border-b border-slate-800">
+        <div className="px-6 py-5 bg-navy text-white flex items-center justify-between border-b border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-600/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shadow-inner">
+            <div className="w-10 h-10 rounded-lg bg-emerald-brand/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shadow-inner">
               <Navigation className="w-5 h-5" />
             </div>
             <div>
@@ -91,7 +91,7 @@ export default function LocationPickerModal({
             onClick={onUseCurrentGps}
             disabled={isLocating}
             id="btn-use-real-gps"
-            className="w-full p-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs sm:text-sm shadow-lg shadow-emerald-700/20 flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
+            className="w-full p-4 rounded-lg bg-emerald-brand hover:bg-emerald-brand text-white font-extrabold text-xs sm:text-sm shadow-level-2 shadow-emerald-700/20 flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
           >
             <Compass className={`w-5 h-5 ${isLocating ? 'animate-spin' : ''}`} />
             <span>{isLocating ? 'Detectando señal GPS del dispositivo...' : '📍 Usar mi ubicación GPS actual'}</span>
@@ -114,14 +114,14 @@ export default function LocationPickerModal({
                   onSelectCoordinates(preset.coords, preset.name);
                   onClose();
                 }}
-                className="p-3.5 rounded-2xl border border-slate-200/90 hover:border-emerald-500 hover:bg-emerald-50/60 cursor-pointer transition-all flex items-center justify-between group shadow-sm hover:shadow-md"
+                className="p-3.5 rounded-lg border border-border-subtle/90 hover:border-emerald-500 hover:bg-emerald-50/60 cursor-pointer transition-all flex items-center justify-between group shadow-level-1 hover:shadow-level-2"
               >
                 <div className="flex items-start gap-3 min-w-0">
                   <div className="w-8 h-8 rounded-xl bg-slate-100 group-hover:bg-emerald-100/80 text-slate-500 group-hover:text-emerald-700 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors">
                     <MapPin className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-slate-900 group-hover:text-emerald-950 font-display">
+                    <p className="text-xs font-bold text-text-primary group-hover:text-emerald-950 font-display">
                       {preset.name}
                     </p>
                     <p className="text-[11px] text-slate-500 truncate mt-0.5">
@@ -129,16 +129,16 @@ export default function LocationPickerModal({
                     </p>
                   </div>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 flex-shrink-0 transition-transform group-hover:translate-x-0.5" />
+                <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-brand flex-shrink-0 transition-transform group-hover:translate-x-0.5" />
               </div>
             ))}
           </div>
         </div>
 
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200/90 flex justify-end">
+        <div className="px-6 py-4 bg-slate-50 border-t border-border-subtle/90 flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-200/80 rounded-xl transition-colors"
+            className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-text-primary hover:bg-slate-200/80 rounded-xl transition-colors"
           >
             Cerrar
           </button>

@@ -184,11 +184,11 @@ export default function MapLibreMap({
       const isVerified = biz.transferVerified && !isReported;
       const isPending = !isVerified && !isReported;
 
-      const badgeColor = isReported 
-        ? '#e11d48' // Red / Rose
-        : isVerified 
-        ? '#10b981' // Green
-        : '#f59e0b'; // Amber
+      const badgeColor = isReported
+        ? '#e11d48'
+        : isVerified
+        ? '#10b981'
+        : '#f59e0b';
 
       const el = document.createElement('div');
       el.className = 'transfercuba-marker-container cursor-pointer transition-transform duration-200 hover:scale-110';
@@ -196,7 +196,6 @@ export default function MapLibreMap({
 
       el.innerHTML = `
         <div class="relative flex flex-col items-center group">
-          <!-- Pulse beacon if active now -->
           ${biz.transferActiveNow ? `
             <span class="absolute -top-1 -right-1 flex h-3 w-3">
               <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -204,18 +203,15 @@ export default function MapLibreMap({
             </span>
           ` : ''}
 
-          <!-- Pin Head -->
-          <div style="background-color: ${isSelected ? '#0f172a' : badgeColor}; box-shadow: 0 4px 12px rgba(0,0,0,0.25);" 
-               class="w-9 h-9 rounded-2xl border-2 border-white flex items-center justify-center text-white text-base font-bold transition-all ${isSelected ? 'ring-4 ring-emerald-400 scale-110' : ''}">
+          <div style="background-color: ${isSelected ? '#0f2942' : badgeColor}; box-shadow: 0 4px 10px rgba(15, 41, 66, 0.28);"
+               class="w-9 h-9 rounded-xl border-2 border-white flex items-center justify-center text-white text-base transition-all ${isSelected ? 'ring-4 ring-cerulean/40 scale-110' : ''}">
             <span>${biz.categoryIcon}</span>
           </div>
 
-          <!-- Pin Tail -->
-          <div style="background-color: ${isSelected ? '#0f172a' : badgeColor};" 
-               class="w-2.5 h-2.5 rotate-45 -mt-1 shadow-sm"></div>
+          <div style="background-color: ${isSelected ? '#0f2942' : badgeColor};"
+               class="w-2.5 h-2.5 rotate-45 -mt-1"></div>
 
-          <!-- Micro verification pip -->
-          <div class="absolute -bottom-1 px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase text-white shadow-sm"
+          <div class="absolute -bottom-1 px-1.5 rounded-full text-[9px] font-black uppercase text-white shadow-sm"
                style="background-color: ${badgeColor};">
             ${isVerified ? '✓' : isReported ? '⚠' : '⏳'}
           </div>
@@ -341,7 +337,7 @@ export default function MapLibreMap({
             'line-cap': 'round'
           },
           paint: {
-            'line-color': '#2563eb', // Blue navigation line
+            'line-color': '#0284c7',
             'line-width': 5,
             'line-opacity': 0.85
           }
@@ -367,11 +363,11 @@ export default function MapLibreMap({
   }, [routeGeometry]);
 
   return (
-    <div className="relative w-full h-full bg-slate-100 overflow-hidden">
+    <div className="relative w-full h-full bg-canvas overflow-hidden">
       <div id="maplibre-map-canvas" ref={mapContainerRef} className="w-full h-full z-0" />
-      
+
       {isPinningMode && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-slate-950/90 text-white backdrop-blur-md px-4 py-2 rounded-xl text-xs sm:text-sm font-medium shadow-xl border border-slate-700 flex items-center gap-2 pointer-events-none animate-pulse">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-navy/95 text-white backdrop-blur-md px-4 py-2 rounded-lg text-xs sm:text-sm font-medium shadow-level-3 border border-navy-hover flex items-center gap-2 pointer-events-none animate-pulse">
           <span>📍 Haz clic en el mapa o arrastra el marcador verde hasta tu local</span>
         </div>
       )}
