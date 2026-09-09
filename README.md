@@ -10,7 +10,7 @@
 
 ## ✨ Funcionalidades
 
-- **🗺️ Mapa fullscreen** — MapLibre GL JS + tiles de OpenStreetMap/CartoDB (sin API keys)
+- **🗺️ Mapa fullscreen** — MapLibre GL JS + tiles vectoriales OpenFreeMap (OSM) — gratis, ilimitado, sin API keys, nitidez GPU en cualquier zoom
 - **📍 Directorio con filtros** — provincia, municipio, categoría, estado de verificación, canal de pago (QR / online)
 - **🟢 Estado en vivo** — "acepta transferencia ahora" actualizable por la comunidad
 - **🚗 Rutas OSRM** — traza la ruta de conducción desde tu ubicación GPS hasta el negocio, con distancia y tiempo
@@ -27,7 +27,7 @@
 | Framework | Next.js 15 (App Router) + React 19 |
 | Lenguaje | TypeScript 5.9 |
 | Estilos | Tailwind CSS 4 + tw-animate-css |
-| Mapa | MapLibre GL JS + OpenStreetMap tiles |
+| Mapa | MapLibre GL JS v6 + tiles vectoriales OpenFreeMap (Positron) |
 | Geocoding | Nominatim (OSM) |
 | Rutas | OSRM (router.project-osrm.org) |
 | Iconos | lucide-react |
