@@ -280,7 +280,7 @@ export const INITIAL_BUSINESSES: Business[] = [
     rating: 4.9,
     reviewsCount: 38,
     photos: [
-      'https://images.unsplash.com/photo-1597740985671-2a8a3b805331?auto=format&fit=crop&w=600&q=80'
+      'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=600&q=80'
     ],
     featured: false,
     status: 'active'

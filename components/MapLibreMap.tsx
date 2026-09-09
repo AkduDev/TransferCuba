@@ -58,20 +58,22 @@ export default function MapLibreMap({
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
-    // OpenStreetMap tile style configuration for MapLibre
+    // Base map: OpenStreetMap standard tiles (free, no API key, no rate limits
+    // per anonymous IP beyond the standard bulk policy).
+    // Uses multiple OSM mirrors to distribute load.
     const osmStyle: maplibregl.StyleSpecification = {
       version: 8,
       sources: {
         'osm-tiles': {
           type: 'raster',
           tiles: [
-            'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-            'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-            'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-            'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'
+            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            'https://tile-a.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+            'https://tile-b.openstreetmap.fr/hot/{z}/{x}/{y}.png'
           ],
           tileSize: 256,
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>'
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }
       },
       layers: [
