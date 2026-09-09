@@ -1,0 +1,380 @@
+'use client';
+
+import React, { useEffect, useRef } from 'react';
+import * as maplibregl from 'maplibre-gl';
+import { Business } from '@/lib/cuba-data';
+
+interface MapLibreMapProps {
+  businesses: Business[];
+  selectedBusiness: Business | null;
+  onSelectBusiness: (business: Business) => void;
+  center: [number, number]; // [lat, lng]
+  zoom: number;
+  userLocation: { lat: number; lng: number } | null;
+  isPinningMode?: boolean;
+  pinLocation?: { lat: number; lng: number } | null;
+  onPinLocationChange?: (coords: { lat: number; lng: number }) => void;
+  onMapClick?: (coords: { lat: number; lng: number }) => void;
+  routeGeometry?: { type: 'LineString'; coordinates: [number, number][] } | null;
+}
+
+export default function MapLibreMap({
+  businesses,
+  selectedBusiness,
+  onSelectBusiness,
+  center,
+  zoom,
+  userLocation,
+  isPinningMode = false,
+  pinLocation,
+  onPinLocationChange,
+  onMapClick,
+  routeGeometry
+}: MapLibreMapProps) {
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<maplibregl.Map | null>(null);
+  const markersRef = useRef<maplibregl.Marker[]>([]);
+  const userMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const pinMarkerRef = useRef<maplibregl.Marker | null>(null);
+
+  const centerLat = center[0];
+  const centerLng = center[1];
+
+  const callbacksRef = useRef({
+    isPinningMode,
+    onPinLocationChange,
+    onMapClick
+  });
+
+  useEffect(() => {
+    callbacksRef.current = {
+      isPinningMode,
+      onPinLocationChange,
+      onMapClick
+    };
+  }, [isPinningMode, onPinLocationChange, onMapClick]);
+
+  // Initialize MapLibre GL instance
+  useEffect(() => {
+    if (!mapContainerRef.current || mapInstanceRef.current) return;
+
+    // OpenStreetMap tile style configuration for MapLibre
+    const osmStyle: maplibregl.StyleSpecification = {
+      version: 8,
+      sources: {
+        'osm-tiles': {
+          type: 'raster',
+          tiles: [
+            'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+            'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+            'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+            'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'
+          ],
+          tileSize: 256,
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>'
+        }
+      },
+      layers: [
+        {
+          id: 'osm-tiles-layer',
+          type: 'raster',
+          source: 'osm-tiles',
+          minzoom: 0,
+          maxzoom: 19
+        }
+      ]
+    };
+
+    const map = new maplibregl.Map({
+      container: mapContainerRef.current,
+      style: osmStyle,
+      center: [centerLng, centerLat], // MapLibre uses [lng, lat]
+      zoom: zoom,
+      attributionControl: false,
+      transformRequest: (url: string) => {
+        return { url };
+      }
+    });
+
+    // Gracefully handle benign tile loading cancellations or network aborts
+    map.on('error', (e) => {
+      const err = e?.error;
+      const status = (err as unknown as { status?: number })?.status;
+      if (
+        !err ||
+        status === 0 ||
+        (err?.message && (
+          err.message.includes('Failed to fetch') ||
+          err.message.includes('AJAXError') ||
+          err.message.includes('aborted')
+        ))
+      ) {
+        // Benign tile load cancellation (e.g. while rapidly panning or zooming)
+        return;
+      }
+      console.warn('MapLibre map notification:', e);
+    });
+
+    // Add navigation controls (zoom in/out, compass)
+    map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
+    map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: 'OpenStreetMap | TransferCuba' }), 'bottom-left');
+
+    mapInstanceRef.current = map;
+
+    // Container ResizeObserver for seamless responsiveness
+    let resizeTimer: NodeJS.Timeout | null = null;
+    const resizeObserver = new ResizeObserver(() => {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.resize();
+        }
+      }, 100);
+    });
+
+    if (mapContainerRef.current) {
+      resizeObserver.observe(mapContainerRef.current);
+    }
+
+    // Map click handler
+    map.on('click', (e) => {
+      const current = callbacksRef.current;
+      if (current.isPinningMode && current.onPinLocationChange) {
+        current.onPinLocationChange({ lat: e.lngLat.lat, lng: e.lngLat.lng });
+      } else if (current.onMapClick) {
+        current.onMapClick({ lat: e.lngLat.lat, lng: e.lngLat.lng });
+      }
+    });
+
+    return () => {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeObserver.disconnect();
+      map.remove();
+      mapInstanceRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sync center and zoom
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    mapInstanceRef.current.flyTo({
+      center: [centerLng, centerLat],
+      zoom: zoom,
+      essential: true,
+      duration: 1200
+    });
+  }, [centerLat, centerLng, zoom]);
+
+  // Render business markers
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+
+    // Remove existing markers
+    markersRef.current.forEach((m) => m.remove());
+    markersRef.current = [];
+
+    businesses.forEach((biz) => {
+      const isSelected = selectedBusiness?.id === biz.id;
+
+      // Verification state styling
+      // 🟢 Verificado, 🟡 Pendiente, 🔴 Reportado
+      const isReported = biz.reportsCount > 0;
+      const isVerified = biz.transferVerified && !isReported;
+      const isPending = !isVerified && !isReported;
+
+      const badgeColor = isReported 
+        ? '#e11d48' // Red / Rose
+        : isVerified 
+        ? '#10b981' // Green
+        : '#f59e0b'; // Amber
+
+      const el = document.createElement('div');
+      el.className = 'transfercuba-marker-container cursor-pointer transition-transform duration-200 hover:scale-110';
+      el.style.zIndex = isSelected ? '100' : '10';
+
+      el.innerHTML = `
+        <div class="relative flex flex-col items-center group">
+          <!-- Pulse beacon if active now -->
+          ${biz.transferActiveNow ? `
+            <span class="absolute -top-1 -right-1 flex h-3 w-3">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border border-white"></span>
+            </span>
+          ` : ''}
+
+          <!-- Pin Head -->
+          <div style="background-color: ${isSelected ? '#0f172a' : badgeColor}; box-shadow: 0 4px 12px rgba(0,0,0,0.25);" 
+               class="w-9 h-9 rounded-2xl border-2 border-white flex items-center justify-center text-white text-base font-bold transition-all ${isSelected ? 'ring-4 ring-emerald-400 scale-110' : ''}">
+            <span>${biz.categoryIcon}</span>
+          </div>
+
+          <!-- Pin Tail -->
+          <div style="background-color: ${isSelected ? '#0f172a' : badgeColor};" 
+               class="w-2.5 h-2.5 rotate-45 -mt-1 shadow-sm"></div>
+
+          <!-- Micro verification pip -->
+          <div class="absolute -bottom-1 px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase text-white shadow-sm"
+               style="background-color: ${badgeColor};">
+            ${isVerified ? '✓' : isReported ? '⚠' : '⏳'}
+          </div>
+        </div>
+      `;
+
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onSelectBusiness(biz);
+      });
+
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([biz.lng, biz.lat])
+        .addTo(map);
+
+      markersRef.current.push(marker);
+    });
+  }, [businesses, selectedBusiness, onSelectBusiness]);
+
+  // Render User Location GPS Marker
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+
+    if (userMarkerRef.current) {
+      userMarkerRef.current.remove();
+      userMarkerRef.current = null;
+    }
+
+    if (userLocation) {
+      const el = document.createElement('div');
+      el.className = 'transfercuba-user-location';
+      el.innerHTML = `
+        <div class="relative flex items-center justify-center">
+          <span class="animate-ping absolute inline-flex h-8 w-8 rounded-full bg-blue-400 opacity-70"></span>
+          <div class="w-5 h-5 rounded-full bg-blue-600 border-2 border-white shadow-lg flex items-center justify-center text-white text-[10px] font-bold">
+            📍
+          </div>
+        </div>
+      `;
+
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([userLocation.lng, userLocation.lat])
+        .addTo(map);
+
+      userMarkerRef.current = marker;
+    }
+  }, [userLocation]);
+
+  // Handle Pinning Mode (Registration Pin)
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+
+    if (pinMarkerRef.current) {
+      pinMarkerRef.current.remove();
+      pinMarkerRef.current = null;
+    }
+
+    if (isPinningMode && pinLocation) {
+      const el = document.createElement('div');
+      el.className = 'transfercuba-pin-marker cursor-grab active:cursor-grabbing';
+      el.innerHTML = `
+        <div class="flex flex-col items-center animate-bounce">
+          <div class="px-2.5 py-1 bg-slate-900 text-white text-[11px] font-bold rounded-lg shadow-xl border border-emerald-400 whitespace-nowrap mb-1">
+            📍 Arrastra hasta la puerta
+          </div>
+          <div class="w-8 h-8 rounded-full bg-emerald-500 text-white border-2 border-white shadow-2xl flex items-center justify-center font-bold">
+            ✓
+          </div>
+          <div class="w-2 h-2 bg-emerald-700 rotate-45 -mt-1"></div>
+        </div>
+      `;
+
+      const marker = new maplibregl.Marker({ element: el, draggable: true })
+        .setLngLat([pinLocation.lng, pinLocation.lat])
+        .addTo(map);
+
+      marker.on('dragend', () => {
+        const lngLat = marker.getLngLat();
+        if (onPinLocationChange) {
+          onPinLocationChange({ lat: lngLat.lat, lng: lngLat.lng });
+        }
+      });
+
+      pinMarkerRef.current = marker;
+    }
+  }, [isPinningMode, pinLocation, onPinLocationChange]);
+
+  // Render OSRM Route Layer
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+
+    const sourceId = 'osrm-route-source';
+    const layerId = 'osrm-route-layer';
+
+    const updateRouteLayer = () => {
+      // Remove existing route layer & source
+      if (map.getLayer(layerId)) {
+        map.removeLayer(layerId);
+      }
+      if (map.getSource(sourceId)) {
+        map.removeSource(sourceId);
+      }
+
+      if (routeGeometry) {
+        map.addSource(sourceId, {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            properties: {},
+            geometry: routeGeometry
+          }
+        });
+
+        map.addLayer({
+          id: layerId,
+          type: 'line',
+          source: sourceId,
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          paint: {
+            'line-color': '#2563eb', // Blue navigation line
+            'line-width': 5,
+            'line-opacity': 0.85
+          }
+        });
+
+        // Fit bounds to route
+        const coords = routeGeometry.coordinates;
+        if (coords.length > 0) {
+          const bounds = coords.reduce(
+            (b, coord) => b.extend(coord as [number, number]),
+            new maplibregl.LngLatBounds(coords[0], coords[0])
+          );
+          map.fitBounds(bounds, { padding: 60, maxZoom: 16 });
+        }
+      }
+    };
+
+    if (map.isStyleLoaded()) {
+      updateRouteLayer();
+    } else {
+      map.once('style.load', updateRouteLayer);
+    }
+  }, [routeGeometry]);
+
+  return (
+    <div className="relative w-full h-full bg-slate-100 overflow-hidden">
+      <div id="maplibre-map-canvas" ref={mapContainerRef} className="w-full h-full z-0" />
+      
+      {isPinningMode && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-slate-950/90 text-white backdrop-blur-md px-4 py-2 rounded-xl text-xs sm:text-sm font-medium shadow-xl border border-slate-700 flex items-center gap-2 pointer-events-none animate-pulse">
+          <span>📍 Haz clic en el mapa o arrastra el marcador verde hasta tu local</span>
+        </div>
+      )}
+    </div>
+  );
+}
