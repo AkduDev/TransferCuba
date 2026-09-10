@@ -36,6 +36,22 @@ function ensurePmtilesProtocol(): void {
   pmtilesProtocol.add(new PMTiles(PMTILES_URL));
 }
 
+// MapLibre v6 corre el parseo de tiles en Web Workers. El bundler de Next no
+// empaqueta el worker (new Worker(URL relativa)) y queda 404 — el mapa carga
+// el estilo pero nunca pide tiles. Se sirve el worker desde /public y se
+// fija config.WORKER_URL (mecanismo oficial de MapLibre).
+let workerUrlFixed = false;
+function ensureWorkerUrl(): void {
+  if (workerUrlFixed) return;
+  workerUrlFixed = true;
+  const config = (
+    maplibregl as unknown as { config?: { WORKER_URL?: string } }
+  ).config;
+  if (config && 'WORKER_URL' in config && !config.WORKER_URL) {
+    config.WORKER_URL = '/map/maplibre-gl-worker.mjs';
+  }
+}
+
 const SOURCE_ID = 'businesses-source';
 const LAYER_CLUSTER_ID = 'clusters-layer';
 const LAYER_CLUSTER_COUNT_ID = 'cluster-count-layer';
@@ -222,6 +238,7 @@ export default function MapLibreMap({
     let resizeObserver: ResizeObserver | null = null;
 
     const initMap = async () => {
+      ensureWorkerUrl();
       ensurePmtilesProtocol();
       // Basemap propio (PMTiles Cuba); si el estilo local no existe, cae a
       // OpenFreeMap Positron (gratuito e ilimitado).
