@@ -33,6 +33,9 @@ export async function GET(req: NextRequest) {
     category: searchParams.get('category') ?? undefined,
     onlyTransfer: searchParams.get('transfer') === 'true',
     activeNow: searchParams.get('activeNow') === 'true',
+    qr: searchParams.get('qr') === 'true',
+    online: searchParams.get('online') === 'true',
+    includeAll: searchParams.get('includeAll') === 'true',
     verification: (searchParams.get('verification') as 'verified' | 'pending' | 'reported' | 'all' | null) ?? undefined,
     q: searchParams.get('q') ?? undefined,
     limit: Math.min(parseInt(searchParams.get('limit') ?? '500', 10) || 500, 500)

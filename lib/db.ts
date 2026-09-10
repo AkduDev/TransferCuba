@@ -11,8 +11,7 @@
  */
 
 import { Pool } from 'pg';
-import { Business } from '@/lib/cuba-data';
-import { INITIAL_BUSINESSES } from '@/lib/cuba-data';
+import { Business, INITIAL_BUSINESSES, calculateDistanceMeters } from '@/lib/cuba-data';
 
 export interface BusinessFilters {
   bbox?: [number, number, number, number]; // [west, south, east, north]
@@ -24,7 +23,10 @@ export interface BusinessFilters {
   category?: string;
   activeNow?: boolean;
   onlyTransfer?: boolean;
+  qr?: boolean;
+  online?: boolean;
   verification?: 'verified' | 'pending' | 'reported' | 'all';
+  includeAll?: boolean; // admin: no filtrar por status
   q?: string;
   limit?: number;
 }
@@ -175,7 +177,9 @@ function memoryEnsure(): Business[] {
 }
 
 function memoryFilter(filters: BusinessFilters): Business[] {
-  let result = memoryEnsure().filter((b) => b.status === 'active');
+  let result = memoryEnsure().filter((b) =>
+    filters.includeAll ? true : b.status === 'active'
+  );
 
   if (filters.province && filters.province !== 'all') {
     result = result.filter(
@@ -192,6 +196,8 @@ function memoryFilter(filters: BusinessFilters): Business[] {
   }
   if (filters.onlyTransfer) result = result.filter((b) => b.acceptsTransfer);
   if (filters.activeNow) result = result.filter((b) => b.transferActiveNow);
+  if (filters.qr) result = result.filter((b) => b.transferDetails?.qrPayment);
+  if (filters.online) result = result.filter((b) => b.transferDetails?.onlineGateway);
   if (filters.verification && filters.verification !== 'all') {
     result = result.filter((b) => {
       const isReported = b.reportsCount > 0;
@@ -220,7 +226,6 @@ function memoryFilter(filters: BusinessFilters): Business[] {
   }
 
   if (filters.lat !== undefined && filters.lng !== undefined) {
-    const { calculateDistanceMeters } = require('@/lib/cuba-data') as typeof import('@/lib/cuba-data');
     result = result.map((b) => ({
       ...b,
       distanceMeters: calculateDistanceMeters(filters.lat!, filters.lng!, b.lat, b.lng)
@@ -246,7 +251,7 @@ export async function queryBusinesses(filters: BusinessFilters): Promise<Busines
   const pool = getPool();
   if (!pool) return memoryFilter(filters);
 
-  const where: string[] = [`status = 'active'`];
+  const where: string[] = filters.includeAll ? [] : [`status = 'active'`];
   const params: unknown[] = [];
   let p = 0;
   const next = (v: unknown) => {
@@ -262,7 +267,9 @@ export async function queryBusinesses(filters: BusinessFilters): Promise<Busines
     where.push(`category = ${next(filters.category)}`);
   if (filters.onlyTransfer) where.push(`accepts_transfer = TRUE`);
   if (filters.activeNow) where.push(`transfer_active_now = TRUE`);
-  if (filters.verification && filters.verification !== 'all') {
+  if (filters.qr) where.push(`(transfer_details->>'qrPayment')::boolean = TRUE`);
+  if (filters.online) where.push(`(transfer_details->>'onlineGateway')::boolean = TRUE`);
+  if (!filters.includeAll && filters.verification && filters.verification !== 'all') {
     const v = next(filters.verification);
     where.push(
       `(CASE WHEN reports_count > 0 THEN 'reported'
@@ -295,6 +302,8 @@ export async function queryBusinesses(filters: BusinessFilters): Promise<Busines
     );
   }
 
+  const emptyWhere = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
   const select = `SELECT *, ${
     hasOrigin
       ? `ST_Distance(geom, ST_GeomFromText(${originParam}, 4326)::geography) AS distance_meters`
@@ -306,7 +315,7 @@ export async function queryBusinesses(filters: BusinessFilters): Promise<Busines
     : `ORDER BY featured DESC, rating DESC`;
   const limit = next(filters.limit ?? 500);
 
-  const sql = `${select} WHERE ${where.join(' AND ')} ${orderBy} LIMIT ${limit}`;
+  const sql = `${select} ${emptyWhere} ${orderBy} LIMIT ${limit}`;
 
   try {
     const res = await pool.query(sql, params);

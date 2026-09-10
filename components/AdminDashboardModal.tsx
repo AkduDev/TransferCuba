@@ -26,6 +26,7 @@ import { Business, CUBAN_PROVINCES } from '@/lib/cuba-data';
 
 interface AdminDashboardModalProps {
   isOpen: boolean;
+  onOpen?: () => void;
   onClose: () => void;
   businesses: Business[];
   onToggleVerify: (id: string) => void;
@@ -38,6 +39,7 @@ interface AdminDashboardModalProps {
 
 export default function AdminDashboardModal({
   isOpen,
+  onOpen,
   onClose,
   businesses,
   onToggleVerify,
@@ -47,6 +49,11 @@ export default function AdminDashboardModal({
   onApproveBusiness,
   onRejectBusiness
 }: AdminDashboardModalProps) {
+  // Fetch all statuses (including pending/rejected from PostGIS) on open
+  useEffect(() => {
+    if (isOpen) onOpen?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
   // Authentication state initialized from localStorage
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {

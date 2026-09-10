@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import GoogleMapsTopBar from '@/components/GoogleMapsTopBar';
 import GoogleMapsDesktopPanel from '@/components/GoogleMapsDesktopPanel';
@@ -57,28 +57,92 @@ export default function Home() {
     return INITIAL_BUSINESSES;
   });
 
-  // Hydrate from API on mount (reemplaza el seed/localStorage como fuente)
+  // Search & Filter states (declarados primero: los usa el efecto de fetch)
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedProvince, setSelectedProvince] = useState('La Habana');
+  const [selectedMunicipality, setSelectedMunicipality] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [onlyTransfer, setOnlyTransfer] = useState(true);
+  const [onlyActiveNow, setOnlyActiveNow] = useState(false);
+  const [filterVerification, setFilterVerification] = useState('all'); // 'all' | 'verified' | 'pending' | 'reported'
+  const [filterQr, setFilterQr] = useState(false);
+  const [filterOnline, setFilterOnline] = useState(false);
+
+  // User location / GPS state
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Hydrate + server-side filtered fetch (Sprint 3).
+  // La API (PostGIS) aplica todos los filtros y el bbox del viewport;
+  // el cliente solo ordena/retoca. viewportBbox llega de moveend (MapLibreMap).
+  const [viewportBbox, setViewportBbox] = useState<[number, number, number, number] | null>(null);
   const [isSyncingFromApi, setIsSyncingFromApi] = useState(true);
+  const filtersVersionRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
+
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch('/api/businesses?limit=500', { cache: 'no-store' });
-        if (!res.ok) return;
-        const data = (await res.json()) as { success: boolean; businesses: Business[] };
-        if (!cancelled && data.success && Array.isArray(data.businesses)) {
-          setBusinesses(data.businesses);
-        }
-      } catch {
-        // offline: seguimos con cache local
-      } finally {
-        if (!cancelled) setIsSyncingFromApi(false);
+    // debounce: espera a que paren los cambios de filtros/viewport
+    const t = setTimeout(() => {
+      const version = ++filtersVersionRef.current;
+      abortRef.current?.abort();
+      const ac = new AbortController();
+      abortRef.current = ac;
+
+      const params = new URLSearchParams();
+      if (viewportBbox) params.set('bbox', viewportBbox.join(','));
+      if (searchQuery.trim()) params.set('q', searchQuery.trim());
+      if (selectedProvince !== 'all') params.set('province', selectedProvince);
+      if (selectedMunicipality !== 'all') params.set('municipality', selectedMunicipality);
+      if (selectedCategory !== 'all') params.set('category', selectedCategory);
+      if (onlyTransfer) params.set('transfer', 'true');
+      if (onlyActiveNow) params.set('activeNow', 'true');
+      if (filterQr) params.set('qr', 'true');
+      if (filterOnline) params.set('online', 'true');
+      if (filterVerification !== 'all') params.set('verification', filterVerification);
+      if (userLocation) {
+        params.set('lat', String(userLocation.lat));
+        params.set('lng', String(userLocation.lng));
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+      params.set('limit', '500');
+
+      (async () => {
+        try {
+          const res = await fetch(`/api/businesses?${params.toString()}`, {
+            cache: 'no-store',
+            signal: ac.signal
+          });
+          if (!res.ok) return;
+          const data = (await res.json()) as { success: boolean; businesses: Business[] };
+          if (data.success && Array.isArray(data.businesses) && filtersVersionRef.current === version) {
+            // Merge: server actives + negocios locales no activos (pending/rejected)
+            // para que el admin no pierda pendientes registrados offline/sin bbox.
+            setBusinesses((prev) => {
+              const serverIds = new Set(data.businesses.map((b) => b.id));
+              const localNonActive = prev.filter((b) => b.status !== 'active' && !serverIds.has(b.id));
+              return [...data.businesses, ...localNonActive];
+            });
+          }
+        } catch {
+          // offline / abort: seguimos con cache local
+        } finally {
+          if (filtersVersionRef.current === version) setIsSyncingFromApi(false);
+        }
+      })();
+    }, 300);
+
+    return () => clearTimeout(t);
+  }, [
+    viewportBbox,
+    searchQuery,
+    selectedProvince,
+    selectedMunicipality,
+    selectedCategory,
+    onlyTransfer,
+    onlyActiveNow,
+    filterQr,
+    filterOnline,
+    filterVerification,
+    userLocation
+  ]);
 
   // Persist to localStorage (offline cache)
   useEffect(() => {
@@ -104,16 +168,34 @@ export default function Home() {
     []
   );
 
-  // Search & Filter states matching the ASCII wireframe
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedProvince, setSelectedProvince] = useState('La Habana');
-  const [selectedMunicipality, setSelectedMunicipality] = useState('all');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [onlyTransfer, setOnlyTransfer] = useState(true);
-  const [onlyActiveNow, setOnlyActiveNow] = useState(false);
-  const [filterVerification, setFilterVerification] = useState('all'); // 'all' | 'verified' | 'pending' | 'reported'
-  const [filterQr, setFilterQr] = useState(false);
-  const [filterOnline, setFilterOnline] = useState(false);
+  // Admin: negociones con TODOS los status (server includeAll).
+  // Mientras el panel está abierto, anula el filtrado por viewport.
+  const [adminAllBusinesses, setAdminAllBusinesses] = useState<Business[] | null>(null);
+
+  const fetchAdminAll = useCallback(async () => {
+    try {
+      const res = await fetch('/api/businesses?includeAll=true&limit=500', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = (await res.json()) as { success: boolean; businesses: Business[] };
+      if (data.success && Array.isArray(data.businesses)) {
+        // merge con locales (por si hay pendientes offline recientes)
+        setAdminAllBusinesses((prev) => {
+          const serverIds = new Set(data.businesses.map((b) => b.id));
+          const localExtra = (prev ?? businesses).filter(
+            (b) => !serverIds.has(b.id) && b.status !== 'active'
+          );
+          return [...data.businesses, ...localExtra];
+        });
+      }
+    } catch {
+      // offline: admin opera con lo local
+    }
+  }, [businesses]);
+
+  // Al cerrar el panel admin, soltar el override
+  const handleAdminClose = useCallback(() => {
+    setAdminAllBusinesses(null);
+  }, []);
 
   // Desktop Panel & Modals state
   const [isDesktopPanelOpen, setIsDesktopPanelOpen] = useState(true);
@@ -122,8 +204,6 @@ export default function Home() {
   // Selected Business
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
 
-  // User location / GPS state
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [userLocationName, setUserLocationName] = useState('');
   const [isLocating, setIsLocating] = useState(false);
 
@@ -383,57 +463,66 @@ export default function Home() {
     showToast('✓ Coordenadas exactas fijadas.');
   };
 
+  // Aplica una transformación a un negocio en ambos estados (general + admin-override)
+  const applyToStates = useCallback(
+    (bizId: string, transform: (b: Business) => Business, remove = false) => {
+      setBusinesses((prev) =>
+        remove ? prev.filter((b) => b.id !== bizId) : prev.map((b) => (b.id === bizId ? transform(b) : b))
+      );
+      setAdminAllBusinesses((prev) =>
+        prev
+          ? remove
+            ? prev.filter((b) => b.id !== bizId)
+            : prev.map((b) => (b.id === bizId ? transform(b) : b))
+          : prev
+      );
+    },
+    []
+  );
+
   // Admin Approval Actions
   const handleApproveBusiness = (bizId: string) => {
     let bizName = '';
-    setBusinesses((prev) =>
-      prev.map((b) => {
-        if (b.id === bizId) {
-          bizName = b.name;
-          return {
-            ...b,
-            status: 'active',
-            transferVerified: true,
-            lastStatusUpdate: 'Aprobado y publicado por administración'
-          };
-        }
-        return b;
-      })
-    );
+    applyToStates(bizId, (b) => {
+      bizName = b.name;
+      return {
+        ...b,
+        status: 'active' as const,
+        transferVerified: true,
+        lastStatusUpdate: 'Aprobado y publicado por administración'
+      };
+    });
     void syncMutation(bizId, 'approve');
     showToast(`✓ ¡Negocio "${bizName || 'Comercio'}" aprobado y visible en el mapa!`);
   };
 
   const handleRejectBusiness = (bizId: string) => {
     let bizName = '';
-    setBusinesses((prev) =>
-      prev.map((b) => {
-        if (b.id === bizId) {
-          bizName = b.name;
-          return {
-            ...b,
-            status: 'rejected',
-            lastStatusUpdate: 'Rechazado por administración'
-          };
-        }
-        return b;
-      })
-    );
+    applyToStates(bizId, (b) => {
+      bizName = b.name;
+      return {
+        ...b,
+        status: 'rejected' as const,
+        lastStatusUpdate: 'Rechazado por administración'
+      };
+    });
     void syncMutation(bizId, 'reject');
     showToast(`Negocio "${bizName || 'Comercio'}" rechazado.`);
   };
 
   // Admin Actions
   const handleToggleVerify = (bizId: string) => {
-    setBusinesses((prev) =>
-      prev.map((b) => (b.id === bizId ? { ...b, transferVerified: !b.transferVerified, status: !b.transferVerified ? 'active' : 'pending' } : b))
-    );
+    applyToStates(bizId, (b) => ({
+      ...b,
+      transferVerified: !b.transferVerified,
+      status: !b.transferVerified ? ('active' as const) : ('pending' as const)
+    }));
     void syncMutation(bizId, 'verify');
     showToast('Estado de verificación TransferCuba actualizado');
   };
 
   const handleDeleteBusiness = (bizId: string) => {
-    setBusinesses((prev) => prev.filter((b) => b.id !== bizId));
+    applyToStates(bizId, (b) => b, true);
     void syncMutation(bizId, 'delete');
     if (selectedBusiness?.id === bizId) {
       setSelectedBusiness(null);
@@ -481,10 +570,14 @@ export default function Home() {
     searchQuery
   ]);
 
-  // Filtered & Ranked Businesses calculation (PostGIS ST_DWithin simulation)
+  // Filtered & Ranked Businesses calculation.
+  // Sprint 3: el server ya aplicó filtros+bbox vía PostGIS; aquí solo
+  // garantizamos status activo (defensa), admin-override y orden final.
   const filteredBusinesses = useMemo(() => {
-    // 0. Only show businesses that have been approved by an administrator
-    let result = businesses.filter((b) => b.status === 'active');
+    // Admin panel open: usar dataset completo (todos los status)
+    let result = (adminAllBusinesses ?? businesses).filter((b) =>
+      adminAllBusinesses ? true : b.status === 'active'
+    );
 
     // 1. Filter by Province
     if (selectedProvince !== 'all') {
@@ -568,6 +661,7 @@ export default function Home() {
     return result;
   }, [
     businesses,
+    adminAllBusinesses,
     searchQuery,
     selectedProvince,
     selectedMunicipality,
@@ -596,6 +690,7 @@ export default function Home() {
         onMapClick={(coords) => {
           if (isPinningMode) setPinLocation(coords);
         }}
+        onViewportChange={(bbox) => setViewportBbox(bbox)}
         routeGeometry={activeRoute?.route.geometry || null}
       />
     </MapErrorBoundary>
@@ -775,7 +870,11 @@ export default function Home() {
       {/* DevParadise Admin Dashboard Modal */}
       <AdminDashboardModal
         isOpen={isAdminModalOpen}
-        onClose={() => setIsAdminModalOpen(false)}
+        onOpen={fetchAdminAll}
+        onClose={() => {
+          handleAdminClose();
+          setIsAdminModalOpen(false);
+        }}
         businesses={businesses}
         onToggleVerify={handleToggleVerify}
         onToggleTransferActive={handleToggleTransferActive}
