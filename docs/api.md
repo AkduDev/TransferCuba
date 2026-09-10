@@ -4,8 +4,11 @@ Base URL (dev): `http://localhost:3000/api/businesses`
 
 Todos los endpoints devuelven JSON con campo `success: boolean`.
 
-> **Nota:** el store es in-memory (se reinicia con el server). Diseñado para
-> reemplazarse por PostgreSQL/PostGIS.
+> **Persistencia (Sprint 2):** con `DATABASE_URL` configurada (Neon
+> PostgreSQL + PostGIS) las consultas usan índices GIST (`bbox &&`,
+> `ST_DWithin`, `ST_Distance`). Sin la variable, la API cae a un fallback
+> in-memory con el seed — idéntico comportamiento para desarrollo. Ver
+> `db/schema.sql`, `db/seed.sql` y `docs/roadmap.md`.
 
 ---
 
@@ -17,6 +20,7 @@ Lista negocios con filtros, radio de búsqueda y orden por distancia.
 
 | Param | Tipo | Default | Descripción |
 |---|---|---|---|
+| `bbox` | `w,s,e,n` | — | Viewport: solo negocios dentro del envelope (Sprint 3) |
 | `lat` | number | — | Latitud del origen (habilita distancia + radius) |
 | `lng` | number | — | Longitud del origen |
 | `radius` | number (m) | — | Radio máximo estilo `ST_DWithin` (ej. `2000` = 2 km) |
@@ -27,6 +31,7 @@ Lista negocios con filtros, radio de búsqueda y orden por distancia.
 | `activeNow` | `true`/`false` | — | `true` = solo `transferActiveNow` |
 | `verification` | string | `all` | `verified` \| `pending` \| `reported` |
 | `q` | string | — | Búsqueda de texto (name, description, address, municipality, neighborhood) |
+| `limit` | number | `500` | Máximo 500 por respuesta |
 
 ### Orden
 - Con `lat`+`lng`: ascendente por distancia (Haversine; `ST_DDistance` en
@@ -110,6 +115,9 @@ Acciona sobre un negocio existente. Solo un action por request.
 | Action | Efecto | Payload |
 |---|---|---|
 | `verify` | Toggle/forzar `transferVerified` + recalcular status | `{ verified?: boolean }` |
+| `approve` | status → `active` + verificado (admin) | — |
+| `reject` | status → `rejected` (admin) | — |
+| `delete` | Elimina el negocio | — |
 | `toggleTransferActive` | Alterna `transferActiveNow` | — |
 | `vote` | +1 confirmación o +1 reporte | `{ isConfirm: boolean }` |
 | `report` | +1 `reportsCount` | — |

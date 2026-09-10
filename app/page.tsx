@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import GoogleMapsTopBar from '@/components/GoogleMapsTopBar';
 import GoogleMapsDesktopPanel from '@/components/GoogleMapsDesktopPanel';
@@ -41,7 +41,8 @@ const MapLibreMap = dynamic(() => import('@/components/MapLibreMap'), {
 });
 
 export default function Home() {
-  // Persistence state
+  // Persistence state — localStorage actúa como cache offline (no como DB).
+  // Sprint 2: la fuente de verdad es la API (PostGIS en producción).
   const [businesses, setBusinesses] = useState<Business[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('transfercuba_businesses_v2');
@@ -56,12 +57,52 @@ export default function Home() {
     return INITIAL_BUSINESSES;
   });
 
-  // Save to localStorage
+  // Hydrate from API on mount (reemplaza el seed/localStorage como fuente)
+  const [isSyncingFromApi, setIsSyncingFromApi] = useState(true);
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/businesses?limit=500', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = (await res.json()) as { success: boolean; businesses: Business[] };
+        if (!cancelled && data.success && Array.isArray(data.businesses)) {
+          setBusinesses(data.businesses);
+        }
+      } catch {
+        // offline: seguimos con cache local
+      } finally {
+        if (!cancelled) setIsSyncingFromApi(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Persist to localStorage (offline cache)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !isSyncingFromApi) {
       localStorage.setItem('transfercuba_businesses_v2', JSON.stringify(businesses));
     }
-  }, [businesses]);
+  }, [businesses, isSyncingFromApi]);
+
+  // Server sync helper — envía mutations a la API (PostGIS) best-effort;
+  // si falla (offline), el estado local queda como cache hasta el próximo sync.
+  const syncMutation = useCallback(
+    async (id: string, action: string, payload?: Record<string, unknown>) => {
+      try {
+        await fetch('/api/businesses', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, action, payload })
+        });
+      } catch {
+        // offline: la optimización local persiste en localStorage
+      }
+    },
+    []
+  );
 
   // Search & Filter states matching the ASCII wireframe
   const [searchQuery, setSearchQuery] = useState('');
@@ -231,6 +272,7 @@ export default function Home() {
         return b;
       })
     );
+    void syncMutation(bizId, 'vote', { isConfirm });
     showToast(isConfirm ? '✓ Voto registrado: Confirmado activo hoy' : 'Reporte registrado para moderación');
   };
 
@@ -261,6 +303,7 @@ export default function Home() {
           : null
       );
     }
+    void syncMutation(bizId, 'toggleTransferActive');
     showToast('Estado de transferencia en vivo actualizado');
   };
 
@@ -269,6 +312,7 @@ export default function Home() {
     setBusinesses((prev) =>
       prev.map((b) => (b.id === bizId ? { ...b, reportsCount: b.reportsCount + 1 } : b))
     );
+    void syncMutation(bizId, 'report');
     showToast(`✓ Reporte enviado al equipo TransferCuba: "${reason.slice(0, 30)}..."`);
   };
 
@@ -315,6 +359,13 @@ export default function Home() {
     setIsPinningMode(false);
     setPinLocation(null);
 
+    // Persistir en PostGIS via API (best-effort, offline-safe)
+    void fetch('/api/businesses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newBiz)
+    }).catch(() => {});
+
     showToast('🎉 ¡Negocio recibido! Queda 🟡 Pendiente de aprobación por un administrador antes de publicarse.');
   };
 
@@ -349,6 +400,7 @@ export default function Home() {
         return b;
       })
     );
+    void syncMutation(bizId, 'approve');
     showToast(`✓ ¡Negocio "${bizName || 'Comercio'}" aprobado y visible en el mapa!`);
   };
 
@@ -367,6 +419,7 @@ export default function Home() {
         return b;
       })
     );
+    void syncMutation(bizId, 'reject');
     showToast(`Negocio "${bizName || 'Comercio'}" rechazado.`);
   };
 
@@ -375,11 +428,13 @@ export default function Home() {
     setBusinesses((prev) =>
       prev.map((b) => (b.id === bizId ? { ...b, transferVerified: !b.transferVerified, status: !b.transferVerified ? 'active' : 'pending' } : b))
     );
+    void syncMutation(bizId, 'verify');
     showToast('Estado de verificación TransferCuba actualizado');
   };
 
   const handleDeleteBusiness = (bizId: string) => {
     setBusinesses((prev) => prev.filter((b) => b.id !== bizId));
+    void syncMutation(bizId, 'delete');
     if (selectedBusiness?.id === bizId) {
       setSelectedBusiness(null);
     }
