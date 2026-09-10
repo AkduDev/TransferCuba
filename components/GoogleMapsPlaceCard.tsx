@@ -1,16 +1,7 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
 import {
-  Utensils,
-  ShoppingBag,
-  Pill,
-  Coffee,
-  Smartphone,
-  Wrench,
-  Shirt,
-  Store,
   Star,
   Navigation,
   MessageCircle,
@@ -19,40 +10,11 @@ import {
   BadgeCheck
 } from 'lucide-react';
 import { Business, formatDistance } from '@/lib/cuba-data';
+import { getCategoryStyle } from '@/lib/category-style';
+import BusinessCover from '@/components/BusinessCover';
 
-export interface CategoryStyle {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  iconBg: string;
-}
-
-export function getCategoryStyle(categoryKey: string): CategoryStyle {
-  const cat = (categoryKey || '').toLowerCase();
-
-  if (cat.includes('comida') || cat.includes('restaurante')) {
-    return { icon: Utensils, label: 'Gastronomía', iconBg: 'bg-saffron/10 text-saffron' };
-  }
-  if (cat.includes('cafe') || cat.includes('cafeteria') || cat.includes('panaderia')) {
-    return { icon: Coffee, label: 'Cafetería', iconBg: 'bg-saffron/10 text-saffron' };
-  }
-  if (cat.includes('tienda') || cat.includes('mercado')) {
-    return { icon: ShoppingBag, label: 'Tienda', iconBg: 'bg-cerulean/10 text-cerulean' };
-  }
-  if (cat.includes('farmacia') || cat.includes('salud')) {
-    return { icon: Pill, label: 'Farmacia', iconBg: 'bg-crimson/10 text-crimson' };
-  }
-  if (cat.includes('servicio') || cat.includes('celular') || cat.includes('reparacion')) {
-    return { icon: Smartphone, label: 'Servicios', iconBg: 'bg-cerulean/10 text-cerulean' };
-  }
-  if (cat.includes('ferreteria') || cat.includes('hogar')) {
-    return { icon: Wrench, label: 'Ferretería', iconBg: 'bg-slate-500/10 text-slate-600' };
-  }
-  if (cat.includes('ropa') || cat.includes('calzado') || cat.includes('moda')) {
-    return { icon: Shirt, label: 'Ropa', iconBg: 'bg-cerulean-dark/10 text-cerulean-dark' };
-  }
-
-  return { icon: Store, label: 'Comercio', iconBg: 'bg-slate-500/10 text-slate-600' };
-}
+export { getCategoryStyle };
+export type { CategoryStyle } from '@/lib/category-style';
 
 /* Badges de pago — tokens del design system Stitch */
 function PaymentBadge({ kind }: { kind: 'tm' | 'ez' | 'qr' | 'cash' }) {
@@ -87,7 +49,6 @@ export default function GoogleMapsPlaceCard({
   isSelected = false
 }: GoogleMapsPlaceCardProps) {
   const catStyle = getCategoryStyle(business.category);
-  const CategoryIcon = catStyle.icon;
 
   return (
     <article
@@ -134,23 +95,13 @@ export default function GoogleMapsPlaceCard({
           </div>
         </div>
 
-        {/* Miniatura */}
-        <div className="w-[72px] h-[72px] rounded-lg overflow-hidden relative border border-border-subtle bg-slate-100 flex-shrink-0">
-          {business.photos && business.photos.length > 0 ? (
-            <Image
-              src={business.photos[0]}
-              alt={business.name}
-              fill
-              className="object-cover group-hover:scale-105 transition-transform duration-300"
-              sizes="72px"
-              referrerPolicy="no-referrer"
-            />
-          ) : (
-            <div className={`w-full h-full flex items-center justify-center ${catStyle.iconBg}`}>
-              <CategoryIcon className="w-6 h-6" />
-            </div>
-          )}
-        </div>
+        {/* Miniatura: foto real (lazy) o icono de categoría */}
+        <BusinessCover
+          business={business}
+          variant="thumb"
+          className="w-[72px] h-[72px] group-hover:scale-105 transition-transform duration-300"
+          sizes="72px"
+        />
       </div>
 
       {/* Divider + badges de pago (código de color nacional) */}

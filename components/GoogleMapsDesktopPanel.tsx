@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import Image from 'next/image';
 import {
   ChevronLeft,
   ChevronRight,
@@ -27,6 +26,7 @@ import {
 } from 'lucide-react';
 import { Business, formatDistance } from '@/lib/cuba-data';
 import GoogleMapsPlaceCard from '@/components/GoogleMapsPlaceCard';
+import BusinessCover from '@/components/BusinessCover';
 
 interface GoogleMapsDesktopPanelProps {
   businesses: Business[];
@@ -164,22 +164,14 @@ export default function GoogleMapsDesktopPanel({
             </div>
 
             <div className="flex-1 overflow-y-auto">
-              {/* Hero compacto */}
+              {/* Hero compacto: foto real (lazy) o placeholder por categoría */}
               <div className="relative h-40 flex-shrink-0">
-                {selectedBusiness.photos && selectedBusiness.photos.length > 0 ? (
-                  <Image
-                    src={selectedBusiness.photos[0]}
-                    alt={selectedBusiness.name}
-                    fill
-                    className="object-cover"
-                    referrerPolicy="no-referrer"
-                    sizes="480px"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-navy text-white text-4xl">
-                    {selectedBusiness.categoryIcon}
-                  </div>
-                )}
+                <BusinessCover
+                  business={selectedBusiness}
+                  className="w-full h-full"
+                  rounded="rounded-none"
+                  sizes="480px"
+                />
                 <div className="absolute inset-0 bg-gradient-to-t from-navy-deep/90 via-navy-deep/25 to-transparent" />
                 <div className="absolute bottom-3.5 left-4 right-4 text-white">
                   <div className="flex items-center gap-1.5 mb-1">

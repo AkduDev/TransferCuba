@@ -429,7 +429,7 @@ export default function Home() {
       phone: data.phone || '',
       rating: 5.0,
       reviewsCount: 1,
-      photos: data.photos && data.photos.length > 0 ? data.photos : ['https://picsum.photos/seed/cuba-biz/600/400'],
+      photos: data.photos ?? [],
       featured: false,
       status: 'pending'
     };

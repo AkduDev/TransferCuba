@@ -204,10 +204,7 @@ export const INITIAL_BUSINESSES: Business[] = [
     phone: '+5378321045',
     rating: 4.8,
     reviewsCount: 64,
-    photos: [
-      'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=600&q=80',
-      'https://images.unsplash.com/photo-1534723452862-4c874018d66d?auto=format&fit=crop&w=600&q=80'
-    ],
+    photos: [],
     featured: true,
     status: 'active'
   },
@@ -242,9 +239,7 @@ export const INITIAL_BUSINESSES: Business[] = [
     phone: '+5378624410',
     rating: 4.7,
     reviewsCount: 51,
-    photos: [
-      'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=600&q=80'
-    ],
+    photos: [],
     featured: true,
     status: 'active'
   },
@@ -279,9 +274,7 @@ export const INITIAL_BUSINESSES: Business[] = [
     phone: '+5378679021',
     rating: 4.9,
     reviewsCount: 38,
-    photos: [
-      'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=600&q=80'
-    ],
+    photos: [],
     featured: false,
     status: 'active'
   },
@@ -316,9 +309,7 @@ export const INITIAL_BUSINESSES: Business[] = [
     phone: '+5378783011',
     rating: 4.6,
     reviewsCount: 42,
-    photos: [
-      'https://images.unsplash.com/photo-1586015555751-63bb77f4322a?auto=format&fit=crop&w=600&q=80'
-    ],
+    photos: [],
     featured: false,
     status: 'active'
   },
@@ -353,9 +344,7 @@ export const INITIAL_BUSINESSES: Business[] = [
     phone: '+5378619940',
     rating: 4.8,
     reviewsCount: 77,
-    photos: [
-      'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=600&q=80'
-    ],
+    photos: [],
     featured: true,
     status: 'active'
   },
@@ -390,9 +379,7 @@ export const INITIAL_BUSINESSES: Business[] = [
     phone: '+5376402219',
     rating: 4.3,
     reviewsCount: 22,
-    photos: [
-      'https://images.unsplash.com/photo-1581783342308-f792dbdd27c5?auto=format&fit=crop&w=600&q=80'
-    ],
+    photos: [],
     featured: false,
     status: 'active'
   },
@@ -427,9 +414,7 @@ export const INITIAL_BUSINESSES: Business[] = [
     phone: '+5378304412',
     rating: 4.7,
     reviewsCount: 93,
-    photos: [
-      'https://images.unsplash.com/photo-1488459716781-31db52582fe9?auto=format&fit=crop&w=600&q=80'
-    ],
+    photos: [],
     featured: true,
     status: 'active'
   },
@@ -464,9 +449,7 @@ export const INITIAL_BUSINESSES: Business[] = [
     phone: '+5372049988',
     rating: 4.9,
     reviewsCount: 34,
-    photos: [
-      'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=600&q=80'
-    ],
+    photos: [],
     featured: false,
     status: 'active'
   },
@@ -501,9 +484,7 @@ export const INITIAL_BUSINESSES: Business[] = [
     phone: '+5324423311',
     rating: 4.8,
     reviewsCount: 45,
-    photos: [
-      'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=600&q=80'
-    ],
+    photos: [],
     featured: true,
     status: 'active'
   },
@@ -538,9 +519,7 @@ export const INITIAL_BUSINESSES: Business[] = [
     phone: '+5322651122',
     rating: 4.6,
     reviewsCount: 39,
-    photos: [
-      'https://images.unsplash.com/photo-1631549916768-4119b2e5f926?auto=format&fit=crop&w=600&q=80'
-    ],
+    photos: [],
     featured: false,
     status: 'active'
   },
@@ -575,9 +554,7 @@ export const INITIAL_BUSINESSES: Business[] = [
     phone: '+5345241199',
     rating: 4.5,
     reviewsCount: 23,
-    photos: [
-      'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&w=600&q=80'
-    ],
+    photos: [],
     featured: false,
     status: 'active'
   },
@@ -612,9 +589,7 @@ export const INITIAL_BUSINESSES: Business[] = [
     phone: '+5378330012',
     rating: 4.9,
     reviewsCount: 2,
-    photos: [
-      'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=600&q=80'
-    ],
+    photos: [],
     featured: false,
     status: 'pending'
   }

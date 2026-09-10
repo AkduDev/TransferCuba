@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import Image from 'next/image';
 import { 
   X, 
   Store, 
@@ -231,9 +230,6 @@ export default function RegisterBusinessModal({
   // Transfer Active Now
   const [transferActiveNow, setTransferActiveNow] = useState(true);
 
-  // Photo
-  const [selectedPhotoPreset, setSelectedPhotoPreset] = useState('https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=600&q=80');
-
   // Touched tracking for real-time validation display
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [showAllErrors, setShowAllErrors] = useState(false);
@@ -372,7 +368,7 @@ export default function RegisterBusinessModal({
       hours: hours.trim() || '09:00 — 18:00',
       whatsapp: waValidation.formatted || whatsapp.trim(),
       phone: phone.trim() || '+53 7830 1234',
-      photos: [selectedPhotoPreset],
+      photos: [],
       featured: false
     });
 
@@ -1021,47 +1017,16 @@ export default function RegisterBusinessModal({
             </div>
           </div>
 
-          {/* Section 5: Photo selection */}
+          {/* Photo info — placeholder automático por categoría */}
           <div className="space-y-2 pt-3 border-t border-slate-100">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
               5. Foto de Portada
             </h3>
-            <p className="text-xs text-slate-500">Selecciona una imagen representativa para la ficha del local:</p>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { url: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=600&q=80', label: 'Tienda & Market' },
-                { url: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=600&q=80', label: 'Pizzería / Comida' },
-                { url: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=600&q=80', label: 'Cafetería & Bar' }
-              ].map((img, idx) => (
-                <div
-                  key={idx}
-                  onClick={() => setSelectedPhotoPreset(img.url)}
-                  className={`relative cursor-pointer rounded-xl overflow-hidden h-20 border-2 transition-all group ${
-                    selectedPhotoPreset === img.url 
-                      ? 'border-emerald-500 ring-2 ring-cerulean/40 shadow-level-1' 
-                      : 'border-border-subtle opacity-75 hover:opacity-100'
-                  }`}
-                >
-                  <Image 
-                    src={img.url} 
-                    alt={img.label} 
-                    fill 
-                    className="object-cover" 
-                    referrerPolicy="no-referrer"
-                    sizes="180px"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
-                  <span className="absolute bottom-1.5 left-1.5 text-[11px] font-bold text-white drop-shadow-level-1">
-                    {img.label}
-                  </span>
-                  {selectedPhotoPreset === img.url && (
-                    <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center">
-                      <Check className="w-2.5 h-2.5" />
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
+            <p className="text-xs text-slate-500">
+              Se usará automáticamente el icono y color de tu categoría como
+              portada. Las fotos reales llegarán con la subida de imágenes
+              (próximamente) — sin dependencias externas.
+            </p>
           </div>
 
           {/* Validation summary banner if submit attempted with errors */}

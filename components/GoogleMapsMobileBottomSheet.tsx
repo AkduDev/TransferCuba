@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import Image from 'next/image';
-import { 
+import {
   ChevronUp, 
   ChevronDown, 
   MapPin, 
@@ -26,6 +25,7 @@ import {
 } from 'lucide-react';
 import { Business, formatDistance } from '@/lib/cuba-data';
 import GoogleMapsPlaceCard from '@/components/GoogleMapsPlaceCard';
+import BusinessCover from '@/components/BusinessCover';
 
 interface GoogleMapsMobileBottomSheetProps {
   businesses: Business[];
@@ -269,20 +269,13 @@ export default function GoogleMapsMobileBottomSheet({
           {/* Expanded Scrollable Details (Visible when sheet is half or full) */}
           {sheetState !== 'peek' && (
             <div className="flex-1 overflow-y-auto space-y-3.5 pt-2 pb-6">
-              {/* Photo banner */}
-              {selectedBusiness.photos && selectedBusiness.photos.length > 0 && (
-                <div className="relative h-36 rounded-2xl overflow-hidden bg-slate-950 flex-shrink-0 shadow-inner">
-                  <Image
-                    src={selectedBusiness.photos[0]}
-                    alt={selectedBusiness.name}
-                    fill
-                    className="object-cover"
-                    referrerPolicy="no-referrer"
-                    sizes="400px"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 to-transparent" />
-                </div>
-              )}
+              {/* Cover: foto real (lazy) o placeholder por categoría */}
+              <BusinessCover
+                business={selectedBusiness}
+                className="h-36 w-full shadow-inner"
+                rounded="rounded-2xl"
+                sizes="400px"
+              />
 
               {/* Address & Hours */}
               <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/90 text-xs text-slate-700 space-y-2">

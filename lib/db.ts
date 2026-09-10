@@ -86,6 +86,20 @@ export function isDbConfigured(): boolean {
 
 /* ---------------- conversión fila ⇄ dominio ---------------- */
 
+/**
+ * Sprint 5 (Cuba-first): descarta fotos de CDNs externos (unsplash/picsum).
+ * En Cuba esos dominios suelen ser lentos o inaccesibles; el placeholder
+ * local por categoría es siempre más rápido.
+ */
+const EXTERNAL_PHOTO_PATTERN = /unsplash|picsum|pexels|shutterstock/i;
+
+export function sanitizePhotos(photos: unknown): string[] {
+  if (!Array.isArray(photos)) return [];
+  return photos.filter(
+    (p): p is string => typeof p === 'string' && !EXTERNAL_PHOTO_PATTERN.test(p)
+  );
+}
+
 function rowToBusiness(r: Row): Business {
   return {
     id: r.id,
@@ -113,7 +127,7 @@ function rowToBusiness(r: Row): Business {
     phone: r.phone,
     rating: Number(r.rating),
     reviewsCount: r.reviews_count,
-    photos: r.photos ?? [],
+    photos: sanitizePhotos(r.photos),
     featured: r.featured,
     status: r.status,
     ...(r.distance_meters !== undefined && r.distance_meters !== null
@@ -145,7 +159,7 @@ const businessToInsert = (b: Business) => [
   b.rating,
   b.reviewsCount,
   b.featured,
-  JSON.stringify(b.photos),
+  JSON.stringify(sanitizePhotos(b.photos)),
   b.lastStatusUpdate,
   b.lat,
   b.lng
