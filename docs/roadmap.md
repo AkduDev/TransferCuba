@@ -61,6 +61,8 @@ PostgreSQL (Neon free)                        PMTiles Cuba
 "¿puede MapLibre pintar 100k?" a "¿puede PostGIS responder los 300 visibles
 en <50 ms?" — trivial con índice GIST.
 
+Progreso: Sprints 1-4 ✅ · Sprint 5 ⏳
+
 ## 3. Sprints
 
 ### Sprint 1 — Map Engine V2 (render) ✅ EN CURSO
@@ -137,20 +139,47 @@ LIMIT 500;
 5. Filtrados provincia/categoría server-side
 6. HTTP cache: `s-maxage=60, stale-while-revalidate=300` en Vercel edge
 
-### Sprint 4 — PMTiles de Cuba (basemap propio)
-Cuando queramos soberanía total del mapa (ya no depender de OpenFreeMap):
+### Sprint 4 — PMTiles de Cuba (basemap propio) ✅ HECHO
+Soberanía total del basemap: sin depender de OpenFreeMap en runtime.
 
 ```
-OSM planet/extract → Geofabrik cuba-latest.osm.pbf
-  → planetiler generate (schema OpenMapTiles, --area=cuba)
-  → cuba.pmtiles (~80-150 MB mundo→Cuba)
-  → R2/Backblaze/Neon storage (R2 free: 10 GB, sin egress fee)
+OSM extract → Geofabrik cuba-latest.osm.pbf (60 MB)
+  → planetiler v0.10.2 generate-openmaptiles --area=cuba --max-zoom=14
+    (requiere Java 21 — class file 65.0 — y datasets water/natural_earth)
+  → cuba.pmtiles (85 MB, 43k tiles, 16 layers con datos en Cuba)
+  → public/map/cuba.pmtiles (mismo origen; Vercel soporta HTTP Range)
   → pmtiles protocol en MapLibre (addProtocol)
+  → public/map/style.json = Positron local con URL inyectada en runtime
 ```
 
-- Cuba-only: ~100 MB vs 1.5 TB del planeta — egress irrelevante
-- Estilo Positron custom via Maputnik (colores del design system)
-- Zero dependencia de terceros para el basemap
+Pasos de regeneración (documentado tras build en `pmtiles-build/`):
+
+```bash
+# 1. Descargar planetiler v0.10.2 (GitHub release; Java 21 obligatorio)
+curl -L -o planetiler.jar \
+  https://github.com/onthegomap/planetiler/releases/download/v0.10.2/planetiler.jar
+
+# 2. Obtener extract de Cuba (Geofabrik)
+#    cuba-latest.osm.pbf
+
+# 3. Generar (los datasets water/natural_earth se auto-descorgan con --download=true;
+#    si quedan corruptos: borrar data/sources/*.zip y reintentar con resume `curl -C -`)
+java -Xmx10g -jar planetiler.jar generate-openmaptiles \
+  --osm-path=cuba-latest.osm.pbf --output=cuba.pmtiles \
+  --max-zoom=14 --download=true --force
+
+# 4. Copiar a public/ y validar
+cp cuba.pmtiles <repo>/public/map/
+./pmtiles show cuba.pmtiles   # bounds Cuba, tile type mvt, 0..14
+```
+
+- Cuba-only: 85 MB vs 1.5 TB del planeta — egress irrelevante
+- Estilo Positron _fork_ en `public/map/style.json`: glyphs/sprites siguen en
+  OpenFreeMap (gratis, cacheables); layers sin datos en el extract no fallan
+- Zero dependencia de terceros para el basemap en runtime
+- Fallback: si `style.json` o el pmtiles no están, cae a OpenFreeMap Positron
+- Escalado futuro sin reescribir el mapa: `NEXT_PUBLIC_PMTILES_URL` apunta a
+  R2/Backblaze (un solo swap de URL)
 
 ### Sprint 5 — Optimización Cuba-first (conectividad como restricción)
 Orden de carga (progressive enhancement):

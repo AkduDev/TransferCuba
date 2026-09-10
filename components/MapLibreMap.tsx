@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import type { GeoJSONSource, MapMouseEvent } from 'maplibre-gl';
+import { Protocol, PMTiles } from 'pmtiles';
 import { Business } from '@/lib/cuba-data';
 
 interface MapLibreMapProps {
@@ -20,8 +21,20 @@ interface MapLibreMapProps {
   onViewportChange?: (bbox: [number, number, number, number], zoom: number) => void;
 }
 
-// Vector basemap — OpenFreeMap Positron (free, unlimited, no API key).
-const BASEMAP_STYLE = 'https://tiles.openfreemap.org/styles/positron';
+// Basemap: PMTiles de Cuba propio (Sprint 4). Por defecto se sirve desde
+// /map/cuba.pmtiles (estático, mismo origen, soporta Range). Puede pasarse
+// NEXT_PUBLIC_PMTILES_URL para apuntar a otro host (p.ej. R2) sin usar API key.
+const PMTILES_URL = process.env.NEXT_PUBLIC_PMTILES_URL || '/map/cuba.pmtiles';
+const FALLBACK_STYLE = 'https://tiles.openfreemap.org/styles/positron';
+
+// Registra el protocolo pmtiles:// una sola vez, con el archivo de Cuba.
+let pmtilesProtocol: Protocol | null = null;
+function ensurePmtilesProtocol(): void {
+  if (pmtilesProtocol) return;
+  pmtilesProtocol = new Protocol();
+  maplibregl.addProtocol('pmtiles', pmtilesProtocol.tile);
+  pmtilesProtocol.add(new PMTiles(PMTILES_URL));
+}
 
 const SOURCE_ID = 'businesses-source';
 const LAYER_CLUSTER_ID = 'clusters-layer';
@@ -203,97 +216,117 @@ export default function MapLibreMap({
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
     const iconsCache = iconsCacheRef.current;
-
-    const map = new maplibregl.Map({
-      container: mapContainerRef.current,
-      style: BASEMAP_STYLE,
-      center: [centerLng, centerLat],
-      zoom: zoom,
-      attributionControl: false,
-      fadeDuration: 0,
-      maxTileCacheSize: 400,
-      transformRequest: (url: string) => {
-        return { url };
-      }
-    });
-
-    // Gracefully handle benign tile loading cancellations or network aborts
-    map.on('error', (e) => {
-      const err = e?.error;
-      const status = (err as unknown as { status?: number })?.status;
-      if (
-        !err ||
-        status === 0 ||
-        (err?.message && (
-          err.message.includes('Failed to fetch') ||
-          err.message.includes('AJAXError') ||
-          err.message.includes('aborted')
-        ))
-      ) {
-        return;
-      }
-      console.warn('MapLibre map notification:', e);
-    });
-
-    map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
-    map.addControl(
-      new maplibregl.AttributionControl({
-        compact: true,
-        customAttribution:
-          '<a href="https://openfreemap.org" target="_blank" rel="noreferrer">OpenFreeMap</a> © OpenMapTiles · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OSM</a>'
-      }),
-      'bottom-left'
-    );
-
-    mapInstanceRef.current = map;
-    lastViewRef.current = { lat: centerLat, lng: centerLng, zoom };
-
-    // Container ResizeObserver for seamless responsiveness
-    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
-    const resizeObserver = new ResizeObserver(() => {
-      if (resizeTimer) clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => {
-        if (mapInstanceRef.current) {
-          mapInstanceRef.current.resize();
-        }
-      }, 100);
-    });
-
-    if (mapContainerRef.current) {
-      resizeObserver.observe(mapContainerRef.current);
-    }
-
-    // Map click handler (pinning / generic clicks)
-    map.on('click', (e: MapMouseEvent) => {
-      const current = callbacksRef.current;
-      if (current.isPinningMode && current.onPinLocationChange) {
-        current.onPinLocationChange({ lat: e.lngLat.lat, lng: e.lngLat.lng });
-      } else if (current.onMapClick) {
-        current.onMapClick({ lat: e.lngLat.lat, lng: e.lngLat.lng });
-      }
-    });
-
-    // Viewport change (debounced) — feeds Sprint 3 server queries
+    let disposed = false;
     let moveendTimer: ReturnType<typeof setTimeout> | null = null;
-    map.on('moveend', () => {
-      if (moveendTimer) clearTimeout(moveendTimer);
-      moveendTimer = setTimeout(() => {
-        const cb = callbacksRef.current.onViewportChange;
-        if (!cb || !mapInstanceRef.current) return;
-        const b = mapInstanceRef.current.getBounds();
-        cb(
-          [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()],
-          mapInstanceRef.current.getZoom()
-        );
-      }, 250);
-    });
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+    let resizeObserver: ResizeObserver | null = null;
+
+    const initMap = async () => {
+      ensurePmtilesProtocol();
+      // Basemap propio (PMTiles Cuba); si el estilo local no existe, cae a
+      // OpenFreeMap Positron (gratuito e ilimitado).
+      let styleUrl: string | maplibregl.StyleSpecification = FALLBACK_STYLE;
+      try {
+        const styleRes = await fetch('/map/style.json');
+        const styleJson = (await styleRes.json()) as maplibregl.StyleSpecification;
+        const raw = JSON.stringify(styleJson).replace('__PMTILES_URL__', PMTILES_URL);
+        styleUrl = JSON.parse(raw) as maplibregl.StyleSpecification;
+      } catch {
+        // estilo local no disponible -> fallback
+      }
+      if (disposed || !mapContainerRef.current) return;
+
+      const map = new maplibregl.Map({
+        container: mapContainerRef.current,
+        style: styleUrl,
+        center: [centerLng, centerLat],
+        zoom: zoom,
+        attributionControl: false,
+        fadeDuration: 0,
+        maxTileCacheSize: 400,
+        transformRequest: (url: string) => {
+          return { url };
+        }
+      });
+
+      // Gracefully handle benign tile loading cancellations or network aborts
+      map.on('error', (e) => {
+        const err = e?.error;
+        const status = (err as unknown as { status?: number })?.status;
+        if (
+          !err ||
+          status === 0 ||
+          (err?.message && (
+            err.message.includes('Failed to fetch') ||
+            err.message.includes('AJAXError') ||
+            err.message.includes('aborted')
+          ))
+        ) {
+          return;
+        }
+        console.warn('MapLibre map notification:', e);
+      });
+
+      map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
+      map.addControl(
+        new maplibregl.AttributionControl({
+          compact: true,
+          customAttribution: PMTILES_URL
+            ? '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a> · TransferCuba'
+            : '<a href="https://openfreemap.org" target="_blank" rel="noreferrer">OpenFreeMap</a> © OpenMapTiles · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OSM</a>'
+        }),
+        'bottom-left'
+      );
+
+      mapInstanceRef.current = map;
+      lastViewRef.current = { lat: centerLat, lng: centerLng, zoom };
+
+      // Container ResizeObserver for seamless responsiveness
+      resizeObserver = new ResizeObserver(() => {
+        if (resizeTimer) clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.resize();
+          }
+        }, 100);
+      });
+
+      resizeObserver.observe(mapContainerRef.current);
+
+      // Map click handler (pinning / generic clicks)
+      map.on('click', (e: MapMouseEvent) => {
+        const current = callbacksRef.current;
+        if (current.isPinningMode && current.onPinLocationChange) {
+          current.onPinLocationChange({ lat: e.lngLat.lat, lng: e.lngLat.lng });
+        } else if (current.onMapClick) {
+          current.onMapClick({ lat: e.lngLat.lat, lng: e.lngLat.lng });
+        }
+      });
+
+      // Viewport change (debounced) — feeds Sprint 3 server queries
+      map.on('moveend', () => {
+        if (moveendTimer) clearTimeout(moveendTimer);
+        moveendTimer = setTimeout(() => {
+          const cb = callbacksRef.current.onViewportChange;
+          if (!cb || !mapInstanceRef.current) return;
+          const b = mapInstanceRef.current.getBounds();
+          cb(
+            [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()],
+            mapInstanceRef.current.getZoom()
+          );
+        }, 250);
+      });
+    };
+
+    void initMap();
 
     return () => {
+      disposed = true;
       if (moveendTimer) clearTimeout(moveendTimer);
       if (resizeTimer) clearTimeout(resizeTimer);
-      resizeObserver.disconnect();
+      resizeObserver?.disconnect();
       iconsCache.clear();
-      map.remove();
+      mapInstanceRef.current?.remove();
       mapInstanceRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
