@@ -427,7 +427,9 @@ export async function patchBusiness(
   };
 
   try {
-    const res = await pool.query(updates[action], [id, payload?.isConfirm ?? null]);
+    // Solo vote/verify usan el segundo parámetro; el resto espera exactamente 1
+    const params = action === 'vote' ? [id, payload?.isConfirm ?? null] : [id];
+    const res = await pool.query(updates[action], params);
     if (!res.rows.length) return null;
     if (action === 'delete') return null;
     const fetched = await queryBusinessesByIds([id]);
