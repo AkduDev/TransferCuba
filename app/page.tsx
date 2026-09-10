@@ -43,19 +43,11 @@ const MapLibreMap = dynamic(() => import('@/components/MapLibreMap'), {
 export default function Home() {
   // Persistence state — localStorage actúa como cache offline (no como DB).
   // Sprint 2: la fuente de verdad es la API (PostGIS en producción).
-  const [businesses, setBusinesses] = useState<Business[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('transfercuba_businesses_v2');
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch {
-          // fallback
-        }
-      }
-    }
-    return INITIAL_BUSINESSES;
-  });
+  // Estado inicial SIEMPRE vacío: el server renderiza la lista vacía y el
+  // cliente hidrata en useEffect (localStorage o INITIAL_BUSINESSES).
+  // Lee en el render inicial causaba hydration mismatch (React #418):
+  // server pintaba el seed con Date.now() del server y el cliente otros datos.
+  const [businesses, setBusinesses] = useState<Business[]>([]);
 
   // Search & Filter states (declarados primero: los usa el efecto de fetch)
   const [searchQuery, setSearchQuery] = useState('');
@@ -78,6 +70,31 @@ export default function Home() {
   const [isSyncingFromApi, setIsSyncingFromApi] = useState(true);
   const filtersVersionRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Hidratación offline: cache local primero, seed solo como último recurso.
+  // Corre post-mount (client only) para no romper la hidratación de React.
+  // Diferido un tick: el setState síncrono dentro del efecto dispara la regla
+  // react-hooks/set-state-in-effect (render en cascada).
+  useEffect(() => {
+    const hydrate = () => {
+      const saved = localStorage.getItem('transfercuba_businesses_v2');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved) as Business[];
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setBusinesses(parsed);
+            return;
+          }
+        } catch {
+          // cache corrupto -> seed
+        }
+      }
+      setBusinesses(INITIAL_BUSINESSES);
+    };
+    const t = setTimeout(hydrate, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     // debounce: espera a que paren los cambios de filtros/viewport

@@ -379,22 +379,50 @@ export default function MapLibreMap({
     // index for click resolution
     businessesByIdRef.current = new Map(businesses.map((b) => [b.id, b]));
 
-    const setupLayers = () => {
-      // Register any new runtime icons for this batch of businesses
+    const setupLayers = async () => {
+      // Register any new runtime icons for this batch of businesses.
+      // addImage exige un HTMLImageElement CARGADO (o ImageBitmap): un string
+      // dataURL o una Image sin decodificar produce width 0 y un
+      // IndexSizeError que tumba el mapa (MapErrorBoundary).
+      const pending: Promise<void>[] = [];
       businesses.forEach((biz) => {
         [false, true].forEach((sel) => {
           const id = iconIdFor(biz, sel);
           if (!map.hasImage(id) && !iconsCacheRef.current.has(id)) {
             iconsCacheRef.current.add(id);
-            const img = new Image();
-            img.src = makePinIcon(biz.categoryIcon, statusColor(biz), {
+            const iconCanvas = makePinIcon(biz.categoryIcon, statusColor(biz), {
               selected: sel,
               activeNow: biz.transferActiveNow
-            }).toDataURL('image/png');
-            map.addImage(id, img);
+            });
+            pending.push(
+              createImageBitmap(iconCanvas)
+                .then((bitmap) => {
+                  if (mapInstanceRef.current && !mapInstanceRef.current.hasImage(id)) {
+                    mapInstanceRef.current.addImage(id, bitmap, { pixelRatio: 2 });
+                  }
+                })
+                .catch(() => {
+                  // fallback: elemento <img> con decode()
+                  const el = new Image();
+                  el.src = iconCanvas.toDataURL('image/png');
+                  pending.push(
+                    el
+                      .decode()
+                      .then(() => {
+                        if (mapInstanceRef.current && !mapInstanceRef.current.hasImage(id)) {
+                          mapInstanceRef.current.addImage(id, el, { pixelRatio: 2 });
+                        }
+                      })
+                      .catch(() => {
+                        iconsCacheRef.current.delete(id);
+                      })
+                  );
+                })
+            );
           }
         });
       });
+      await Promise.all(pending);
 
       if (!map.getSource(SOURCE_ID)) {
         map.addSource(SOURCE_ID, {
