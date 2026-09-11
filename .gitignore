@@ -11,5 +11,6 @@ node_modules/
 
 # service worker generado por scripts/build-sw.mjs (regen. en cada build)
 public/sw.js
+public/sw.js.map
 public/workbox-*.js
 public/workbox-*.js.map

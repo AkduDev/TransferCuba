@@ -240,16 +240,20 @@ export default function MapLibreMap({
     const initMap = async () => {
       ensureWorkerUrl();
       ensurePmtilesProtocol();
-      // Basemap propio (PMTiles Cuba); si el estilo local no existe, cae a
-      // OpenFreeMap Positron (gratuito e ilimitado).
+      // Basemap propio (PMTiles Cuba): estilo Google Maps propio, cae a
+      // Positron local y por último a OpenFreeMap (gratuito e ilimitado).
       let styleUrl: string | maplibregl.StyleSpecification = FALLBACK_STYLE;
-      try {
-        const styleRes = await fetch('/map/style.json');
-        const styleJson = (await styleRes.json()) as maplibregl.StyleSpecification;
-        const raw = JSON.stringify(styleJson).replace('__PMTILES_URL__', PMTILES_URL);
-        styleUrl = JSON.parse(raw) as maplibregl.StyleSpecification;
-      } catch {
-        // estilo local no disponible -> fallback
+      for (const path of ['/map/transfercuba-style.json', '/map/style.json']) {
+        try {
+          const styleRes = await fetch(path);
+          if (!styleRes.ok) continue;
+          const styleJson = (await styleRes.json()) as maplibregl.StyleSpecification;
+          const raw = JSON.stringify(styleJson).replace('__PMTILES_URL__', PMTILES_URL);
+          styleUrl = JSON.parse(raw) as maplibregl.StyleSpecification;
+          break;
+        } catch {
+          // estilo local no disponible -> siguiente fallback
+        }
       }
       if (disposed || !mapContainerRef.current) return;
 

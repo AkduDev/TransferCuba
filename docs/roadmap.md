@@ -190,6 +190,30 @@ Orden de carga (progressive enhancement):
 5. Service worker (Workbox): precache assets estáticos + SWR datos/API + offline fallback; **tiles NO cacheados** (89 MB → rango 206 incompatible con Cache.put; basemap degrada a gris offline; decisionado para preservar bandwidth Vercel free)
 6. Quitar fotos seed externas del bundle → placeholder local SVG por categoría
 
+### Sprint 6 — Basemap estilo Google Maps ✅
+Reemplaza el Positron gris por un estilo propio con la estética Google Maps:
+agua azul, parques verdes, motorways clásicos ámbar/gold, roads blancas con
+jerarquía de casing, buildings en zoom 15+ (opacidad progresiva), labels
+jerarquizados (país → estado → ciudad → pueblo → villa) y boundaries con
+dash para estados.
+
+1. **`scripts/gen-style.mjs`** — generador Node del estilo (~53 layers) que
+   escribe `public/map/transfercuba-style.json` (54 KB). Si se toca la paleta,
+   se edita `C` y se re-ejecuta `node scripts/gen-style.mjs`.
+2. **`public/map/transfercuba-style.json`** — estilo propio; usa la misma
+   source `openmaptiles` (pmtiles://`__PMTILES_URL__`), glyphs/sprite sin
+   cambiar (OpenFreeMap). Los iconos `circle_11_black`/`airport_11` salen del
+   sprite `ofm_f384`.
+3. **`components/MapLibreMap.tsx`** — cascade: `/map/transfercuba-style.json`
+   → `/map/style.json` (Positron local) → OpenFreeMap CDN. El placeholder
+   `__PMTILES_URL__` se inyecta igual que antes.
+4. Verificado headless (Playwright): sky `#f0ede8`, agua `#a3d1f2` (17% en
+   vistas amplias de la bahía), roads `#ffffff` con casings, residential
+   `#edebe5` sobre bloques en z15, sin errores críticos en consola (solo 3
+   range de glyphs >128k que OpenFreeMap no tiene — benignos).
+
+### Sprint 7 — UX Google Maps (controles, búsqueda, panel) 🔜
+
 ## 4. Lo que NO haremos ahora (y por qué)
 
 - **Redis** — Postgres + HTTP cache cubre el volumen actual
