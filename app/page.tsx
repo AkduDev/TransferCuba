@@ -413,9 +413,12 @@ export default function Home() {
     showToast(`✓ Reporte enviado al equipo TransferCuba: "${reason.slice(0, 30)}..."`);
   };
 
-  // Register New Business
-  const handleRegisterBusiness = (data: Partial<Business>) => {
-    const newBiz: Business = {
+  // Register New Business — escribe vía API (PostGIS / in-memory) y, en éxito,
+  // usa el negocio DEVUELTO por el server (id `biz-*` canónico + status pending)
+  // para que los PATCH admin posteriores no fallen por ids divergentes.
+  // Sin red (Cuba offline): respaldo local con id propio, sync diferida.
+  const handleRegisterBusiness = async (data: Partial<Business>) => {
+    const localBiz: Business = {
       id: `tc-biz-${Date.now()}`,
       name: data.name || 'Nuevo Negocio',
       category: data.category || 'tiendas',
@@ -451,17 +454,28 @@ export default function Home() {
       status: 'pending'
     };
 
-    setBusinesses((prev) => [newBiz, ...prev]);
+    let createdViaApi = false;
+    try {
+      const res = await fetch('/api/businesses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(localBiz)
+      });
+      if (res.ok) {
+        const payload = (await res.json()) as { success?: boolean; business?: Business };
+        if (payload.success && payload.business) {
+          setBusinesses((prev) => [payload.business as Business, ...prev]);
+          createdViaApi = true;
+        }
+      }
+    } catch {
+      // offline: persiste en cache local y la lista local lo muestra
+    }
+
+    if (!createdViaApi) setBusinesses((prev) => [localBiz, ...prev]);
     setIsRegisterModalOpen(false);
     setIsPinningMode(false);
     setPinLocation(null);
-
-    // Persistir en PostGIS via API (best-effort, offline-safe)
-    void fetch('/api/businesses', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newBiz)
-    }).catch(() => {});
 
     showToast('🎉 ¡Negocio recibido! Queda 🟡 Pendiente de aprobación por un administrador antes de publicarse.');
   };

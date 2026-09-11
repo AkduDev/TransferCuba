@@ -17,7 +17,8 @@ import {
   HelpCircle,
   ExternalLink,
   Search as SearchIcon,
-  Compass
+  Compass,
+  Loader2
 } from 'lucide-react';
 import { Business, CUBAN_PROVINCES, CATEGORIES } from '@/lib/cuba-data';
 import { searchNominatimAddress, NominatimResult } from '@/lib/nominatim';
@@ -25,7 +26,7 @@ import { searchNominatimAddress, NominatimResult } from '@/lib/nominatim';
 interface RegisterBusinessModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (newBiz: Omit<Business, 'id' | 'rating' | 'reviewsCount' | 'confirmationsCount' | 'reportsCount' | 'status'>) => void;
+  onSubmit: (newBiz: Omit<Business, 'id' | 'rating' | 'reviewsCount' | 'confirmationsCount' | 'reportsCount' | 'status'>) => Promise<void>;
   pinLocation: { lat: number; lng: number } | null;
   onStartPinning: () => void;
   onPinLocationChange?: (coords: { lat: number; lng: number }) => void;
@@ -233,6 +234,7 @@ export default function RegisterBusinessModal({
   // Touched tracking for real-time validation display
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [showAllErrors, setShowAllErrors] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Helper to mark a field as touched on blur or change
   const markTouched = (field: string) => {
@@ -329,11 +331,11 @@ export default function RegisterBusinessModal({
     markTouched('whatsapp');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setShowAllErrors(true);
 
-    if (!isFormValid) {
+    if (!isFormValid || isSubmitting) {
       // Find first error element and scroll/focus
       return;
     }
@@ -342,37 +344,41 @@ export default function RegisterBusinessModal({
     const lat = pinLocation ? pinLocation.lat : currentProvinceData.center[0] + (Math.random() - 0.5) * 0.01;
     const lng = pinLocation ? pinLocation.lng : currentProvinceData.center[1] + (Math.random() - 0.5) * 0.01;
 
-    onSubmit({
-      name: name.trim(),
-      category,
-      categoryIcon: category === 'comida' ? 'Utensils' : category === 'farmacias' ? 'Pill' : 'ShoppingBag',
-      description: description.trim() || `Negocio con atención de calidad en ${municipality}, ${province}.`,
-      province,
-      municipality,
-      neighborhood: neighborhood.trim() || undefined,
-      address: address.trim(),
-      lat,
-      lng,
-      acceptsTransfer,
-      transferActiveNow,
-      transferDetails: {
-        transfermovil,
-        enzona,
-        qrPayment,
-        onlineGateway,
-        cash
-      },
-      transferVerified: false,
-      lastStatusUpdate: 'Pendiente de aprobación por administración',
-      lastUpdatedDate: new Date().toISOString(),
-      hours: hours.trim() || '09:00 — 18:00',
-      whatsapp: waValidation.formatted || whatsapp.trim(),
-      phone: phone.trim() || '+53 7830 1234',
-      photos: [],
-      featured: false
-    });
-
-    onClose();
+    setIsSubmitting(true);
+    try {
+      await onSubmit({
+        name: name.trim(),
+        category,
+        categoryIcon: category === 'comida' ? 'Utensils' : category === 'farmacias' ? 'Pill' : 'ShoppingBag',
+        description: description.trim() || `Negocio con atención de calidad en ${municipality}, ${province}.`,
+        province,
+        municipality,
+        neighborhood: neighborhood.trim() || undefined,
+        address: address.trim(),
+        lat,
+        lng,
+        acceptsTransfer,
+        transferActiveNow,
+        transferDetails: {
+          transfermovil,
+          enzona,
+          qrPayment,
+          onlineGateway,
+          cash
+        },
+        transferVerified: false,
+        lastStatusUpdate: 'Pendiente de aprobación por administración',
+        lastUpdatedDate: new Date().toISOString(),
+        hours: hours.trim() || '09:00 — 18:00',
+        whatsapp: waValidation.formatted || whatsapp.trim(),
+        phone: phone.trim() || '+53 7830 1234',
+        photos: [],
+        featured: false
+      });
+    } finally {
+      setIsSubmitting(false);
+      onClose();
+    }
   };
 
   return (
@@ -1080,14 +1086,24 @@ export default function RegisterBusinessModal({
                 <button
                   type="submit"
                   id="btn-submit-biz"
+                  disabled={isSubmitting}
                   className={`px-6 py-2.5 rounded-xl text-white font-bold text-sm shadow-level-2 transition-all flex items-center justify-center gap-2 w-full sm:w-auto ${
                     isFormValid 
                       ? 'bg-emerald-brand hover:bg-emerald-brand shadow-emerald-600/20 hover:shadow-level-2' 
                       : 'bg-emerald-brand hover:bg-emerald-brand opacity-90'
-                  }`}
+                  } ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
                 >
-                  <Check className="w-4 h-4" />
-                  <span>Enviar para Aprobación</span>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Enviando…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>Enviar para Aprobación</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
