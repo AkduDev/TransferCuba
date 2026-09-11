@@ -10,9 +10,11 @@ import {
   ChevronDown,
   Lock,
   SlidersHorizontal,
-  RotateCcw
+  RotateCcw,
+  Loader2
 } from 'lucide-react';
-import { CATEGORIES } from '@/lib/cuba-data';
+import { CATEGORIES, Business } from '@/lib/cuba-data';
+import type { NominatimResult } from '@/lib/nominatim';
 
 interface GoogleMapsTopBarProps {
   searchQuery: string;
@@ -35,6 +37,13 @@ interface GoogleMapsTopBarProps {
   hasActiveFilters: boolean;
   onResetFilters: () => void;
   onAdminClick?: () => void;
+  searchPlaces: NominatimResult[];
+  isGeocoding: boolean;
+  searchFocused: boolean;
+  onSearchFocusChange: (focused: boolean) => void;
+  searchSuggestions: Business[];
+  onSelectPlace: (place: NominatimResult) => void;
+  onSelectBusiness: (b: Business) => void;
 }
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -67,7 +76,14 @@ export default function GoogleMapsTopBar({
   onToggleFiltersModal,
   hasActiveFilters,
   onResetFilters,
-  onAdminClick
+  onAdminClick,
+  searchPlaces,
+  isGeocoding,
+  searchFocused,
+  onSearchFocusChange,
+  searchSuggestions,
+  onSelectPlace,
+  onSelectBusiness
 }: GoogleMapsTopBarProps) {
   const chipBase =
     'inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-[13px] font-semibold whitespace-nowrap border transition-all active:scale-95 flex-shrink-0 min-h-[44px]';
@@ -106,56 +122,142 @@ export default function GoogleMapsTopBar({
           <Menu className="w-5 h-5" />
         </button>
 
-        {/* Search sticky bar */}
-        <div className="flex-1 md:max-w-[480px] h-11 md:h-12 flex items-center bg-white rounded-lg border border-border-subtle shadow-level-3 px-3 gap-2 transition-all focus-within:border-cerulean focus-within:ring-2 focus-within:ring-cerulean/25">
-          <Search className="w-4.5 h-4.5 text-slate-400 flex-shrink-0" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Buscar negocios, direcciones…"
-            className="flex-1 min-w-0 text-sm bg-transparent text-text-primary font-medium placeholder:text-slate-400 focus:outline-none"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => onSearchChange('')}
-              aria-label="Borrar búsqueda"
-              className="flex items-center justify-center w-6 h-6 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors flex-shrink-0"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-          <div className="hidden sm:flex items-center gap-1 border-l border-border-subtle pl-2 flex-shrink-0">
-            <button
-              onClick={onNearMeClick}
-              aria-label="Buscar cerca de mí"
-              className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all ${
-                hasUserLocation
-                  ? 'text-cerulean bg-tm-bg'
-                  : 'text-slate-500 hover:text-cerulean hover:bg-slate-100'
-              }`}
-              title={hasUserLocation ? 'Ubicación activa' : 'Cerca de mí'}
-            >
-              <Navigation
-                className={`w-4 h-4 ${isLocating ? 'animate-spin text-cerulean' : ''}`}
-              />
-            </button>
-            <button
-              onClick={onToggleFiltersModal}
-              aria-label="Filtros avanzados"
-              className={`relative flex items-center justify-center w-8 h-8 rounded-lg transition-all ${
-                hasActiveFilters
-                  ? 'text-cerulean bg-tm-bg'
-                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-              title="Filtros avanzados"
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-              {hasActiveFilters && (
-                <span className="w-2 h-2 rounded-full bg-cerulean absolute top-1.5 right-1.5 ring-2 ring-white" />
-              )}
-            </button>
+        {/* Search sticky bar + autocomplete dropdown */}
+        <div className="relative flex-1 md:max-w-[480px]">
+          <div className="h-11 md:h-12 flex items-center bg-white rounded-lg border border-border-subtle shadow-level-3 px-3 gap-2 transition-all focus-within:border-cerulean focus-within:ring-2 focus-within:ring-cerulean/25">
+            <Search className="w-4.5 h-4.5 text-slate-400 flex-shrink-0" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              onFocus={() => onSearchFocusChange(true)}
+              onBlur={() => setTimeout(() => onSearchFocusChange(false), 150)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  onSearchFocusChange(false);
+                  e.currentTarget.blur();
+                }
+              }}
+              placeholder="Buscar negocios, direcciones…"
+              className="flex-1 min-w-0 text-sm bg-transparent text-text-primary font-medium placeholder:text-slate-400 focus:outline-none"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => onSearchChange('')}
+                aria-label="Borrar búsqueda"
+                className="flex items-center justify-center w-6 h-6 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors flex-shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <div className="hidden sm:flex items-center gap-1 border-l border-border-subtle pl-2 flex-shrink-0">
+              <button
+                onClick={onNearMeClick}
+                aria-label="Buscar cerca de mí"
+                className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all ${
+                  hasUserLocation
+                    ? 'text-cerulean bg-tm-bg'
+                    : 'text-slate-500 hover:text-cerulean hover:bg-slate-100'
+                }`}
+                title={hasUserLocation ? 'Ubicación activa' : 'Cerca de mí'}
+              >
+                <Navigation
+                  className={`w-4 h-4 ${isLocating ? 'animate-spin text-cerulean' : ''}`}
+                />
+              </button>
+              <button
+                onClick={onToggleFiltersModal}
+                aria-label="Filtros avanzados"
+                className={`relative flex items-center justify-center w-8 h-8 rounded-lg transition-all ${
+                  hasActiveFilters
+                    ? 'text-cerulean bg-tm-bg'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+                title="Filtros avanzados"
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+                {hasActiveFilters && (
+                  <span className="w-2 h-2 rounded-full bg-cerulean absolute top-1.5 right-1.5 ring-2 ring-white" />
+                )}
+              </button>
+            </div>
           </div>
+
+          {/* Autocomplete: Negocios (filtro) + Lugares (Nominatim) */}
+          {searchFocused && searchQuery.trim() !== '' && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl border border-border-subtle shadow-level-3 overflow-hidden max-h-[min(65vh,440px)] overflow-y-auto z-40">
+              {searchSuggestions.length > 0 && (
+                <div>
+                  <div className="px-3 pt-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 select-none">
+                    Negocios
+                  </div>
+                  {searchSuggestions.map((b) => (
+                    <button
+                      key={b.id}
+                      onClick={() => onSelectBusiness(b)}
+                      className="w-full flex items-center gap-3 px-3 py-2 min-h-[44px] text-left hover:bg-slate-50 transition-colors"
+                    >
+                      <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-tm-bg text-base flex-shrink-0">
+                        {CATEGORY_EMOJI[b.category] ?? '🏪'}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold text-text-primary truncate">
+                          {b.name}
+                        </span>
+                        <span className="block text-xs text-slate-500 truncate">
+                          {b.neighborhood || b.municipality} ·{' '}
+                          {CATEGORIES.find((c) => c.id === b.category)?.label ?? b.category}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className={searchSuggestions.length > 0 ? 'border-t border-border-subtle' : ''}>
+                <div className="px-3 pt-2.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 select-none">
+                  Lugares
+                </div>
+                {isGeocoding ? (
+                  <div className="flex items-center gap-2 px-3 py-3 text-sm text-slate-500">
+                    <Loader2 className="w-4 h-4 animate-spin text-cerulean" />
+                    Buscando lugares…
+                  </div>
+                ) : searchPlaces.length > 0 ? (
+                  searchPlaces.map((p) => {
+                    const parts = p.display_name.split(',').map((s) => s.trim());
+                    return (
+                      <button
+                        key={p.place_id}
+                        onClick={() => onSelectPlace(p)}
+                        className="w-full flex items-center gap-3 px-3 py-2 min-h-[44px] text-left hover:bg-slate-50 transition-colors"
+                      >
+                        <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-tm-bg flex-shrink-0">
+                          <MapPin className="w-4 h-4 text-cerulean" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-semibold text-text-primary truncate">
+                            {parts[0]}
+                          </span>
+                          <span className="block text-xs text-slate-500 truncate">
+                            {parts.slice(1).join(', ')}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })
+                ) : searchQuery.trim().length >= 3 ? (
+                  <div className="px-3 py-3 text-sm text-slate-500">
+                    Sin resultados para «{searchQuery.trim()}».
+                  </div>
+                ) : (
+                  <div className="px-3 py-3 text-xs text-slate-500">
+                    Escribe al menos 3 letras para ver direcciones (los negocios se filtran al teclear).
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Province selector pill (desktop) */}

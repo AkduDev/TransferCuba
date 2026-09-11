@@ -20,6 +20,8 @@ import {
   calculateDistanceMeters 
 } from '@/lib/cuba-data';
 import { calculateOSRMRoute, OSRMRouteResult } from '@/lib/osrm';
+import type { NominatimResult } from '@/lib/nominatim';
+import { searchNominatimAddressRateLimited } from '@/lib/nominatim';
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import { 
   Check, 
@@ -287,6 +289,48 @@ export default function Home() {
     }
   }, [showToast]);
 
+  // Geocoding (Sprint 8): sugerencias de lugares de Nominatim mientras se
+  // teclea. Debounce de 350ms por peticion + throttle de 1 req/s en el lib.
+  const [geocodePlaces, setGeocodePlaces] = useState<NominatimResult[]>([]);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const geocodeTokenRef = useRef(0);
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+    const token = ++geocodeTokenRef.current;
+    const debounceTimer = setTimeout(async () => {
+      if (q.length < 3) {
+        if (token !== geocodeTokenRef.current) return;
+        setGeocodePlaces([]);
+        setIsGeocoding(false);
+        return;
+      }
+      setIsGeocoding(true);
+      const places = await searchNominatimAddressRateLimited(q, selectedProvince);
+      if (token !== geocodeTokenRef.current) return;
+      setGeocodePlaces(places.slice(0, 5));
+      setIsGeocoding(false);
+    }, q.length < 3 ? 0 : 350);
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery, selectedProvince]);
+
+  const handleSelectPlace = useCallback(
+    (place: NominatimResult) => {
+      const lat = parseFloat(place.lat);
+      const lng = parseFloat(place.lon);
+      if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+      setMapCenter([lat, lng]);
+      setMapZoom(15);
+      const parts = place.display_name.split(',').map((p) => p.trim());
+      const shortName = parts.slice(0, 2).join(', ');
+      setSearchQuery(shortName);
+      setSearchFocused(false);
+      showToast(`📍 ${shortName}`);
+    },
+    [showToast]
+  );
+
   // Change province updates map center and resets municipality
   const handleProvinceChange = (provinceName: string) => {
     setSelectedProvince(provinceName);
@@ -377,6 +421,13 @@ export default function Home() {
       setIsDesktopPanelOpen(true);
       setMobileSheetState('peek');
     }
+  };
+
+  // Select a business suggestion from the search dropdown
+  const handleSelectSearchBusiness = (b: Business) => {
+    handleSelectBusiness(b);
+    setSearchQuery(b.name);
+    setSearchFocused(false);
   };
 
   // OSRM Calculate Route
@@ -823,6 +874,13 @@ export default function Home() {
         hasActiveFilters={hasActiveFilters}
         onResetFilters={handleResetFilters}
         onAdminClick={() => setIsAdminModalOpen(true)}
+        searchPlaces={geocodePlaces}
+        isGeocoding={isGeocoding}
+        searchFocused={searchFocused}
+        onSearchFocusChange={setSearchFocused}
+        searchSuggestions={filteredBusinesses.slice(0, 3)}
+        onSelectPlace={handleSelectPlace}
+        onSelectBusiness={handleSelectSearchBusiness}
       />
 
       {/* 3. Active OSRM Route Navigation Pill (Top Center) */}

@@ -58,6 +58,30 @@ producción serían consultas `ST_DWithin`/`ST_Distance` sobre PostGIS.
    categoría → transfer → activo ahora → QR/online → verificación → texto.
 3. Orden: por distancia a `userLocation` (si existe) o `featured`+`rating`.
 
+### Búsqueda con geocoding (Sprint 8)
+El buscador de la TopBar muestra un dropdown con dos secciones:
+- **Negocios**: primeras 3 sugerencias de `filteredBusinesses` (filtrado en
+  cliente, se actualiza al teclear). Click → `handleSelectSearchBusiness` →
+  vuela al negocio + abre el panel.
+- **Lugares**: resultados de Nominatim (`lib/nominatim.ts`). El estado vive en
+  `page.tsx`: `geocodePlaces`, `isGeocoding`, `searchFocused`, con `useEffect`
+  sobre `searchQuery`.
+
+Flujo del geocoding:
+1. Debounce de 350 ms al teclear (0 ms si la query baja de 3 letras, para
+   limpiar el dropdown al instante).
+2. `searchNominatimAddressRateLimited(query, province)` (Sprint 8) envuelve la
+   llamada con **throttle de 1 req/s real** (intervalo mínimo de 1100 ms medido
+   al completarse cada request) por política de uso de Nominatim; el `User-Agent`
+   se identifica como TransferCuba.
+3. Token `geocodeTokenRef` descarta respuestas obsoletas (race conditions al
+   teclear rápido). Máximo 5 lugares mostrados; contexto `, {provincia}, Cuba`.
+4. Click en un lugar → `handleSelectPlace`: `flyTo` (nuevo centro/zoom 15),
+   `searchQuery` se rellena con el nombre corto (primeros 2 segmentos de
+   `display_name`) y se cierra el dropdown.
+5. El dropdown se muestra solo con `searchFocused`; se cierra con Esc, blur o
+   al seleccionar.
+
 ### Ruta OSRM
 1. `handleCalculateRoute(business)` toma `userLocation` (o fallback Vedado).
 2. `calculateOSRMRoute()` (`lib/osrm.ts`) llama al demo server público de OSRM.
@@ -65,9 +89,15 @@ producción serían consultas `ST_DWithin`/`ST_Distance` sobre PostGIS.
    LineString) y `RouteInfoBar` muestra distancia/duración.
 
 ### Geocodificación Nominatim
-`RegisterBusinessModal` usa `searchNominatimAddress()` para autocompletar
-direcciones cubanas y `reverseNominatimCoords()` para inferir dirección desde
-el pin. Ambos con `countrycodes=cu` y header `User-Agent` identificándose.
+Dos consumidores:
+- `RegisterBusinessModal` usa `searchNominatimAddress()` para autocompletar
+  direcciones cubanas y `reverseNominatimCoords()` para inferir dirección desde
+  el pin.
+- El dropdown de búsqueda de la TopBar usa `searchNominatimAddressRateLimited()`
+  (mismo endpoint con `countrycodes=cu` y header `User-Agent` identificándose,
+  pero garantizando ≤1 req/s real).
+
+Ambos buscan solo dentro de Cuba.
 
 ## Estrategia de renderizado
 

@@ -232,10 +232,33 @@ desde sprints anteriores):
    errores de consola (solo benignos: glyph ranges >127k de emojis que
    OpenFreeMap no sirve, se renderizan localmente).
 
-### Sprint 8 — Búsqueda con geocoding (Nominatim) 🔜
-El buscador actual filtra negocios en cliente. Sprint 8 vuela a direcciones:
-autocomplete con `/search` (Nominatim, 1 req/s con User-Agent), selección →
-`flyTo`, y resultados de negocios mezclados con lugares.
+### Sprint 8 — Búsqueda con geocoding (Nominatim) ✅
+El buscador de la TopBar ahora vuela a direcciones reales de Cuba, mezclado
+con sugerencias de negocios:
+
+1. **Dropdown doble**: sección *Negocios* (3 primeras coincidencias de
+   `filteredBusinesses`) + sección *Lugares* (5 resultados de Nominatim).
+   Aparece al enfocar el input, se cierra con Esc/blur/selección.
+2. **Debounce + throttle**: 350 ms de espera al teclear y límite real de
+   1 req/s con `searchNominatimAddressRateLimited` (intervalo mínimo de
+   1100 ms medido al completarse cada request), cumpliendo la política de
+   Nominatim. `geocodeTokenRef` descarta respuestas fuera de orden.
+3. **Selección de lugar** → `handleSelectPlace`: `flyTo` al punto (zoom 15),
+   rellena el input con el nombre corto (`Ciudad, Provincia`) y cierra el
+   dropdown. Selección de negocio → vuela + abre el panel como siempre.
+4. Estados: `geocodePlaces`, `isGeocoding`, `searchFocused` en `page.tsx`;
+   el componente `GoogleMapsTopBar` solo renderiza.
+5. Verificado headless (Playwright): sugerencia de negocio clickeada →
+   panel + input rellenado; geocoding muestra spinner → 3 lugares; click en
+   "Plaza de la Revolución" → `flyTo` (cambio del 33.8% de píxeles) + input
+   "Plaza de la Revolución, La Habana" + dropdown cerrado; 0 errores JS.
+6. Documentado en `docs/architecture.md` (flujo de geocoding).
+
+### Sprint 9 — Marcadores más ricos y clusterización 🔜
+Los marcadores actuales son `Marker` de MapLibre con icono emoji/coma. Sprint 9
+los pasa a UI propia estilo Google (indicador transferencia en vivo,
+selected/hairstyle), agrupa en clusters a gran zoom (fuente geojson + `cluster`)
+y añade vista de tarjetas al seleccionar varios.
 
 ## 4. Lo que NO haremos ahora (y por qué)
 

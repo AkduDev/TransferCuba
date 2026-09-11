@@ -46,6 +46,29 @@ export async function searchNominatimAddress(query: string, province?: string): 
   }
 }
 
+// Politica de uso de Nominatim: maximo 1 req/s con User-Agent identificatorio.
+// Este wrapper garantiza un intervalo minimo entre peticiones reales (medido
+// al completarse cada request) y encola la siguiente hasta cumplirlo.
+const NOMINATIM_MIN_INTERVAL_MS = 1100;
+let lastNominatimRequestAt = 0;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function searchNominatimAddressRateLimited(
+  query: string,
+  province?: string
+): Promise<NominatimResult[]> {
+  const waitMs = Math.max(0, NOMINATIM_MIN_INTERVAL_MS - (Date.now() - lastNominatimRequestAt));
+  if (waitMs > 0) await sleep(waitMs);
+  try {
+    return await searchNominatimAddress(query, province);
+  } finally {
+    lastNominatimRequestAt = Date.now();
+  }
+}
+
 /**
  * Reverse geocode coordinates to get street and municipality name
  */
