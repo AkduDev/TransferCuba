@@ -20,6 +20,7 @@ import {
   calculateDistanceMeters 
 } from '@/lib/cuba-data';
 import { calculateOSRMRoute, OSRMRouteResult } from '@/lib/osrm';
+import type { Map as MaplibreMap } from 'maplibre-gl';
 import { 
   Check, 
   Sparkles,
@@ -248,10 +249,43 @@ export default function Home() {
   // Toast / notification feedback
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const showToast = (msg: string) => {
+  const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
-  };
+  }, []);
+
+  // Map controls (Sprint 7): instancia expuesta por MapLibreMap + UI estado
+  const mapRef = useRef<MaplibreMap | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Sincroniza el estado con el navegador (fullscreenchange es disparado
+  // tanto por requestFullscreen como por exitFullscreen / Esc).
+  useEffect(() => {
+    const onFullscreenChange = () =>
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () =>
+      document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
+
+  const handleZoomIn = useCallback(() => {
+    mapRef.current?.zoomIn();
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    mapRef.current?.zoomOut();
+  }, []);
+
+  const handleToggleFullscreen = useCallback(() => {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen();
+    } else {
+      void document.documentElement
+        .requestFullscreen()
+        .catch(() => showToast('No se pudo activar la pantalla completa.'));
+    }
+  }, [showToast]);
 
   // Change province updates map center and resets municipality
   const handleProvinceChange = (provinceName: string) => {
@@ -279,6 +313,15 @@ export default function Home() {
       return;
     }
 
+    // Re-centrado instantáneo si ya conocemos la ubicación (feedback rápido);
+    // además se vuelve a adquirir el GPS para refrescar precisión.
+    if (userLocation) {
+      setMapCenter([userLocation.lat, userLocation.lng]);
+      setMapZoom(15);
+      setIsLocationModalOpen(false);
+      showToast('📍 Re-centrado en tu ubicación GPS.');
+    }
+
     setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -292,17 +335,25 @@ export default function Home() {
         setMapZoom(15);
         setIsLocating(false);
         setIsLocationModalOpen(false);
-        showToast('📍 Ubicación detectada. Negocios ordenados por cercanía.');
+        showToast('📍 Ubicación GPS actualizada. Negocios ordenados por cercanía.');
       },
       (error) => {
         setIsLocating(false);
-        const defaultPreset = { lat: 23.1385, lng: -82.3842 };
-        setUserLocation(defaultPreset);
-        setUserLocationName('Vedado, La Habana');
-        setMapCenter([defaultPreset.lat, defaultPreset.lng]);
-        setMapZoom(14);
         setIsLocationModalOpen(false);
-        showToast('Ubicación fijada en Vedado, La Habana (referencia cubana).');
+        // Si ya había una ubicación previa, la mantenemos (no degradamos).
+        if (!userLocation) {
+          const defaultPreset = { lat: 23.1385, lng: -82.3842 };
+          setUserLocation(defaultPreset);
+          setUserLocationName('Vedado, La Habana');
+          setMapCenter([defaultPreset.lat, defaultPreset.lng]);
+          setMapZoom(14);
+        }
+        const denied = error.code === error.PERMISSION_DENIED;
+        showToast(
+          denied
+            ? 'Sin permiso de ubicación. Concede acceso e inténtalo de nuevo.'
+            : 'GPS no disponible ahora (señal/timeout). Reintenta.'
+        );
       },
       { timeout: 8000, enableHighAccuracy: true }
     );
@@ -723,6 +774,8 @@ export default function Home() {
         }}
         onViewportChange={(bbox) => setViewportBbox(bbox)}
         routeGeometry={activeRoute?.route.geometry || null}
+        mapRef={mapRef}
+        onMapReady={() => setMapReady(true)}
       />
     </MapErrorBoundary>
   );
@@ -809,7 +862,7 @@ export default function Home() {
         onSheetStateChange={setMobileSheetState}
       />
 
-      {/* 6. Google Maps Floating Controls (Bottom-Right: GPS Recenter + "+ Registrar" FAB) */}
+      {/* 6. Google Maps Floating Controls (Bottom-Right: GPS Recenter + Zoom + "+ Registrar" FAB) */}
       <GoogleMapsFloatingControls
         onNearMeClick={handleUseCurrentGps}
         hasUserLocation={userLocation !== null}
@@ -819,6 +872,11 @@ export default function Home() {
         selectedProvince={selectedProvince}
         hasBottomCardMobile={selectedBusiness !== null}
         sheetState={mobileSheetState}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        mapReady={mapReady}
+        isFullscreen={isFullscreen}
+        onFullscreenToggle={handleToggleFullscreen}
       />
 
       {/* Pinning Mode Confirmation Floating Control */}

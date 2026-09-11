@@ -4,10 +4,10 @@ import React from 'react';
 import { 
   Navigation, 
   PlusCircle, 
-  MapPin, 
-  Layers, 
-  ShieldCheck,
-  RotateCcw
+  Plus,
+  Minus,
+  Maximize,
+  Minimize
 } from 'lucide-react';
 
 interface GoogleMapsFloatingControlsProps {
@@ -19,6 +19,19 @@ interface GoogleMapsFloatingControlsProps {
   selectedProvince: string;
   hasBottomCardMobile: boolean;
   sheetState?: 'peek' | 'half' | 'full';
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
+  mapReady?: boolean;
+  isFullscreen?: boolean;
+  onFullscreenToggle?: () => void;
+}
+
+function iconButtonClass(active: boolean): string {
+  return `w-11 h-11 rounded-full bg-white shadow-level-2 border flex items-center justify-center active:scale-90 transition-all ${
+    active
+      ? 'text-cerulean border-cerulean ring-2 ring-cerulean/25'
+      : 'text-slate-600 hover:text-navy border-border-subtle hover:bg-slate-50'
+  }`;
 }
 
 export default function GoogleMapsFloatingControls({
@@ -29,7 +42,12 @@ export default function GoogleMapsFloatingControls({
   onProvinceClick,
   selectedProvince,
   hasBottomCardMobile,
-  sheetState = 'peek'
+  sheetState = 'peek',
+  onZoomIn,
+  onZoomOut,
+  mapReady = false,
+  isFullscreen = false,
+  onFullscreenToggle
 }: GoogleMapsFloatingControlsProps) {
   // Determine mobile bottom positioning with safe-area insets
   const mobilePositionClasses = (() => {
@@ -41,6 +59,8 @@ export default function GoogleMapsFloatingControls({
     }
     return 'bottom-[calc(82px+env(safe-area-inset-bottom,0px))] opacity-100 pointer-events-auto translate-y-0';
   })();
+
+  const zoomDisabled = !mapReady;
 
   return (
     <div
@@ -57,20 +77,53 @@ export default function GoogleMapsFloatingControls({
         <span>Registrar</span>
       </button>
 
-      {/* GPS Locate / My Location Circular Button */}
+      {/* GPS Locate / My Location Circular Button (re-centra y refresca) */}
       <button
         onClick={onNearMeClick}
         id="fab-gm-gps"
         aria-label="Centrar en mi ubicación"
-        className={`w-11 h-11 rounded-full bg-white shadow-level-2 border flex items-center justify-center active:scale-90 transition-all ${
-          hasUserLocation
-            ? 'text-cerulean border-cerulean ring-2 ring-cerulean/25'
-            : 'text-slate-600 hover:text-navy border-border-subtle hover:bg-slate-50'
-        }`}
-        title={hasUserLocation ? 'Ubicación GPS fijada' : 'Centrar en mi ubicación'}
+        className={iconButtonClass(hasUserLocation)}
+        title={hasUserLocation ? 'Re-centrar en mi ubicación GPS' : 'Centrar en mi ubicación'}
       >
         <Navigation className={`w-5 h-5 ${isLocating ? 'animate-spin text-cerulean' : ''}`} />
       </button>
+
+      {/* Zoom controls — vertical Google Maps-style pill */}
+      {(onZoomIn || onZoomOut) && (
+        <div className="flex flex-col items-center bg-white rounded-xl shadow-level-2 border border-border-subtle overflow-hidden">
+          <button
+            onClick={onZoomIn}
+            disabled={zoomDisabled}
+            aria-label="Acercar"
+            title="Acercar"
+            className="w-11 h-11 flex items-center justify-center text-slate-700 hover:bg-slate-100 active:scale-95 transition-all disabled:opacity-40 disabled:pointer-events-none"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+          <div className="w-6 h-px bg-border-subtle" />
+          <button
+            onClick={onZoomOut}
+            disabled={zoomDisabled}
+            aria-label="Alejar"
+            title="Alejar"
+            className="w-11 h-11 flex items-center justify-center text-slate-700 hover:bg-slate-100 active:scale-95 transition-all disabled:opacity-40 disabled:pointer-events-none"
+          >
+            <Minus className="w-5 h-5" />
+          </button>
+        </div>
+      )}
+
+      {/* Fullscreen toggle (Google Maps-style) */}
+      {onFullscreenToggle && (
+        <button
+          onClick={onFullscreenToggle}
+          aria-label={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+          title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+          className="w-11 h-11 rounded-full bg-white shadow-level-2 border border-border-subtle text-slate-600 hover:text-navy hover:bg-slate-50 flex items-center justify-center active:scale-90 transition-all"
+        >
+          {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+        </button>
+      )}
     </div>
   );
 }

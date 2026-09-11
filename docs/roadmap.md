@@ -212,7 +212,30 @@ dash para estados.
    `#edebe5` sobre bloques en z15, sin errores críticos en consola (solo 3
    range de glyphs >128k que OpenFreeMap no tiene — benignos).
 
-### Sprint 7 — UX Google Maps (controles, búsqueda, panel) 🔜
+### Sprint 7 — UX Google Maps: controles de mapa ✅
+Controles flotantes al nivel de Google Maps (la búsqueda y el panel ya existían
+desde sprints anteriores):
+
+1. **Zoom custom** (`GoogleMapsFloatingControls`): píldora vertical `+/−`
+   Google-style (blanca, hairline divider). Reemplaza al `NavigationControl`
+   de MapLibre. `MapLibreMap` expone la instancia vía `mapRef` prop y avisa
+   con `onMapReady` (evento `load`); los botones quedan deshabilitados hasta
+   que `page.tsx` marca `mapReady`.
+2. **Fullscreen**: botón circular con `Maximize/Minimize`; estado síncrono via
+   `fullscreenchange` (Esc incluido) en `page.tsx`. Error → toast.
+3. **GPS mejorado** (`handleUseCurrentGps`): si ya hay ubicación conocida,
+   re-centra al instante y refresca precisión en segundo plano; distingue
+   error de permiso vs timeout/señal en el toast; si el login previo existía,
+   no degrada al fallback Vedado.
+4. Verificado headless (Playwright): zoom cambia el render; fullscreen ON/OFF
+   con label que cambia; GPS con geolocation override → toast de éxito; sin
+   errores de consola (solo benignos: glyph ranges >127k de emojis que
+   OpenFreeMap no sirve, se renderizan localmente).
+
+### Sprint 8 — Búsqueda con geocoding (Nominatim) 🔜
+El buscador actual filtra negocios en cliente. Sprint 8 vuela a direcciones:
+autocomplete con `/search` (Nominatim, 1 req/s con User-Agent), selección →
+`flyTo`, y resultados de negocios mezclados con lugares.
 
 ## 4. Lo que NO haremos ahora (y por qué)
 

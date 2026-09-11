@@ -19,6 +19,8 @@ interface MapLibreMapProps {
   onMapClick?: (coords: { lat: number; lng: number }) => void;
   routeGeometry?: { type: 'LineString'; coordinates: [number, number][] } | null;
   onViewportChange?: (bbox: [number, number, number, number], zoom: number) => void;
+  mapRef?: React.RefObject<maplibregl.Map | null>;
+  onMapReady?: () => void;
 }
 
 // Basemap: PMTiles de Cuba propio (Sprint 4). Por defecto se sirve desde
@@ -198,7 +200,9 @@ export default function MapLibreMap({
   onPinLocationChange,
   onMapClick,
   routeGeometry,
-  onViewportChange
+  onViewportChange,
+  mapRef,
+  onMapReady
 }: MapLibreMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<maplibregl.Map | null>(null);
@@ -216,7 +220,8 @@ export default function MapLibreMap({
     isPinningMode,
     onPinLocationChange,
     onMapClick,
-    onViewportChange
+    onViewportChange,
+    onMapReady
   });
 
   useEffect(() => {
@@ -224,9 +229,10 @@ export default function MapLibreMap({
       isPinningMode,
       onPinLocationChange,
       onMapClick,
-      onViewportChange
+      onViewportChange,
+      onMapReady
     };
-  }, [isPinningMode, onPinLocationChange, onMapClick, onViewportChange]);
+  }, [isPinningMode, onPinLocationChange, onMapClick, onViewportChange, onMapReady]);
 
   // Initialize MapLibre GL instance
   useEffect(() => {
@@ -288,7 +294,6 @@ export default function MapLibreMap({
         console.warn('MapLibre map notification:', e);
       });
 
-      map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
       map.addControl(
         new maplibregl.AttributionControl({
           compact: true,
@@ -300,7 +305,13 @@ export default function MapLibreMap({
       );
 
       mapInstanceRef.current = map;
+      if (mapRef) mapRef.current = map;
       lastViewRef.current = { lat: centerLat, lng: centerLng, zoom };
+
+      // Notifica a la UI (controladores de zoom custom) cuando el mapa está listo
+      map.once('load', () => {
+        callbacksRef.current.onMapReady?.();
+      });
 
       // Container ResizeObserver for seamless responsiveness
       resizeObserver = new ResizeObserver(() => {
@@ -349,6 +360,7 @@ export default function MapLibreMap({
       iconsCache.clear();
       mapInstanceRef.current?.remove();
       mapInstanceRef.current = null;
+      if (mapRef) mapRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
