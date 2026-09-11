@@ -106,6 +106,36 @@ Ambos buscan solo dentro de Cuba.
 | `/` | Static (client component) | Toda la interactividad es client-side |
 | `/api/businesses` | Dynamic | GET/POST/PATCH, store in-memory |
 
+## Capas del mapa (Sprint 9)
+
+`MapLibreMap` monta un source GeoJSON `businesses-source` (`cluster:true`,
+`clusterRadius:55`, `clusterMaxZoom:14`, `clusterProperties.active`) y cinco
+capas idempotentes (re-añadidas si faltan):
+
+| Capa | Tipo | Filtro / nota |
+|---|---|---|
+| `clusters-layer` | circle | `point_count`; color data-driven: esmeralda si `active > 0` |
+| `cluster-count-layer` | symbol | `point_count_abbreviated` en blanco |
+| `unclustered-layer` | symbol | pins normales (`icon` property → id de imagen) |
+| `unclustered-selected-layer` | symbol | `selected == true`; icono sel a 1.18× |
+| `selected-business-halo` | circle | halo esmeralda difuminado bajo el pin sel |
+
+- **Iconos runtime**: canvas → `addImage` (pixelRatio 2), id
+  `pin-{categoryIcon}-{v|r|p|sel}-{on|off}`; la property `icon`/`iconSel` del
+  GeoJSON referencia el id exacto (evita re-construir el string en el layout).
+- **Selección**: el id seleccionado viaja como property `selected` del
+  GeoJSON (`businessesToGeoJSON(businesses, selectedId)`); al cambiar la
+  selección se relanza `setupLayers()` que hace `setData()` (barato).
+- **Setup resiliente**: `setupLayers` se dispara desde el effect de
+  negocios y desde el evento `load` del mapa, reintenta 3× hasta ver las 5
+  capas, y registra interacción (click/cursor/popup) una sola vez por
+  instancia (`mapInteractiveRef`).
+- **Limitación runtime**: este bundle de MapLibre descarta silenciosamente
+  capas con expresiones `feature-state` (sin throw). No usarlas; la selección
+  es data-driven vía properties.
+- **Debug**: en dev, `window.__MAP__` expone la instancia (lo usan los tests
+  de Playwright para proyectar coordenadas y clickear pins/clusters).
+
 ## Futuro: PostGIS
 
 El diseño está listo para migrar la capa de datos:

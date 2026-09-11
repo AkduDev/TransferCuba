@@ -254,11 +254,48 @@ con sugerencias de negocios:
    "Plaza de la Revolución, La Habana" + dropdown cerrado; 0 errores JS.
 6. Documentado en `docs/architecture.md` (flujo de geocoding).
 
-### Sprint 9 — Marcadores más ricos y clusterización 🔜
-Los marcadores actuales son `Marker` de MapLibre con icono emoji/coma. Sprint 9
-los pasa a UI propia estilo Google (indicador transferencia en vivo,
-selected/hairstyle), agrupa en clusters a gran zoom (fuente geojson + `cluster`)
-y añade vista de tarjetas al seleccionar varios.
+### Sprint 9 — Marcadores más ricos y clusterización ✅
+Pins y clusters al nivel de Google Maps, con la señal de "transferencia viva"
+como protagonista visual:
+
+1. **Emojis centralizados**: `CATEGORY_EMOJI` en `lib/cuba-data.ts` como única
+   fuente de verdad (arregla bug histórico: los pins dibujaban el texto
+   `ShoppingBag`/`Pill` de `categoryIcon` lucide). `GoogleMapsTopBar` y el mapa
+   consumen el mismo map.
+2. **Clusterización nativa**: source GeoJSON `cluster:true`
+   (`clusterRadius:55`, `clusterMaxZoom:14`) con `clusterProperties.active`
+   (suma de `activeNow`). Capa única `clusters-layer` con color data-driven:
+   esmeralda si algún negocio del grupo está activo, navy si no — el usuario
+   ve "dónde hay transferencia viva" sin hacer zoom.
+3. **Pin seleccionado + halo**: `unclustered-selected-layer` (icono sel a
+   1.18×, `icon-allow-overlap`) + `selected-business-halo` (círculo esmeralda
+   difuminado bajo el pin). El id seleccionado viaja como property `selected`
+   del GeoJSON y el refresh es un `setData()` barato.
+4. **Tarjeta de cluster**: click en cluster → `getClusterLeaves(8)` →
+   `onClusterClick({businesses, center})` → `page.tsx` muestra overlay con
+   filas (emoji + badge "● Activo" pulsante + barrio · categoría), botón
+   "Ver mapa" (easeTo z15) y cierre. Fallback: `getClusterExpansionZoom` si
+   el cluster no tiene negocios indexados.
+5. **Robustez del setup** (lección de este sprint): el armado de capas es
+   **idempotente** (`ensureLayer` re-añade lo que falte), se dispara tanto
+   desde el effect de negocios como desde el evento `load` del mapa, y
+   reintenta hasta 3× (900 ms) hasta que source + 5 capas estén montadas —
+   porque `style.load` y la creación async del mapa generan carreres.
+6. **Limitación documentada**: el runtime MapLibre de este proyecto **descarta
+   silenciosamente** capas con expresiones `feature-state` (no lanza error,
+   la capa no aparece en el style). Por eso la selección NO usa
+   feature-state: `selected` es una property del GeoJSON y las capas
+   filtran por ella.
+7. Verificado headless (Playwright): 5 capas presentes tras carga; a z10
+   cluster de 6 (6 activos → esmeralda); click → tarjeta con filas reales;
+   click en fila → tarjeta se cierra, panel abre, capa sel + halo renderizan
+   el negocio correcto con su icono; 0 errores JS; `bun run build` OK.
+
+### Sprint 10 — Persistencia real (PostGIS/Neon) 🔜
+Ejecuta el Sprint 2-3 del plan: migrar `INITIAL_BUSINESSES` a Postgres
+(Neon free, extensión PostGIS, índice GIST), API routes sobre SQL con
+filtrado server-side, queries por viewport (bbox) y eliminación del
+doble store localStorage/memoria.
 
 ## 4. Lo que NO haremos ahora (y por qué)
 
@@ -291,3 +328,41 @@ arquitectura de arriba está diseñada para que cada pieza sea reemplazable.
    antes de tiempo
 5. **Votos idempotentes** vía `updated_at` + clave única por (user, business)
    cuando haya auth — hoy cuenta local
+6. **Selección sin feature-state** (Sprint 9) — el runtime MapLibre del
+   proyecto descarta capas con expresiones `feature-state` sin error visible;
+   `selected` viaja como property del GeoJSON y el refresh es `setData()`
+
+## 7. Tareas pendientes (backlog)
+
+### Sprint 10 — Persistencia real PostGIS/Neon (siguiente)
+- [ ] Proyecto Neon free + extensión `postgis`
+- [ ] Esquema `businesses` + `geom geography(Point,4326)` + índice GIST
+- [ ] Migrar `INITIAL_BUSINESSES` → `seed.sql` (fuera del bundle JS)
+- [ ] API routes sobre SQL (`pg` directo); GET acepta `bbox` (viewport queries)
+- [ ] Unificar stores: eliminar doble fuente localStorage/memoria
+- [ ] `page.tsx` consume `GET /api/businesses` (hoy solo localStorage)
+- [ ] Registro → `POST /api/businesses` real (hoy no llama al API)
+- [ ] HTTP cache edge: `s-maxage=60, stale-while-revalidate=300`
+
+### Deuda técnica vista en Sprint 9 (ordenada por prioridad)
+- [ ] **DB caída en dev**: `queryBusinesses` en `lib/db.ts` lanza
+      `ECONNRESET` y cae siempre al store in-memory (el pool de Neon muere
+      tras idle). Verificar connectionString/reconnect antes de Sprint 10.
+- [ ] **Auth en panel admin**: `AdminDashboardModal` accesible sin login.
+- [ ] **Glyphs emoji 404**: OpenFreeMap no sirve rangos >127k (emojis del
+      popup hover); se renderizan localmente con warning. Opción: sprite
+      propio o quitar emoji del popup.
+- [ ] **CSS MapLibre por CDN** en `layout.tsx` → importarlo del paquete.
+- [ ] **Fuentes por `<link>`** → `next/font` (elimina warning ESLint).
+- [ ] **`bun run build` lento en local** (>10 min con el dev server muerto);
+      compilar en CI o investigar watcher colgado.
+- [ ] Fotos seed externas (Picsum/Unsplash) fuera del bundle → SVG local por
+      categoría (resto del Sprint 5).
+- [ ] Self-host OSRM cuando el demo público sea cuello de botella.
+
+### Mejoras de mapa (post-10)
+- [ ] Hover en clusters (cursor + outline) igual que pins
+- [ ] Animación de "expansión" al abrir cluster (hoy easeTo directo)
+- [ ] Tarjeta de cluster: paginar >8 negocios con "Ver más"
+- [ ] Reproducir el bug MapLibre `feature-state` en issue upstream (bundle
+      `public/map/maplibre-gl-shared.mjs`) y valorar upgrade del runtime

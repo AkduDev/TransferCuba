@@ -13,7 +13,7 @@ import {
   RotateCcw,
   Loader2
 } from 'lucide-react';
-import { CATEGORIES, Business } from '@/lib/cuba-data';
+import { CATEGORIES, CATEGORY_EMOJI, Business } from '@/lib/cuba-data';
 import type { NominatimResult } from '@/lib/nominatim';
 
 interface GoogleMapsTopBarProps {
@@ -45,16 +45,6 @@ interface GoogleMapsTopBarProps {
   onSelectPlace: (place: NominatimResult) => void;
   onSelectBusiness: (b: Business) => void;
 }
-
-const CATEGORY_EMOJI: Record<string, string> = {
-  comida: '🍽️',
-  tiendas: '🛍️',
-  farmacias: '💊',
-  cafeterias: '☕',
-  servicios: '📱',
-  ferreteria: '🔧',
-  ropa: '👕'
-};
 
 export default function GoogleMapsTopBar({
   searchQuery,

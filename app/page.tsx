@@ -13,21 +13,25 @@ import RegisterBusinessModal from '@/components/RegisterBusinessModal';
 import AdminDashboardModal from '@/components/AdminDashboardModal';
 import LocationPickerModal from '@/components/LocationPickerModal';
 import MapErrorBoundary from '@/components/MapErrorBoundary';
-import { 
-  Business, 
-  INITIAL_BUSINESSES, 
-  CUBAN_PROVINCES, 
-  calculateDistanceMeters 
+import {
+  Business,
+  INITIAL_BUSINESSES,
+  CUBAN_PROVINCES,
+  CATEGORIES,
+  CATEGORY_EMOJI,
+  calculateDistanceMeters
 } from '@/lib/cuba-data';
 import { calculateOSRMRoute, OSRMRouteResult } from '@/lib/osrm';
 import type { NominatimResult } from '@/lib/nominatim';
 import { searchNominatimAddressRateLimited } from '@/lib/nominatim';
 import type { Map as MaplibreMap } from 'maplibre-gl';
-import { 
-  Check, 
+import type { ClusterInfo } from '@/components/MapLibreMap';
+import {
+  Check,
   Sparkles,
   MapPin,
-  ShieldCheck
+  ShieldCheck,
+  X as XIcon
 } from 'lucide-react';
 
 // Dynamically import MapLibre GL JS map with no SSR
@@ -96,7 +100,6 @@ export default function Home() {
     };
     const t = setTimeout(hydrate, 0);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -412,9 +415,26 @@ export default function Home() {
     showToast(`📍 Ubicación fijada en ${name}. Negocios ordenados por proximidad.`);
   };
 
+  // Cluster card (Sprint 9): lista de negocios dentro del cluster clickeado
+  const [clusterView, setClusterView] = useState<ClusterInfo | null>(null);
+  const handleClusterClick = useCallback((info: ClusterInfo) => {
+    setClusterView(info);
+  }, []);
+  const handleCloseCluster = useCallback(() => setClusterView(null), []);
+  const handleExpandCluster = useCallback(() => {
+    const m = mapRef.current;
+    if (!m || !clusterView) return;
+    m.easeTo({
+      center: [clusterView.center[1], clusterView.center[0]],
+      zoom: Math.max(m.getZoom(), 15),
+      duration: 800
+    });
+  }, [clusterView]);
+
   // Select Business from list or map
   const handleSelectBusiness = (business: Business | null) => {
     setSelectedBusiness(business);
+    setClusterView(null);
     if (business) {
       setMapCenter([business.lat, business.lng]);
       setMapZoom(16);
@@ -823,6 +843,7 @@ export default function Home() {
         onMapClick={(coords) => {
           if (isPinningMode) setPinLocation(coords);
         }}
+        onClusterClick={handleClusterClick}
         onViewportChange={(bbox) => setViewportBbox(bbox)}
         routeGeometry={activeRoute?.route.geometry || null}
         mapRef={mapRef}
@@ -936,6 +957,61 @@ export default function Home() {
         isFullscreen={isFullscreen}
         onFullscreenToggle={handleToggleFullscreen}
       />
+
+      {/* Cluster card (Sprint 9): negocios agrupados al hacer clic en un cluster */}
+      {clusterView && (
+        <div className="fixed z-40 bottom-40 sm:bottom-44 left-1/2 -translate-x-1/2 w-[min(92vw,420px)] bg-white rounded-2xl border border-border-subtle shadow-level-4 overflow-hidden flex flex-col max-h-[42vh] animate-in slide-in-from-bottom-5 fade-in duration-200">
+          <div className="flex items-center justify-between gap-2 pl-4 pr-2 pt-2.5 pb-2 border-b border-border-subtle">
+            <p className="text-sm font-bold text-text-primary truncate">
+              Negocios en la zona ({clusterView.businesses.length}+)
+            </p>
+            <div className="flex items-center gap-0.5 flex-shrink-0">
+              <button
+                onClick={handleExpandCluster}
+                title="Acercar al grupo"
+                className="inline-flex items-center gap-1 h-9 px-3 rounded-lg text-[13px] font-semibold text-cerulean hover:bg-tm-bg active:scale-95 transition-all"
+              >
+                Ver mapa
+              </button>
+              <button
+                onClick={handleCloseCluster}
+                aria-label="Cerrar sugerencias del grupo"
+                className="flex items-center justify-center w-9 h-9 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 active:scale-95 transition-all"
+              >
+                <XIcon className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+          <div className="overflow-y-auto">
+            {clusterView.businesses.map((b) => (
+              <button
+                key={b.id}
+                onClick={() => handleSelectBusiness(b)}
+                className="w-full flex items-center gap-3 px-4 py-2 min-h-[52px] text-left hover:bg-slate-50 active:bg-slate-100 transition-colors border-b border-border-subtle last:border-0"
+              >
+                <span className="flex items-center justify-center w-9 h-9 rounded-full bg-tm-bg text-lg flex-shrink-0 shrink-0">
+                  {CATEGORY_EMOJI[b.category] ?? '📍'}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5 text-sm font-semibold text-text-primary truncate">
+                    {b.name}
+                    {b.transferActiveNow && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-emerald-brand flex-shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-brand animate-pulse" />
+                        Activo
+                      </span>
+                    )}
+                  </span>
+                  <span className="block text-xs text-slate-500 truncate">
+                    {b.neighborhood ?? b.municipality} ·{' '}
+                    {CATEGORIES.find((c) => c.id === b.category)?.label ?? b.category}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Pinning Mode Confirmation Floating Control */}
       {isPinningMode && (

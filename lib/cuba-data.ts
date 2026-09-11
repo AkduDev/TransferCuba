@@ -172,6 +172,16 @@ export const CATEGORIES = [
   { id: 'ropa', label: 'Ropa & Calzado', icon: 'Shirt' }
 ];
 
+export const CATEGORY_EMOJI: Record<string, string> = {
+  comida: '🍽️',
+  tiendas: '🛍️',
+  farmacias: '💊',
+  cafeterias: '☕',
+  servicios: '📱',
+  ferreteria: '🔧',
+  ropa: '👕'
+};
+
 export const INITIAL_BUSINESSES: Business[] = [
   {
     id: 'biz-1',

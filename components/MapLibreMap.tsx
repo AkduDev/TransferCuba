@@ -4,7 +4,12 @@ import React, { useEffect, useRef } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import type { GeoJSONSource, MapMouseEvent } from 'maplibre-gl';
 import { Protocol, PMTiles } from 'pmtiles';
-import { Business } from '@/lib/cuba-data';
+import { Business, CATEGORY_EMOJI } from '@/lib/cuba-data';
+
+export interface ClusterInfo {
+  businesses: Business[];
+  center: [number, number]; // [lat, lng]
+}
 
 interface MapLibreMapProps {
   businesses: Business[];
@@ -17,6 +22,7 @@ interface MapLibreMapProps {
   pinLocation?: { lat: number; lng: number } | null;
   onPinLocationChange?: (coords: { lat: number; lng: number }) => void;
   onMapClick?: (coords: { lat: number; lng: number }) => void;
+  onClusterClick?: (info: ClusterInfo) => void;
   routeGeometry?: { type: 'LineString'; coordinates: [number, number][] } | null;
   onViewportChange?: (bbox: [number, number, number, number], zoom: number) => void;
   mapRef?: React.RefObject<maplibregl.Map | null>;
@@ -57,7 +63,9 @@ function ensureWorkerUrl(): void {
 const SOURCE_ID = 'businesses-source';
 const LAYER_CLUSTER_ID = 'clusters-layer';
 const LAYER_CLUSTER_COUNT_ID = 'cluster-count-layer';
+const LAYER_SELECTED_HALO_ID = 'selected-business-halo';
 const LAYER_UNCLUSTERED_ID = 'unclustered-layer';
+const LAYER_UNCLUSTERED_SEL_ID = 'unclustered-selected-layer';
 
 // Pin badge colors (design system)
 const COLOR_VERIFIED = '#10b981';
@@ -166,7 +174,10 @@ function iconIdFor(biz: Business, selected: boolean): string {
   return `pin-${biz.categoryIcon}-${state}-${biz.transferActiveNow ? 'on' : 'off'}`;
 }
 
-function businessesToGeoJSON(businesses: Business[]): GeoJSON.FeatureCollection {
+function businessesToGeoJSON(
+  businesses: Business[],
+  selectedId: string | null
+): GeoJSON.FeatureCollection {
   return {
     type: 'FeatureCollection',
     features: businesses.map((biz) => ({
@@ -178,7 +189,9 @@ function businessesToGeoJSON(businesses: Business[]): GeoJSON.FeatureCollection 
         categoryIcon: biz.categoryIcon,
         status: biz.reportsCount > 0 ? 'reported' : biz.transferVerified ? 'verified' : 'pending',
         activeNow: biz.transferActiveNow,
-        selected: false
+        selected: biz.id === selectedId,
+        icon: iconIdFor(biz, false),
+        iconSel: iconIdFor(biz, true)
       },
       geometry: {
         type: 'Point' as const,
@@ -199,6 +212,7 @@ export default function MapLibreMap({
   pinLocation,
   onPinLocationChange,
   onMapClick,
+  onClusterClick,
   routeGeometry,
   onViewportChange,
   mapRef,
@@ -211,7 +225,8 @@ export default function MapLibreMap({
   const lastViewRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null);
   const iconsCacheRef = useRef<Set<string>>(new Set());
   const businessesByIdRef = useRef<Map<string, Business>>(new Map());
-  const selectionStateRef = useRef<string | null>(null);
+  const mapInteractiveRef = useRef(false);
+  const setupLayersRef = useRef<(() => Promise<void>) | null>(null);
 
   const centerLat = center[0];
   const centerLng = center[1];
@@ -220,6 +235,7 @@ export default function MapLibreMap({
     isPinningMode,
     onPinLocationChange,
     onMapClick,
+    onClusterClick,
     onViewportChange,
     onMapReady
   });
@@ -229,10 +245,21 @@ export default function MapLibreMap({
       isPinningMode,
       onPinLocationChange,
       onMapClick,
+      onClusterClick,
       onViewportChange,
       onMapReady
     };
-  }, [isPinningMode, onPinLocationChange, onMapClick, onViewportChange, onMapReady]);
+  }, [isPinningMode, onPinLocationChange, onMapClick, onClusterClick, onViewportChange, onMapReady]);
+
+  const businessesRef = useRef(businesses);
+  const onSelectBusinessRef = useRef(onSelectBusiness);
+  const selectedBusinessRef = useRef(selectedBusiness);
+
+  useEffect(() => {
+    businessesRef.current = businesses;
+    onSelectBusinessRef.current = onSelectBusiness;
+    selectedBusinessRef.current = selectedBusiness;
+  });
 
   // Initialize MapLibre GL instance
   useEffect(() => {
@@ -306,11 +333,16 @@ export default function MapLibreMap({
 
       mapInstanceRef.current = map;
       if (mapRef) mapRef.current = map;
+      // Debug bridge for Playwright (dev only)
+      if (process.env.NODE_ENV !== 'production') {
+        (window as unknown as { __MAP__?: maplibregl.Map }).__MAP__ = map;
+      }
       lastViewRef.current = { lat: centerLat, lng: centerLng, zoom };
 
       // Notifica a la UI (controladores de zoom custom) cuando el mapa está listo
       map.once('load', () => {
         callbacksRef.current.onMapReady?.();
+        void setupLayersRef.current?.();
       });
 
       // Container ResizeObserver for seamless responsiveness
@@ -354,6 +386,8 @@ export default function MapLibreMap({
 
     return () => {
       disposed = true;
+      mapInteractiveRef.current = false;
+      setupLayersRef.current = null;
       if (moveendTimer) clearTimeout(moveendTimer);
       if (resizeTimer) clearTimeout(resizeTimer);
       resizeObserver?.disconnect();
@@ -389,93 +423,98 @@ export default function MapLibreMap({
 
   // Businesses GeoJSON layer — cluster + symbol pins (GPU rendered)
   useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map) return;
+const map = mapInstanceRef.current;
+      businessesByIdRef.current = new Map(businesses.map((b) => [b.id, b]));
 
-    // index for click resolution
-    businessesByIdRef.current = new Map(businesses.map((b) => [b.id, b]));
+      const setupLayers = async () => {
+        const map = mapInstanceRef.current;
+        if (!map) return;
 
-    const setupLayers = async () => {
-      // Register any new runtime icons for this batch of businesses.
-      // addImage exige un HTMLImageElement CARGADO (o ImageBitmap): un string
-      // dataURL o una Image sin decodificar produce width 0 y un
-      // IndexSizeError que tumba el mapa (MapErrorBoundary).
-      const pending: Promise<void>[] = [];
-      businesses.forEach((biz) => {
-        [false, true].forEach((sel) => {
-          const id = iconIdFor(biz, sel);
-          if (!map.hasImage(id) && !iconsCacheRef.current.has(id)) {
-            iconsCacheRef.current.add(id);
-            const iconCanvas = makePinIcon(biz.categoryIcon, statusColor(biz), {
-              selected: sel,
-              activeNow: biz.transferActiveNow
-            });
-            pending.push(
-              createImageBitmap(iconCanvas)
-                .then((bitmap) => {
-                  if (mapInstanceRef.current && !mapInstanceRef.current.hasImage(id)) {
-                    mapInstanceRef.current.addImage(id, bitmap, { pixelRatio: 2 });
-                  }
-                })
-                .catch(() => {
-                  // fallback: elemento <img> con decode()
-                  const el = new Image();
-                  el.src = iconCanvas.toDataURL('image/png');
-                  pending.push(
-                    el
-                      .decode()
-                      .then(() => {
-                        if (mapInstanceRef.current && !mapInstanceRef.current.hasImage(id)) {
-                          mapInstanceRef.current.addImage(id, el, { pixelRatio: 2 });
-                        }
-                      })
-                      .catch(() => {
-                        iconsCacheRef.current.delete(id);
-                      })
-                  );
-                })
-            );
-          }
+        // Register any new runtime icons for this batch of businesses.
+        // addImage exige un HTMLImageElement CARGADO (o ImageBitmap): un string
+        // dataURL o una Image sin decodificar produce width 0 y un
+        // IndexSizeError que tumba el mapa (MapErrorBoundary).
+        const pending: Promise<void>[] = [];
+        businessesRef.current.forEach((biz) => {
+          [false, true].forEach((sel) => {
+            const id = iconIdFor(biz, sel);
+            if (!map.hasImage(id) && !iconsCacheRef.current.has(id)) {
+              iconsCacheRef.current.add(id);
+              const iconCanvas = makePinIcon(CATEGORY_EMOJI[biz.category] ?? '📍', statusColor(biz), {
+                selected: sel,
+                activeNow: biz.transferActiveNow
+              });
+              pending.push(
+                createImageBitmap(iconCanvas)
+                  .then((bitmap) => {
+                    if (mapInstanceRef.current && !mapInstanceRef.current.hasImage(id)) {
+                      mapInstanceRef.current.addImage(id, bitmap, { pixelRatio: 2 });
+                    }
+                  })
+                  .catch(() => {
+                    // fallback: elemento <img> con decode()
+                    const el = new Image();
+                    el.src = iconCanvas.toDataURL('image/png');
+                    pending.push(
+                      el
+                        .decode()
+                        .then(() => {
+                          if (mapInstanceRef.current && !mapInstanceRef.current.hasImage(id)) {
+                            mapInstanceRef.current.addImage(id, el, { pixelRatio: 2 });
+                          }
+                        })
+                        .catch(() => {
+                          iconsCacheRef.current.delete(id);
+                        })
+                    );
+                  })
+              );
+            }
+          });
         });
-      });
       await Promise.all(pending);
 
-      if (!map.getSource(SOURCE_ID)) {
-        map.addSource(SOURCE_ID, {
-          type: 'geojson',
-          data: businessesToGeoJSON(businesses),
-          cluster: true,
-          clusterRadius: 55,
-          clusterMaxZoom: 14,
-          clusterProperties: {
-            active: ['+', ['case', ['get', 'activeNow'], 1, 0]]
-          }
-        });
+      try {
+        if (!map.getSource(SOURCE_ID)) {
+          map.addSource(SOURCE_ID, {
+            type: 'geojson',
+            data: businessesToGeoJSON(businessesRef.current, selectedBusinessRef.current?.id ?? null),
+            cluster: true,
+            clusterRadius: 55,
+            clusterMaxZoom: 14,
+            clusterProperties: {
+              active: ['+', ['case', ['get', 'activeNow'], 1, 0]]
+            }
+          });
+        }
 
-        // Clusters: navy bubble with count
-        map.addLayer({
+        const ensureLayer = (layer: maplibregl.LayerSpecification) => {
+          if (!map.getLayer(layer.id)) map.addLayer(layer);
+        };
+
+        // Clusters: single layer, color driven by `active` count from
+        // clusterProperties. Green = at least one transfer-active business;
+        // navy = none active. (Sprint 9)
+        ensureLayer({
           id: LAYER_CLUSTER_ID,
           type: 'circle',
           source: SOURCE_ID,
           filter: ['has', 'point_count'],
           paint: {
-            'circle-color': COLOR_SELECTED,
-            'circle-radius': [
-              'step',
-              ['get', 'point_count'],
-              16,
-              10,
-              20,
-              25,
-              24
+            'circle-color': [
+              'case',
+              ['>', ['get', 'active'], 0],
+              COLOR_VERIFIED,
+              COLOR_SELECTED
             ],
+            'circle-radius': ['step', ['get', 'point_count'], 16, 10, 20, 25, 24],
             'circle-opacity': 0.92,
             'circle-stroke-width': 3,
             'circle-stroke-color': '#ffffff'
           }
         });
 
-        map.addLayer({
+        ensureLayer({
           id: LAYER_CLUSTER_COUNT_ID,
           type: 'symbol',
           source: SOURCE_ID,
@@ -490,19 +529,17 @@ export default function MapLibreMap({
           }
         });
 
-        // Individual pins: runtime icon by state, selection via feature-state
-        map.addLayer({
+        // Individual pins (sin feature-state: MapLibre de este proyecto descarta
+// silenciosamente capas con expresiones feature-state). El pin seleccionado
+// vive en su propia capa, filtrada por la property `selected` del GeoJSON.
+ensureLayer({
           id: LAYER_UNCLUSTERED_ID,
           type: 'symbol',
           source: SOURCE_ID,
-          filter: ['!', ['has', 'point_count']],
+          filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'selected'], true]],
           layout: {
-            'icon-image': [
-              'case',
-              ['boolean', ['feature-state', 'selected'], false],
-              ['concat', 'pin-', ['get', 'categoryIcon'], '-sel-', ['case', ['get', 'activeNow'], 'on', 'off']],
-              ['concat', 'pin-', ['get', 'categoryIcon'], '-', ['get', 'status'], '-', ['case', ['get', 'activeNow'], 'on', 'off']]
-            ],
+            'icon-image': ['get', 'icon'],
+            'icon-size': 1,
             'icon-allow-overlap': false,
             'icon-ignore-placement': true,
             'icon-anchor': 'bottom',
@@ -510,103 +547,174 @@ export default function MapLibreMap({
           }
         });
 
-        // Cluster click → zoom into cluster
-        map.on('click', LAYER_CLUSTER_ID, (e) => {
-          const feature = e.features?.[0];
-          if (!feature) return;
-          const clusterId = feature.properties?.cluster_id;
-          const src = map.getSource(SOURCE_ID) as GeoJSONSource;
-          src
-            .getClusterExpansionZoom(Number(clusterId))
-            .then((targetZoom: number) => {
-              const coords = feature.geometry;
-              if (coords.type !== 'Point') return;
-              map.easeTo({
-                center: coords.coordinates as [number, number],
-                zoom: targetZoom,
-                duration: 600
-              });
-            })
-            .catch(() => {});
+        // Pin seleccionado: icono sel + tamaño mayor (estilo Google Maps).
+        ensureLayer({
+          id: LAYER_UNCLUSTERED_SEL_ID,
+          type: 'symbol',
+          source: SOURCE_ID,
+          filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'selected'], true]],
+          layout: {
+            'icon-image': ['get', 'iconSel'],
+            'icon-size': 1.18,
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
+            'icon-anchor': 'bottom',
+            'icon-padding': 4
+          }
         });
 
-        map.on('click', LAYER_UNCLUSTERED_ID, (e) => {
-          const feature = e.features?.[0];
-          const id = feature?.properties?.id as string | undefined;
-          const biz = businessesByIdRef.current.get(String(id));
-          if (biz) onSelectBusiness(biz);
+        // Halo suave de selección (Sprint 9): emerald glow bajo el pin elegido.
+        ensureLayer({
+          id: LAYER_SELECTED_HALO_ID,
+          type: 'circle',
+          source: SOURCE_ID,
+          filter: ['all', ['!=', ['has', 'point_count'], true], ['==', ['get', 'selected'], true]],
+          paint: {
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 16, 18, 22],
+            'circle-color': COLOR_VERIFIED,
+            'circle-opacity': 0.28,
+            'circle-blur': 0.55,
+            'circle-translate': [0, 22]
+          }
         });
+        if (map.getLayer(LAYER_SELECTED_HALO_ID) && map.getLayer(LAYER_UNCLUSTERED_SEL_ID)) {
+          map.moveLayer(LAYER_SELECTED_HALO_ID, LAYER_UNCLUSTERED_SEL_ID);
+        }
 
-        // Cursor pointers
-        map.on('mouseenter', LAYER_CLUSTER_ID, () => {
-          map.getCanvas().style.cursor = 'pointer';
-        });
-        map.on('mouseleave', LAYER_CLUSTER_ID, () => {
-          map.getCanvas().style.cursor = '';
-        });
-        map.on('mouseenter', LAYER_UNCLUSTERED_ID, () => {
-          map.getCanvas().style.cursor = 'pointer';
-        });
-        map.on('mouseleave', LAYER_UNCLUSTERED_ID, () => {
-          map.getCanvas().style.cursor = '';
-        });
+        // Interacción (click/cursor/popup) — se registra solo la primera vez
+        if (!mapInteractiveRef.current) {
+          mapInteractiveRef.current = true;
 
-        // Hover popup: business name (desktop nicety)
-        const popup = new maplibregl.Popup({
-          closeButton: false,
-          closeOnClick: false,
-          offset: 14,
-          anchor: 'bottom'
-        });
-        map.on('mouseenter', LAYER_UNCLUSTERED_ID, (e) => {
-          const feature = e.features?.[0];
-          if (!feature) return;
-          const coords = feature.geometry;
-          if (coords.type !== 'Point') return;
-          popup
-            .setLngLat(coords.coordinates as [number, number])
-            .setHTML(
-              `<div style="font-family:'Plus Jakarta Sans',sans-serif;background:#0f2942;color:#fff;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 8px 16px -4px rgba(15,41,66,0.3)">
-                ${feature.properties?.name ?? ''}
-              </div>`
-            )
-            .addTo(map);
-        });
-        map.on('mouseleave', LAYER_UNCLUSTERED_ID, () => popup.remove());
-      } else {
-        // Update data in place — cheap, no layer rebuild
-        (map.getSource(SOURCE_ID) as GeoJSONSource).setData(businessesToGeoJSON(businesses));
+          const onClusterBubbleClick = async (e: maplibregl.MapLayerMouseEvent) => {
+            const feature = e.features?.[0];
+            if (!feature) return;
+            const clusterId = Number(feature.properties?.cluster_id);
+            const src = map.getSource(SOURCE_ID) as GeoJSONSource;
+            const coords = feature.geometry;
+            if (coords.type !== 'Point') return;
+            const center: [number, number] = coords.coordinates as [number, number]; // [lng,lat]
+
+            const cb = callbacksRef.current.onClusterClick;
+            try {
+              const leaves = await src.getClusterLeaves(clusterId, 8, 0);
+              const bizs = leaves
+                .map((l) => businessesByIdRef.current.get(String(l.properties?.id)))
+                .filter((b): b is Business => Boolean(b));
+              if (bizs.length > 0 && cb) {
+                cb({ businesses: bizs, center: [center[1], center[0]] });
+                return;
+              }
+            } catch {
+              // ignore, fall through to zoom
+            }
+
+            // Fallback: zoom into the cluster (Google '+' behaviour).
+            const targetZoom = await src.getClusterExpansionZoom(clusterId);
+            map.easeTo({ center, zoom: targetZoom, duration: 600 });
+          };
+
+          map.on('click', LAYER_CLUSTER_ID, onClusterBubbleClick);
+
+          const onPinClick = (e: maplibregl.MapLayerMouseEvent) => {
+            const feature = e.features?.[0];
+            const id = feature?.properties?.id as string | undefined;
+            const biz = businessesByIdRef.current.get(String(id));
+            if (biz) onSelectBusinessRef.current?.(biz);
+          };
+          map.on('click', LAYER_UNCLUSTERED_ID, onPinClick);
+          map.on('click', LAYER_UNCLUSTERED_SEL_ID, onPinClick);
+
+          // Cursor pointers
+          const pinLayers = [LAYER_UNCLUSTERED_ID, LAYER_UNCLUSTERED_SEL_ID];
+          pinLayers.forEach((layerId) => {
+            map.on('mouseenter', layerId, () => {
+              map.getCanvas().style.cursor = 'pointer';
+            });
+            map.on('mouseleave', layerId, () => {
+              map.getCanvas().style.cursor = '';
+            });
+          });
+          map.on('mouseenter', LAYER_CLUSTER_ID, () => {
+            map.getCanvas().style.cursor = 'pointer';
+          });
+          map.on('mouseleave', LAYER_CLUSTER_ID, () => {
+            map.getCanvas().style.cursor = '';
+          });
+
+          // Hover popup: business name (desktop nicety)
+          const popup = new maplibregl.Popup({
+            closeButton: false,
+            closeOnClick: false,
+            offset: 14,
+            anchor: 'bottom'
+          });
+          const onPinEnter = (e: maplibregl.MapLayerMouseEvent) => {
+            const feature = e.features?.[0];
+            if (!feature) return;
+            const coords = feature.geometry;
+            if (coords.type !== 'Point') return;
+            popup
+              .setLngLat(coords.coordinates as [number, number])
+              .setHTML(
+                `<div style="font-family:'Plus Jakarta Sans',sans-serif;background:#0f2942;color:#fff;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 8px 16px -4px rgba(15,41,66,0.3)">
+                  ${feature.properties?.name ?? ''}
+                </div>`
+              )
+              .addTo(map);
+          };
+          pinLayers.forEach((layerId) => {
+            map.on('mouseenter', layerId, onPinEnter);
+            map.on('mouseleave', layerId, () => popup.remove());
+          });
+        }
+
+        // Siempre refresca los datos (inserta/actualiza features o clusteriza)
+        (map.getSource(SOURCE_ID) as GeoJSONSource).setData(
+          businessesToGeoJSON(businessesRef.current, selectedBusinessRef.current?.id ?? null)
+        );
+      } catch (setupErr) {
+        console.error('setupLayers failed:', setupErr);
+      }
+    };
+
+    setupLayersRef.current = setupLayers;
+
+    if (!map) return;
+
+    // Style puede tardar en estar listo (glyphs/sprites/PMTiles): reintenta
+    // hasta que source + capas queden montadas. Es idempotente (ensureLayer).
+    const attempt = async () => {
+      for (let i = 0; i < 3; i++) {
+        try {
+          await setupLayers();
+        } catch (err) {
+          console.error('setupLayers failed:', err);
+        }
+        const complete =
+          map.getSource(SOURCE_ID) &&
+          map.getLayer(LAYER_CLUSTER_ID) &&
+          map.getLayer(LAYER_UNCLUSTERED_ID) &&
+          map.getLayer(LAYER_UNCLUSTERED_SEL_ID) &&
+          map.getLayer(LAYER_SELECTED_HALO_ID);
+        if (complete) return;
+        await new Promise((r) => setTimeout(r, 900));
       }
     };
 
     if (map.isStyleLoaded()) {
-      setupLayers();
+      void attempt();
     } else {
-      map.once('style.load', setupLayers);
+      map.once('style.load', () => void attempt());
     }
   }, [businesses, onSelectBusiness]);
 
-  // Selection highlight via feature-state (no marker recreation)
+  // Selection highlight: el id seleccionado viaja en el GeoJSON (property
+  // `selected`), así que basta refrescar los datos (setupLayers es idempotente).
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || !map.getSource(SOURCE_ID)) return;
-
-    const prevId = selectionStateRef.current;
-    const nextId = selectedBusiness?.id ?? null;
-
-    const applyState = (id: string, selected: boolean) => {
-      try {
-        map.setFeatureState({ source: SOURCE_ID, id }, { selected });
-      } catch {
-        // feature not in viewport — ignore
-      }
-    };
-
-    if (prevId && prevId !== nextId) applyState(prevId, false);
-    if (nextId && nextId !== prevId) applyState(nextId, true);
-
-    selectionStateRef.current = nextId;
-  }, [selectedBusiness, businesses]);
+    void setupLayersRef.current?.();
+  }, [selectedBusiness]);
 
   // Render User Location GPS Marker
   useEffect(() => {
