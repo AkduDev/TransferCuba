@@ -61,7 +61,7 @@ PostgreSQL (Neon free)                        PMTiles Cuba
 "¿puede MapLibre pintar 100k?" a "¿puede PostGIS responder los 300 visibles
 en <50 ms?" — trivial con índice GIST.
 
-Progreso: Sprints 1-4 ✅ · Sprint 5 ⏳
+Progreso: Sprints 1-5 ✅
 
 ## 3. Sprints
 
@@ -181,13 +181,13 @@ cp cuba.pmtiles <repo>/public/map/
 - Escalado futuro sin reescribir el mapa: `NEXT_PUBLIC_PMTILES_URL` apunta a
   R2/Backblaze (un solo swap de URL)
 
-### Sprint 5 — Optimización Cuba-first (conectividad como restricción)
+### Sprint 5 — Optimización Cuba-first (conectividad como restricción) ✅
 Orden de carga (progressive enhancement):
 1. HTML/CSS/UI shell (instantáneo, sin JS)
 2. MapLibre chunk (dinámico)
 3. Negocios GeoJSON (viewport)
-4. Fotos: **solo al abrir ficha** — `loading="lazy"`, WebP, blur placeholder
-5. Service worker (Workbox) — cache offline de tiles y datos
+4. Fotos: **solo al abrir ficha** — `loading="lazy"`, WebP (next/image nativo) ✅ · blur placeholder pendiente
+5. Service worker (Workbox): precache assets estáticos + SWR datos/API + offline fallback; **tiles NO cacheados** (89 MB → rango 206 incompatible con Cache.put; basemap degrada a gris offline; decisionado para preservar bandwidth Vercel free)
 6. Quitar fotos seed externas del bundle → placeholder local SVG por categoría
 
 ## 4. Lo que NO haremos ahora (y por qué)
