@@ -123,6 +123,15 @@ Ambos buscan solo dentro de Cuba.
 | `/` | Static (client component) | Toda la interactividad es client-side |
 | `/api/businesses` | Dynamic | GET/POST/PATCH, store in-memory |
 
+## Tipografía (next/font)
+
+`app/layout.tsx` carga `Plus_Jakarta_Sans` con `next/font/google` y
+`variable: '--font-jakarta'`. Las fuentes se auto-alojan en build
+(`.next/static/media/*.woff2`) y el tema de `globals.css` apunta a esa
+variable CSS (`--font-sans: var(--font-jakarta), ...`). Sin `<link>` de
+Google Fonts ni preconnect: funciona offline y es rápido en Cuba (sin
+CDNs externos). Eliminó el warning de ESLint `no-page-custom-font`.
+
 ## Capas del mapa (Sprint 9)
 
 `MapLibreMap` monta un source GeoJSON `businesses-source` (`cluster:true`,

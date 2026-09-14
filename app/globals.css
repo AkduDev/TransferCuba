@@ -44,20 +44,21 @@
   --radius-panel: 1rem;
   --radius-xl: 1.5rem;
 
-  /* Tipografía ya con fallbacks; Plus Jakarta Sans se carga en layout */
-  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
+  /* Tipografía: la cara real la provee next/font (--font-jakarta, auto-alojada
+     en build); estos tokens son los fallbacks para el pre-CSS del framework. */
+  --font-sans: var(--font-jakarta), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: var(--font-jakarta), system-ui, sans-serif;
 }
 
 @layer base {
   html, body {
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font-jakarta), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   h1, h2, h3, h4, .font-display {
-    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-family: var(--font-jakarta), system-ui, sans-serif;
     letter-spacing: -0.01em;
   }
 }

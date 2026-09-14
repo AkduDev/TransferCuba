@@ -360,7 +360,10 @@ arquitectura de arriba está diseñada para que cada pieza sea reemplazable.
       popup hover); se renderizan localmente con warning. Opción: sprite
       propio o quitar emoji del popup.
 - [ ] **CSS MapLibre por CDN** en `layout.tsx` → importarlo del paquete.
-- [ ] **Fuentes por `<link>`** → `next/font` (elimina warning ESLint).
+- [x] **Fuentes por `<link>`** → `next/font` (elimina warning ESLint). Usa
+      `Plus_Jakarta_Sans` vía `next/font/google` auto-alojado en build
+      (`--font-jakarta`); quita el warning `no-page-custom-font` y la
+      dependencia de Google Fonts en runtime (mejor para Cuba).
 - [ ] **`bun run build` lento en local** (>10 min con el dev server muerto);
       compilar en CI o investigar watcher colgado.
 - [ ] Fotos seed externas (Picsum/Unsplash) fuera del bundle → SVG local por
