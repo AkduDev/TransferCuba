@@ -19,7 +19,6 @@ import {
   Clock, 
   EyeOff, 
   KeyRound, 
-  Sparkles,
   XCircle
 } from 'lucide-react';
 import { Business, CUBAN_PROVINCES } from '@/lib/cuba-data';
@@ -54,7 +53,9 @@ export default function AdminDashboardModal({
     if (isOpen) onOpen?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
-  // Authentication state initialized from localStorage
+
+  // Authentication state: el flag de localStorage es solo un cache de UX;
+  // la autoridad es la cookie HttpOnly que valida el servidor en /api/auth/me.
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('tc_admin_session_auth') === 'true';
@@ -65,10 +66,26 @@ export default function AdminDashboardModal({
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Dashboard state
   const [filterTab, setFilterTab] = useState<'pending' | 'active' | 'all' | 'verified' | 'reported'>('pending');
   const [selectedProvinceFilter, setSelectedProvinceFilter] = useState('all');
+
+  // Verifica la sesión real contra el servidor cuando se abre el modal;
+  // localStorage solo es un hint de UX previo.
+  useEffect(() => {
+    if (!isOpen) return;
+    fetch('/api/auth/me')
+      .then(async (res) => {
+        const data = (await res.json()) as { authenticated: boolean };
+        setIsAuthenticated(data.authenticated);
+        if (!data.authenticated) localStorage.removeItem('tc_admin_session_auth');
+      })
+      .catch(() => {
+        setIsAuthenticated(false);
+      });
+  }, [isOpen]);
 
   // Compute counts
   const pendingBusinesses = businesses.filter(b => b.status === 'pending');
@@ -80,44 +97,43 @@ export default function AdminDashboardModal({
 
   if (!isOpen) return null;
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
+    setIsLoggingIn(true);
 
-    const cleanUser = username.trim().toLowerCase();
-    const cleanPass = password.trim();
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
 
-    // Accepted valid admin credentials:
-    // User: 'admin' or 'administrador' or 'devparadise'
-    // Pass: 'admin' or 'admin123' or 'transfercuba' or 'transfercuba2025'
-    const isValidUser = cleanUser === 'admin' || cleanUser === 'administrador' || cleanUser === 'devparadise';
-    const isValidPass = cleanPass === 'admin' || cleanPass === 'admin123' || cleanPass === 'transfercuba' || cleanPass === 'transfercuba2025';
-
-    if (isValidUser && isValidPass) {
-      setIsAuthenticated(true);
-      if (typeof window !== 'undefined') {
+      if (res.ok) {
+        setIsAuthenticated(true);
         localStorage.setItem('tc_admin_session_auth', 'true');
+        setAuthError('');
+        onOpen?.();
+      } else {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        setAuthError(
+          data?.error || 'Usuario o contraseña incorrectos. Por favor, verifica tus datos de acceso.'
+        );
       }
-      setAuthError('');
-    } else {
-      setAuthError('Usuario o contraseña incorrectos. Por favor, verifica tus datos de acceso.');
+    } catch {
+      setAuthError('No se pudo conectar con el servidor. Intenta más tarde.');
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
-  const handleFillDemoCredentials = () => {
-    setUsername('admin');
-    setPassword('admin');
-    setAuthError('');
-  };
-
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setIsAuthenticated(false);
     setUsername('');
     setPassword('');
     setAuthError('');
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('tc_admin_session_auth');
-    }
+    localStorage.removeItem('tc_admin_session_auth');
+    try { await fetch('/api/auth/logout', { method: 'POST' }); } catch { /* best-effort */ }
   };
 
   const filteredList = businesses.filter(biz => {
@@ -238,33 +254,18 @@ export default function AdminDashboardModal({
                   {/* Submit Button */}
                   <button
                     type="submit"
-                    className="w-full py-2.5 px-4 bg-slate-950 hover:bg-slate-800 text-white font-bold text-sm rounded-xl shadow-level-2 hover:shadow-level-2 transition-all flex items-center justify-center gap-2"
+                    disabled={isLoggingIn}
+                    className="w-full py-2.5 px-4 bg-slate-950 hover:bg-slate-800 disabled:opacity-60 text-white font-bold text-sm rounded-xl shadow-level-2 hover:shadow-level-2 transition-all flex items-center justify-center gap-2"
                   >
                     <Lock className="w-4 h-4" />
-                    <span>Iniciar Sesión en Administración</span>
+                    <span>{isLoggingIn ? 'Verificando…' : 'Iniciar Sesión en Administración'}</span>
                   </button>
                 </form>
 
-                {/* Demo Credentials Quick Tip Box */}
-                <div className="p-3 rounded-xl bg-tm-bg/70 border border-tm-border/80 text-xs text-blue-900 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold flex items-center gap-1">
-                      <Sparkles className="w-3.5 h-3.5 text-cerulean-dark" />
-                      Credenciales de acceso rápido:
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleFillDemoCredentials}
-                      className="text-[11px] font-bold text-cerulean-dark hover:text-blue-900 underline underline-offset-2"
-                    >
-                      Autocompletar
-                    </button>
-                  </div>
-                  <div className="font-mono text-[11px] text-blue-800 bg-white/70 px-2 py-1.5 rounded-lg border border-tm-border/60 flex items-center justify-between">
-                    <span>Usuario: <strong>admin</strong></span>
-                    <span>Contraseña: <strong>admin</strong></span>
-                  </div>
-                </div>
+                {/* Nota: credenciales definidas en .env del servidor (ADMIN_USERNAME/ADMIN_PASSWORD) */}
+                <p className="text-center text-[11px] text-slate-400">
+                  Las credenciales las define el administrador del servidor en las variables de entorno.
+                </p>
               </div>
             </div>
           </div>

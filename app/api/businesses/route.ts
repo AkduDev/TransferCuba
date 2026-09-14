@@ -1,14 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { queryBusinesses, insertBusiness, patchBusiness, PatchAction } from '@/lib/db';
 import { Business } from '@/lib/cuba-data';
+import { sessionValidFromRequest } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
 // GET /api/businesses — filtros + spatial queries (viewport bbox / nearby).
 // Sprint 2: PostGIS con ST_MakeEnvelope && / ST_DWithin / ST_Distance;
 // sin DATABASE_URL cae al fallback in-memory (dev).
+// includeAll=true (ver/rechazar/borrar pendientes) exige sesión admin.
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
+  const includeAll = searchParams.get('includeAll') === 'true';
+
+  if (includeAll && !sessionValidFromRequest(req)) {
+    return NextResponse.json(
+      { success: false, error: 'Sesión de administración requerida' },
+      { status: 401 }
+    );
+  }
 
   const latParam = searchParams.get('lat');
   const lngParam = searchParams.get('lng');
@@ -35,7 +45,7 @@ export async function GET(req: NextRequest) {
     activeNow: searchParams.get('activeNow') === 'true',
     qr: searchParams.get('qr') === 'true',
     online: searchParams.get('online') === 'true',
-    includeAll: searchParams.get('includeAll') === 'true',
+    includeAll,
     verification: (searchParams.get('verification') as 'verified' | 'pending' | 'reported' | 'all' | null) ?? undefined,
     q: searchParams.get('q') ?? undefined,
     limit: Math.min(parseInt(searchParams.get('limit') ?? '500', 10) || 500, 500)
@@ -112,6 +122,15 @@ const VALID_ACTIONS = new Set([
   'delete'
 ]);
 
+// Acciones de moderación que exigen sesión admin; vote/report son público.
+const ADMIN_ACTIONS = new Set([
+  'verify',
+  'approve',
+  'reject',
+  'toggleTransferActive',
+  'delete'
+]);
+
 // PATCH /api/businesses — acciones sobre un negocio (votos, admin, estado).
 export async function PATCH(req: NextRequest) {
   try {
@@ -126,6 +145,13 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Valid id and action required' },
         { status: 400 }
+      );
+    }
+
+    if (ADMIN_ACTIONS.has(action) && !sessionValidFromRequest(req)) {
+      return NextResponse.json(
+        { success: false, error: 'Sesión de administración requerida' },
+        { status: 401 }
       );
     }
 

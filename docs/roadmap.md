@@ -355,7 +355,19 @@ arquitectura de arriba está diseñada para que cada pieza sea reemplazable.
       5s, abre el circuito 60s tras el primer fallo (con 1 solo log), las
       requests siguientes van a memoria en <100ms, y reintenta la BD en
       silencio al expirar el cooldown.
-- [ ] **Auth en panel admin**: `AdminDashboardModal` accesible sin login.
+- [x] **Auth en panel admin**: `AdminDashboardModal` accesible sin login.
+      **Resuelto (Sprint 11)**: el login era falso — credenciales hardcodeadas
+      en el bundle del cliente (`admin`/`admin123`/`transfercuba2025`) y el
+      flag de `localStorage` era triviable (cualquiera ponía
+      `tc_admin_session_auth=true`). Ahora el API exige sesión admin real:
+      `POST /api/auth/login` valida contra `ADMIN_USERNAME`/`ADMIN_PASSWORD`
+      del servidor (timing-safe, sin credenciales en el bundle),
+      `GET /api/auth/me` verifica el estado de la cookie (HttpOnly, HMAC-SHA256,
+      TTL 24 h, firma con `ADMIN_TOKEN_SECRET`), y los endpoints sensibles
+      devuelven **401 sin cookie**: `GET ?includeAll=true` y el `PATCH` con
+      acciones admin (`verify`, `approve`, `reject`, `toggleTransferActive`,
+      `delete`). `vote`/`report` siguen públicos. Sin env configurada el login
+      devuelve 503. Credenciales demo eliminadas del modal (se definen en .env).
 - [ ] **Glyphs emoji 404**: OpenFreeMap no sirve rangos >127k (emojis del
       popup hover); se renderizan localmente con warning. Opción: sprite
       propio o quitar emoji del popup.

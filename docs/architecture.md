@@ -189,8 +189,23 @@ El diseño está listo para migrar la capa de datos:
 
 - **Doble store:** el frontend usa localStorage y el API su memoria; el
   registro de un negocio no llama a `POST /api/businesses`.
-- **Sin auth en el panel admin:** `AdminDashboardModal` es accesible por
-  cualquier usuario.
 - **CSS MapLibre por CDN** en `layout.tsx` en lugar de importarlo del paquete.
 - **Fuentes por `<link>`** con warning de ESLint (`no-page-custom-font`); lo
   idiomático sería `next/font`.
+
+## Auth del panel admin (Sprint 11)
+
+- **Login contra el servidor, no el bundle.** `POST /api/auth/login` valida
+  `username`/`password` contra `ADMIN_USERNAME`/`ADMIN_PASSWORD` del entorno
+  con `crypto.timingSafeEqual` (constant-time). Las credenciales ya no viven
+  en el JS del cliente.
+- **Sesión en cookie HttpOnly**: firma HMAC-SHA256 con `ADMIN_TOKEN_SECRET`
+  (si no existe, deriva del password), payload `{ exp }`, TTL 24 h, `SameSite=Lax`.
+  El flag `tc_admin_session_auth` del frontend es solo caché de UX; la pieza
+  que decide es el servidor.
+- **Endpoints protegidos (401 sin sesión)**: `GET /api/businesses?includeAll=true`
+  y `PATCH` con acciones `verify | approve | reject | toggleTransferActive | delete`.
+  `vote`/`report` y `POST` (registro público, nace `pending`) no exigen sesión.
+- **Estado de sesión**: `GET /api/auth/me` lo expone al frontend al abrir el
+  modal; `POST /api/auth/logout` invalida la cookie. Sin variables en `.env`
+  el login responde 503.
