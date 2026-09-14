@@ -368,9 +368,22 @@ arquitectura de arriba está diseñada para que cada pieza sea reemplazable.
       acciones admin (`verify`, `approve`, `reject`, `toggleTransferActive`,
       `delete`). `vote`/`report` siguen públicos. Sin env configurada el login
       devuelve 503. Credenciales demo eliminadas del modal (se definen en .env).
-- [ ] **Glyphs emoji 404**: OpenFreeMap no sirve rangos >127k (emojis del
+- [x] **Glyphs emoji 404**: OpenFreeMap no sirve rangos >127k (emojis del
       popup hover); se renderizan localmente con warning. Opción: sprite
       propio o quitar emoji del popup.
+      **Resuelto (Sprint 11)**: diagnóstico real con Playwright — el popup
+      ya era DOM (sin glifos); los 404 venían de **labels del basemap**
+      (`label_poi` etc.) cuyos nombres de OSM traen emojis ("Plaza de la
+      Paz 🕊️"). Fix: `font-faces` del style-spec de MapLibre 6.9 —
+      Noto Color Emoji auto-alojado en `public/map/fonts/` (10 subsets
+      woff2 de Google Fonts, ~2 MB total, carga lazy solo del subset que
+      cubre el codepoint dibujado), declarado para los 3 stacks de texto
+      (Noto Sans Regular/Bold/Italic) en ambos estilos. Resultado
+      verificado: **0 peticiones 404** a `tiles.openfreemap.org/fonts`
+      (antes 3+ por viewport con zoom-out), 0 warnings de
+      "Unable to load glyph range", y el render emoji pasa a ser
+      determinista en todos los SO (TinySDF rasteriza desde el woff2
+      local, no depende de la fuente emoji del sistema).
 - [x] **CSS MapLibre por CDN** en `layout.tsx` → importado del paquete
       (`maplibre-gl/dist/maplibre-gl.css` via `import` en el layout); el HTML
       del build ya no referencia `unpkg.com` — CSS self-hosted en chunks.

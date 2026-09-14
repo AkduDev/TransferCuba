@@ -140,6 +140,29 @@ El CSS de MapLibre se importa del paquete instalado
 sin dependencia externa en runtime). El único `<style>` propio del dominio
 relativo a MapLibre en `globals.css` es `.maplibregl-canvas { outline: none }`.
 
+## Glifos emoji auto-alojados (`font-faces`)
+
+Los nombres de POIs de OSM traen emojis ("Plaza de la Paz 🕊️"). El
+`glyphs` de OpenFreeMap solo sirve rangos <127k, así que cada emoji en un
+label disparaba un 404 + warning y MapLibre rasterizaba con la fuente del
+SO (no determinista). Fix con `font-faces` (style-spec de MapLibre ≥ 6.9):
+
+- `public/map/fonts/emoji-{0..9}.woff2` — subsets de Noto Color Emoji de
+  Google Fonts (~2 MB total), servidos del mismo origen.
+- En `public/map/{transfercuba-}style.json`, cada stack de texto
+  ("Noto Sans Regular"/Bold/Italic) declara los 10 archivos con sus
+  `unicode-range` correspondientes. `FontFaceManager` descarga **solo el
+  subset que cubre el codepoint que se va a dibujar** (carga lazy) y lo
+  registra en `document.fonts`.
+- Resultado: cero requests 404 a `tiles.openfreemap.org/fonts`, cero
+  warnings "Unable to load glyph range", y rasterizado (TinySDF) siempre
+  desde el woff2 local. Si un archivo falla, cae al siguiente y de ahí al
+  `glyphs` URL (degradación suave, sin romper el mapa).
+- Actualizar los subsets: re-descargar el CSS de
+  `fonts.googleapis.com/css2?family=Noto+Color+Emoji` con UA de Chrome,
+  guardar cada `url(...)` secuencialmente como `emoji-{i}.woff2` y
+  regenerar el bloque `font-faces` con los `unicode-range` del CSS.
+
 ## Capas del mapa (Sprint 9)
 
 `MapLibreMap` monta un source GeoJSON `businesses-source` (`cluster:true`,
