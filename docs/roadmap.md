@@ -359,7 +359,9 @@ arquitectura de arriba está diseñada para que cada pieza sea reemplazable.
 - [ ] **Glyphs emoji 404**: OpenFreeMap no sirve rangos >127k (emojis del
       popup hover); se renderizan localmente con warning. Opción: sprite
       propio o quitar emoji del popup.
-- [ ] **CSS MapLibre por CDN** en `layout.tsx` → importarlo del paquete.
+- [x] **CSS MapLibre por CDN** en `layout.tsx` → importado del paquete
+      (`maplibre-gl/dist/maplibre-gl.css` via `import` en el layout); el HTML
+      del build ya no referencia `unpkg.com` — CSS self-hosted en chunks.
 - [x] **Fuentes por `<link>`** → `next/font` (elimina warning ESLint). Usa
       `Plus_Jakarta_Sans` vía `next/font/google` auto-alojado en build
       (`--font-jakarta`); quita el warning `no-page-custom-font` y la

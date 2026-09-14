@@ -132,6 +132,14 @@ variable CSS (`--font-sans: var(--font-jakarta), ...`). Sin `<link>` de
 Google Fonts ni preconnect: funciona offline y es rápido en Cuba (sin
 CDNs externos). Eliminó el warning de ESLint `no-page-custom-font`.
 
+## CSS de MapLibre (del paquete, no CDN)
+
+El CSS de MapLibre se importa del paquete instalado
+(`import 'maplibre-gl/dist/maplibre-gl.css'` en `layout.tsx`) en lugar del
+`<link>` a unpkg.com. Se compila en los chunks CSS del build (self-hosted,
+sin dependencia externa en runtime). El único `<style>` propio del dominio
+relativo a MapLibre en `globals.css` es `.maplibregl-canvas { outline: none }`.
+
 ## Capas del mapa (Sprint 9)
 
 `MapLibreMap` monta un source GeoJSON `businesses-source` (`cluster:true`,

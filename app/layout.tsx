@@ -1,5 +1,6 @@
 import type {Metadata} from 'next';
 import {Plus_Jakarta_Sans} from 'next/font/google';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import './globals.css'; // Global styles
 import ServiceWorkerRegister from '@/components/ServiceWorkerRegister';
 
@@ -30,13 +31,6 @@ export const metadata: Metadata = {
 export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
     <html lang="es" className={jakarta.variable}>
-      <head>
-        <link
-          rel="stylesheet"
-          href="https://unpkg.com/maplibre-gl@6.8.0/dist/maplibre-gl.css"
-          crossOrigin=""
-        />
-      </head>
       <body suppressHydrationWarning className="bg-canvas text-text-primary antialiased selection:bg-cerulean selection:text-white font-sans">
         {children}
         <ServiceWorkerRegister />
