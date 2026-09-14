@@ -49,6 +49,23 @@ El cliente y el API calculan distancia con Haversine
 (`calculateDistanceMeters` en `lib/cuba-data.ts`), replicando lo que en
 producción serían consultas `ST_DWithin`/`ST_Distance` sobre PostGIS.
 
+### 5. Acceso a datos con circuit breaker (Sprint 10)
+`lib/db.ts` escoge entre PostGIS (si `DATABASE_URL` está configurada) y un
+fallback in-memory idéntico en forma de fila. Un **circuit breaker** evita
+que una BD inalcanzable degrade el desarrollo:
+
+1. `connectionTimeoutMillis: 5_000` acota cada intento (sin límite, una red
+   que bloquee el TLS a 5432 dejaría la query colgada).
+2. Al primer fallo se abre el circuito durante `DB_RETRY_MS` (60s) y se loguea
+   una sola vez qué ocurrió.
+3. Mientras está abierto, todas las operaciones (`queryBusinesses`,
+   `insertBusiness`, `patchBusiness`, `queryBusinessesByIds`,
+   `countBusinesses`) van directo al fallback in-memory en <100ms.
+4. Al expirar el cooldown se reintenta la BD en silencio; si vuelve a
+   funcionar, `markDbAvailable()` cierra el circuito.
+5. `patchBusiness` ahora aplica la mutación al fallback in-memory si la BD
+   falla (antes devolvía `null` y perdía la optimización local).
+
 ## Flujo de datos principal
 
 ### Búsqueda y filtrado (client-side)

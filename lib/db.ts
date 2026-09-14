@@ -69,6 +69,9 @@ const poolOrNull = (): Pool | null => {
     connectionString: url,
     max: 5,
     idleTimeoutMillis: 10_000,
+    // Tiempos acotados: redes restrictivas pueden bloquear el TLS a 5432 y
+    // dejar el intento colgado si no hay límite (Sprint 10 — circuit breaker).
+    connectionTimeoutMillis: 5_000,
     ssl: needsSsl ? { rejectUnauthorized: false } : undefined
   });
 };
@@ -82,6 +85,34 @@ function getPool(): Pool | null {
 
 export function isDbConfigured(): boolean {
   return getPool() !== null;
+}
+
+/* ---------------- circuit breaker (Sprint 10) ---------------- */
+
+// Si la BD es inalcanzable (p.ej. red que bloquea el TLS a 5432 de Neon),
+// cada request esperaría el timeout del pool antes de caer al fallback.
+// El breaker abre el circuito durante DB_RETRY_MS para que el desarrollo
+// responda inmediato desde memoria, y se rearma solo para reintentar.
+const DB_RETRY_MS = 60_000;
+
+let dbUnavailableUntil = 0;
+
+function shouldAttemptDb(): boolean {
+  return Date.now() >= dbUnavailableUntil;
+}
+
+function markDbUnavailable(err: unknown): void {
+  if (dbUnavailableUntil <= Date.now()) {
+    console.error(
+      '[db] PostgreSQL inalcanzable; usando fallback in-memory y reintentando en 60s:',
+      (err as Error)?.message ?? err
+    );
+  }
+  dbUnavailableUntil = Date.now() + DB_RETRY_MS;
+}
+
+function markDbAvailable(): void {
+  dbUnavailableUntil = 0;
 }
 
 /* ---------------- conversión fila ⇄ dominio ---------------- */
@@ -263,7 +294,7 @@ function memoryFilter(filters: BusinessFilters): Business[] {
 
 export async function queryBusinesses(filters: BusinessFilters): Promise<Business[]> {
   const pool = getPool();
-  if (!pool) return memoryFilter(filters);
+  if (!pool || !shouldAttemptDb()) return memoryFilter(filters);
 
   const where: string[] = filters.includeAll ? [] : [`status = 'active'`];
   const params: unknown[] = [];
@@ -343,28 +374,31 @@ export async function queryBusinesses(filters: BusinessFilters): Promise<Busines
       const coordsMap = new Map(
         coords.rows.map((r: { id: string; lng: number; lat: number }) => [r.id, r])
       );
+      markDbAvailable();
       return businesses.map((b) => {
         const c = coordsMap.get(b.id);
         return c ? { ...b, lat: c.lat, lng: c.lng } : b;
       });
     }
+    markDbAvailable();
     return businesses;
   } catch (err) {
-    console.error('[db] queryBusinesses failed, falling back to memory:', err);
+    markDbUnavailable(err);
     return memoryFilter(filters);
   }
 }
 
 export async function insertBusiness(b: Business): Promise<void> {
   const pool = getPool();
-  if (!pool) {
+  if (!pool || !shouldAttemptDb()) {
     memoryEnsure().unshift({ ...b });
     return;
   }
   try {
     await pool.query(INSERT_SQL, businessToInsert(b));
+    markDbAvailable();
   } catch (err) {
-    console.error('[db] insertBusiness failed:', err);
+    markDbUnavailable(err);
     memoryEnsure().unshift({ ...b });
   }
 }
@@ -385,7 +419,7 @@ export async function patchBusiness(
 ): Promise<Business | null> {
   const pool = getPool();
 
-  if (!pool) {
+  const applyInMemory = (): Business | null => {
     const list = memoryEnsure();
     const idx = list.findIndex((b) => b.id === id);
     if (idx === -1) return null;
@@ -417,7 +451,9 @@ export async function patchBusiness(
       b.lastStatusUpdate = 'Reportado por usuario';
     }
     return { ...b };
-  }
+  };
+
+  if (!pool || !shouldAttemptDb()) return applyInMemory();
 
   const updates: Record<PatchAction, string> = {
     verify: `UPDATE businesses SET
@@ -456,22 +492,26 @@ export async function patchBusiness(
     if (!res.rows.length) return null;
     if (action === 'delete') return null;
     const fetched = await queryBusinessesByIds([id]);
+    markDbAvailable();
     return fetched.get(id) ?? null;
   } catch (err) {
-    console.error('[db] patchBusiness failed:', err);
-    return null;
+    markDbUnavailable(err);
+    return applyInMemory();
   }
 }
 
 export async function queryBusinessesByIds(ids: string[]): Promise<Map<string, Business>> {
   const pool = getPool();
-  if (!pool) {
+
+  const fromMemory = (): Map<string, Business> => {
     const map = new Map<string, Business>();
     memoryEnsure().forEach((b) => {
       if (ids.includes(b.id)) map.set(b.id, b);
     });
     return map;
-  }
+  };
+
+  if (!pool || !shouldAttemptDb()) return fromMemory();
   try {
     const res = await pool.query(
       `SELECT *, NULL::double precision AS distance_meters,
@@ -483,31 +523,36 @@ export async function queryBusinessesByIds(ids: string[]): Promise<Map<string, B
     res.rows.forEach((r: Row & { lng_raw: number; lat_raw: number }) => {
       map.set(r.id, { ...rowToBusiness(r), lat: r.lat_raw, lng: r.lng_raw });
     });
+    markDbAvailable();
     return map;
   } catch (err) {
-    console.error('[db] queryBusinessesByIds failed:', err);
-    return new Map();
+    markDbUnavailable(err);
+    return fromMemory();
   }
 }
 
 export async function countBusinesses(): Promise<{ total: number; active: number }> {
   const pool = getPool();
-  if (!pool) {
+
+  const fromMemory = (): { total: number; active: number } => {
     const list = memoryEnsure();
     return {
       total: list.length,
       active: list.filter((b) => b.status === 'active').length
     };
-  }
+  };
+
+  if (!pool || !shouldAttemptDb()) return fromMemory();
   try {
     const res = await pool.query(
       `SELECT COUNT(*)::int AS total,
               COUNT(*) FILTER (WHERE status = 'active')::int AS active
        FROM businesses`
     );
+    markDbAvailable();
     return res.rows[0];
-  } catch {
-    const list = memoryEnsure();
-    return { total: list.length, active: list.filter((b) => b.status === 'active').length };
+  } catch (err) {
+    markDbUnavailable(err);
+    return fromMemory();
   }
 }

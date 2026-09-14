@@ -345,9 +345,16 @@ arquitectura de arriba está diseñada para que cada pieza sea reemplazable.
 - [ ] HTTP cache edge: `s-maxage=60, stale-while-revalidate=300`
 
 ### Deuda técnica vista en Sprint 9 (ordenada por prioridad)
-- [ ] **DB caída en dev**: `queryBusinesses` en `lib/db.ts` lanza
-      `ECONNRESET` y cae siempre al store in-memory (el pool de Neon muere
-      tras idle). Verificar connectionString/reconnect antes de Sprint 10.
+- [x] **DB caída en dev**: `queryBusinesses` en `lib/db.ts` lanzaba `ECONNRESET`
+      y caía siempre al store in-memory. **Diagnóstico (Sprint 10)**: TCP a
+      5432 conecta, pero el firewall de la red bloquea el handshake TLS a
+      Neon (openssl/`tls.connect` se cuelgan; TLS a 443 a nivel socket sí
+      va, pero `pg` no puede negociar Postgres sobre él). No es bug del
+      pool: Neon es inalcanzable desde este entorno de desarrollo. Fix:
+      **circuit breaker** en `lib/db.ts` — timeout de conexión acotado a
+      5s, abre el circuito 60s tras el primer fallo (con 1 solo log), las
+      requests siguientes van a memoria en <100ms, y reintenta la BD en
+      silencio al expirar el cooldown.
 - [ ] **Auth en panel admin**: `AdminDashboardModal` accesible sin login.
 - [ ] **Glyphs emoji 404**: OpenFreeMap no sirve rangos >127k (emojis del
       popup hover); se renderizan localmente con warning. Opción: sprite
