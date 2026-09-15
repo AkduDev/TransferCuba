@@ -223,9 +223,17 @@ capas idempotentes (re-añadidas si faltan):
   negocios y desde el evento `load` del mapa, reintenta 3× hasta ver las 5
   capas, y registra interacción (click/cursor/popup) una sola vez por
   instancia (`mapInteractiveRef`).
-- **Limitación runtime**: este bundle de MapLibre descarta silenciosamente
-  capas con expresiones `feature-state` (sin throw). No usarlas; la selección
-  es data-driven vía properties.
+- **Limitación runtime (verificada en 6.9.0)**: en versiones antiguas del
+  bundle, las capas con expresiones `feature-state` se descartaban
+  silenciosamente (sin throw). Con el bundle actual self-hosted
+  (**maplibre-gl 6.9.0**) ya NO se descartan: la capa se añade, aparece en
+  `getStyle().layers`, `getLayer()` la devuelve y renderiza tras
+  `setFeatureState()`. Único residuo: warning benigno si se lee la `state`
+  sin valor previo ("Expected value to be of type number, but found null.
+  Falling back to 5") — se elimina con `['coalesce', ['feature-state', k],
+  dflt]`. El proyecto sigue usando selección data-driven por properties
+  (probado y eficiente); feature-state queda disponible si se quiere.
+  Reproducción headless documentada en `docs/roadmap.md`.
 - **Debug**: en dev, `window.__MAP__` expone la instancia (lo usan los tests
   de Playwright para proyectar coordenadas y clickear pins/clusters).
 

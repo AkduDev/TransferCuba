@@ -328,9 +328,13 @@ arquitectura de arriba está diseñada para que cada pieza sea reemplazable.
    antes de tiempo
 5. **Votos idempotentes** vía `updated_at` + clave única por (user, business)
    cuando haya auth — hoy cuenta local
-6. **Selección sin feature-state** (Sprint 9) — el runtime MapLibre del
-   proyecto descarta capas con expresiones `feature-state` sin error visible;
-   `selected` viaja como property del GeoJSON y el refresh es `setData()`
+6. **Selección sin feature-state** (Sprint 9) — en versiones antiguas del
+   bundle, el runtime MapLibre descartaba capas con expresiones
+   `feature-state` sin error visible; `selected` viaja como property del
+   GeoJSON y el refresh es `setData()`. **Verificación 6.9.0**: el bug ya no
+   existe (capas feature-state añadidas y renderizadas), pero el patrón
+   data-driven se mantiene por simplicidad (un `setData()` es igual de
+   barato y no depende de IDs de feature).
 
 ## 7. Tareas pendientes (backlog)
 
@@ -436,5 +440,16 @@ arquitectura de arriba está diseñada para que cada pieza sea reemplazable.
       — click trae todas las hojas (`getClusterLeaves`); tarjeta muestra 9 y
       "Ver más negocios (N)" expande al total y desaparece (verificado
       headless: 9 → 14 con cluster de 14)
-- [ ] Reproducir el bug MapLibre `feature-state` en issue upstream (bundle
-      `public/map/maplibre-gl-shared.mjs`) y valorar upgrade del runtime
+- [x] Reproducir el bug MapLibre `feature-state` en issue upstream (bundle
+      `public/map/maplibre-gl-shared.mjs`) y valorar upgrade del runtime.
+      **Cerrado (Sprint 11)**: el bug NO se reproduce en el bundle actual
+      (maplibre-gl **6.9.0** self-hosted). Reproducción headless con
+      `window.__MAP__`: una capa circle con `circle-radius`/`circle-opacity`
+      como `['feature-state', 'selected']` se añade sin throw, aparece en
+      `map.getStyle().layers`, `map.getLayer()` la devuelve y renderiza
+      (`queryRenderedFeatures` la encuentra tras `setFeatureState`). El único
+      residuo es un warning benigno si se lee la state sin valor previo:
+      "Expected value to be of type number, but found null. Falling back to
+      5" — se elimina envolviendo con `['coalesce', ['feature-state', k], dflt]`.
+      No hace falta issue upstream ni cambio de runtime; el patrón data-driven
+      por properties del proyecto sigue siendo válido (se mantiene).
