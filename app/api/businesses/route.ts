@@ -5,6 +5,14 @@ import { sessionValidFromRequest } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
+// Sprint 5 (Cuba-first): sin fotos → placeholder local SVG por categoría
+// (BusinessCover). No se tocan CDNs externos (lentos/inaccesibles en Cuba).
+const EXTERNAL_PHOTO_PATTERN = /unsplash|picsum|pexels|shutterstock/i;
+const sanitizePhotos = (photos: unknown): string[] =>
+  Array.isArray(photos)
+    ? photos.filter((p): p is string => typeof p === 'string' && !EXTERNAL_PHOTO_PATTERN.test(p))
+    : [];
+
 // GET /api/businesses — filtros + spatial queries (viewport bbox / nearby).
 // Sprint 2: PostGIS con ST_MakeEnvelope && / ST_DWithin / ST_Distance;
 // sin DATABASE_URL cae al fallback in-memory (dev).
@@ -99,7 +107,7 @@ export async function POST(req: NextRequest) {
       phone: body.phone || '',
       rating: 5.0,
       reviewsCount: 1,
-      photos: body.photos?.length ? body.photos : ['https://picsum.photos/seed/cuba-biz/600/400'],
+      photos: sanitizePhotos(body.photos),
       featured: false,
       status: 'pending'
     };

@@ -248,9 +248,28 @@ El diseño está listo para migrar la capa de datos:
 
 - **Doble store:** el frontend usa localStorage y el API su memoria; el
   registro de un negocio no llama a `POST /api/businesses`.
-- **CSS MapLibre por CDN** en `layout.tsx` en lugar de importarlo del paquete.
-- **Fuentes por `<link>`** con warning de ESLint (`no-page-custom-font`); lo
-  idiomático sería `next/font`.
+
+## Fotos de negocio (Sprint 5 — sin CDNs externos)
+
+Cuba-first: ninguna foto de negocio se carga desde un CDN externo
+(Picsum/Unsplash/Pexels/Shutterstock); en Cuba esos dominios son lentos o
+inaccesibles, y el placeholder local siempre es más rápido.
+
+- **Fuente de verdad**: `businesses.photos` (`string[]`). El seed
+  (`INITIAL_BUSINESSES` en `lib/cuba-data.ts`) usa `photos: []`.
+- **Sanitización en 2 capas**: `lib/db.ts` (`sanitizePhotos`, al leer filas
+  y al insertar) y `app/api/businesses/route.ts` (`POST` descarta CDNs
+  externos y no inyecta fallback: sin fotos → `[]`). La regex
+  `EXTERNAL_PHOTO_PATTERN` filtra `unsplash|picsum|pexels|shutterstock`.
+- **Render**: `components/BusinessCover.tsx`. Con foto → `next/image`
+  (`loading="lazy"`, `fill`, `referrerPolicy="no-referrer"`); sin foto →
+  placeholder local por categoría (`getCategoryStyle` en
+  `lib/category-style.tsx`), icono lucide + color de la categoría en ambos
+  variants (`thumb` miniatura, `banner` con label de categoría).
+- **Config**: `next.config.ts` ya no declara `remotePatterns` de
+  imágenes externas; el único `<img>` de red que existía quedó eliminado.
+  Si un negocio llega a subir fotos propias, se añadirá el host al que
+  se sirvan (self-host o storage propio), nunca un CDN público.
 
 ## Auth del panel admin (Sprint 11)
 

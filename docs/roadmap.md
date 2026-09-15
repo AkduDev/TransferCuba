@@ -410,8 +410,17 @@ arquitectura de arriba está diseñada para que cada pieza sea reemplazable.
       nativo (ext4) o delegar las builds integrales a CI (Vercel ya lo
       hace). Para el día a día: `tsc --noEmit` + `eslint` son rápidos y
       verifican igual.
-- [ ] Fotos seed externas (Picsum/Unsplash) fuera del bundle → SVG local por
+- [x] Fotos seed externas (Picsum/Unsplash) fuera del bundle → SVG local por
       categoría (resto del Sprint 5).
+      **Resuelto (Sprint 11)**: el seed ya usaba `photos: []`; el último
+      filón era el fallback `picsum` en el `POST /api/businesses` (si el
+      modal no mandaba fotos, inyectaba una URL externa) y los
+      `remotePatterns` de `next.config.ts`. Ahora el POST descarta cualquier
+      CDN externo y devuelve `[]` sin fotos; `next.config.ts` ya no permite
+      hosts de imágenes externos; y el placeholder es 100% local por
+      categoría (`BusinessCover` + `getCategoryStyle`: icono lucide + color,
+      sin `next/image` ni red). La sanitización existe en 2 capas (DAO y
+      API). Documentado en `docs/architecture.md`.
 - [ ] Self-host OSRM cuando el demo público sea cuello de botella.
 
 ### Mejoras de mapa (post-10)
