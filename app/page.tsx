@@ -82,26 +82,48 @@ export default function Home() {
   // Hidratación offline: cache local primero, seed solo como último recurso.
   // Corre post-mount (client only) para no romper la hidratación de React.
   // Diferido un tick: el setState síncrono dentro del efecto dispara la regla
-  // react-hooks/set-state-in-effect (render en cascada).
-  useEffect(() => {
-    const hydrate = () => {
-      const saved = localStorage.getItem('transfercuba_businesses_v2');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved) as Business[];
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setBusinesses(parsed);
-            return;
-          }
-        } catch {
-          // cache corrupto -> seed
-        }
-      }
-      setBusinesses(INITIAL_BUSINESSES);
-    };
-    const t = setTimeout(hydrate, 0);
-    return () => clearTimeout(t);
-  }, []);
+// react-hooks/set-state-in-effect (render en cascada).
+   useEffect(() => {
+     const hydrate = async () => {
+       // Try to fetch from API first (will use PostGIS if available, else in-memory fallback)
+       try {
+         const res = await fetch('/api/businesses', {
+           headers: { 'Accept': 'application/json' },
+           // No credentials needed for public endpoint
+         });
+         if (res.ok) {
+           const data = await res.json();
+           if (data.success && Array.isArray(data.businesses)) {
+             setBusinesses(data.businesses);
+             return;
+           }
+         }
+         // If API fails or returns unexpected format, fall back to localStorage
+       } catch (apiErr) {
+         // API error (network, etc.) - continue to localStorage fallback
+         console.warn('[page] API fetch failed, falling back to localStorage:', apiErr);
+       }
+
+       // Fallback to localStorage
+       const saved = localStorage.getItem('transfercuba_businesses_v2');
+       if (saved) {
+         try {
+           const parsed = JSON.parse(saved) as Business[];
+           if (Array.isArray(parsed) && parsed.length > 0) {
+             setBusinesses(parsed);
+             return;
+           }
+         } catch {
+           // cache corrupto -> seed
+         }
+       }
+       // Final fallback to seed data
+       setBusinesses(INITIAL_BUSINESSES);
+     };
+ 
+     const t = setTimeout(() => hydrate(), 0);
+     return () => clearTimeout(t);
+   }, []);
 
   useEffect(() => {
     // debounce: espera a que paren los cambios de filtros/viewport
