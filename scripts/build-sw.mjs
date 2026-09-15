@@ -34,6 +34,7 @@ generateSW({
     revisions('public/map/maplibre-gl-worker.mjs'),
     revisions('public/map/maplibre-gl-shared.mjs'),
     revisions('public/map/style.json'),
+    revisions('public/map/transfercuba-style.json'),
   ].filter(Boolean),
   clientsClaim: true,
   skipWaiting: true,
@@ -76,6 +77,16 @@ generateSW({
       options: {
         cacheName: 'openfreemap',
         expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 30 },
+      },
+    },
+    {
+      // Fuentes emoji del mapa (font-faces del estilo, ~2 MB en 10 subsets
+      // con carga lazy): cache-first sin precachear el install del SW.
+      urlPattern: ({ url }) => url.pathname.startsWith('/map/fonts/'),
+      handler: 'CacheFirst',
+      options: {
+        cacheName: 'map-fonts',
+        expiration: { maxEntries: 12, maxAgeSeconds: 60 * 60 * 24 * 90 },
       },
     },
   ],
