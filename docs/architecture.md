@@ -140,6 +140,42 @@ El CSS de MapLibre se importa del paquete instalado
 sin dependencia externa en runtime). El único `<style>` propio del dominio
 relativo a MapLibre en `globals.css` es `.maplibregl-canvas { outline: none }`.
 
+## Build lenta en local (disco NTFS) — diagnóstico cerrado
+
+**Síntoma:** `bun run build` tarda ~8 min en este entorno (>10 min con
+dev server vivo).
+
+**Causa raíz (medida, no especulada):** el repo vive en un disco NTFS
+montado vía `fuseblk` (ntfs-3g): escritura de **~11 MB/s** (dd 50 MB =
+4,7 s). La build escribe cientos de MB — chunks de webpack, cache de
+SWC y, con `output:'standalone'`, una copia trazada de `node_modules` —
+así que es I/O-bound, no CPU-bound ni un watcher colgado. Medición de
+build limpia completa: **484 s** (de los cuales 117 s es solo el compile
+de webpack).
+
+**Por qué no se puede fixear con distDir custom (experimento hecho y
+revertido):**
+
+1. Next trata `distDir` como relativo al directorio del proyecto: un
+   path absoluto (`/home/...`) termina creándose DENTRO del repo
+   (`<repo>/home/...`), verificado empíricamente en Next 15.5.25.
+2. Un symlink `<repo>/.next-fast -> /home/Akdulay/.transfercuba-build`
+   pasa la fase de compilación, pero el build worker hace `require`
+   desde `_document.js` situado (por realpath) fuera del repo, y Node
+   resuelve `node_modules` subiendo por el path REAL — no encuentra
+   `react/jsx-runtime` y la build muere en "Collecting page data".
+
+**Conclusiones operativas:**
+
+- El pipeline queda como estaba (`distDir: '.next'` por defecto).
+- En CI/Vercel el FS es nativo y compila a velocidad normal: las
+  builds integrales de verdad delegarlas a CI.
+- Para verificación local del día a día: `bunx tsc --noEmit` y
+  `bunx eslint` (segundos) cubren types y lint; la build completa
+  solo cuando toque.
+- Fix real del entorno (fuera del alcance del código): mover el repo
+  a un FS ext4 nativo.
+
 ## Glifos emoji auto-alojados (`font-faces`)
 
 Los nombres de POIs de OSM traen emojis ("Plaza de la Paz 🕊️"). El

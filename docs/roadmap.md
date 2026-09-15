@@ -391,8 +391,25 @@ arquitectura de arriba está diseñada para que cada pieza sea reemplazable.
       `Plus_Jakarta_Sans` vía `next/font/google` auto-alojado en build
       (`--font-jakarta`); quita el warning `no-page-custom-font` y la
       dependencia de Google Fonts en runtime (mejor para Cuba).
-- [ ] **`bun run build` lento en local** (>10 min con el dev server muerto);
+- [x] **`bun run build` lento en local** (>10 min con el dev server muerto);
       compilar en CI o investigar watcher colgado.
+      **Cerrado (Sprint 11) — causa raíz identificada, no es el watcher:**
+      el repo vive en un disco NTFS montado con `fuseblk` (ntfs-3g) cuya
+      escritura medida es **~11 MB/s** (dd 50MB). Una build de Next con
+      `output:'standalone'` escribe cientos de MB (chunks, cache y copia
+      de node_modules al standalone) y queda I/O-bound: **484s (~8 min)
+      medidos** de build limpia completa (117s solo el compile). No hay
+      proceso colgado ni watcher; en CI/Vercel (FS nativo) compila normal.
+      Se intentó distDir fuera del repo (HOME en ext4) y **no es viable en
+      Next 15**: trata el distDir como relativo al proyecto (un absoluto
+      acaba creándose dentro del repo) y un symlink `.next-fast` rompe la
+      resolución de módulos del build worker (`Cannot find module
+      'react/jsx-runtime'` desde `_document.js`, porque `require` resuelve
+      el realpath y escapa del node_modules del repo). Experimento
+      revertido; el fix real del entorno sería mover el repo a un FS
+      nativo (ext4) o delegar las builds integrales a CI (Vercel ya lo
+      hace). Para el día a día: `tsc --noEmit` + `eslint` son rápidos y
+      verifican igual.
 - [ ] Fotos seed externas (Picsum/Unsplash) fuera del bundle → SVG local por
       categoría (resto del Sprint 5).
 - [ ] Self-host OSRM cuando el demo público sea cuello de botella.
