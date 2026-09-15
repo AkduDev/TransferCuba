@@ -9,6 +9,8 @@ import { Business, CATEGORY_EMOJI } from '@/lib/cuba-data';
 export interface ClusterInfo {
   businesses: Business[];
   center: [number, number]; // [lat, lng]
+  clusterId?: number; // para escalar el conteo mostrado (8+)
+  expansionZoom?: number; // zoom al que el cluster se disuelve en pins
 }
 
 interface MapLibreMapProps {
@@ -61,17 +63,27 @@ function ensureWorkerUrl(): void {
 }
 
 const SOURCE_ID = 'businesses-source';
+const SOURCE_CLUSTER_HOVER_ID = 'cluster-hover-source';
 const LAYER_CLUSTER_ID = 'clusters-layer';
 const LAYER_CLUSTER_COUNT_ID = 'cluster-count-layer';
 const LAYER_SELECTED_HALO_ID = 'selected-business-halo';
 const LAYER_UNCLUSTERED_ID = 'unclustered-layer';
 const LAYER_UNCLUSTERED_SEL_ID = 'unclustered-selected-layer';
+const LAYER_CLUSTER_HOVER_ID = 'cluster-hover-halo';
 
 // Pin badge colors (design system)
 const COLOR_VERIFIED = '#10b981';
 const COLOR_REPORTED = '#e11d48';
 const COLOR_PENDING = '#f59e0b';
 const COLOR_SELECTED = '#0f2942';
+
+// Radio del cluster según point_count (debe coincidir con el 'circle-radius'
+// step de LAYER_CLUSTER_ID). El halo de hover lo reusa para agrandar.
+function clusterRadius(count: number): number {
+  if (count >= 25) return 24;
+  if (count >= 10) return 20;
+  return 16;
+}
 
 function statusColor(biz: Business): string {
   if (biz.reportsCount > 0) return COLOR_REPORTED;
@@ -529,6 +541,30 @@ const map = mapInstanceRef.current;
           }
         });
 
+        // Halo de hover del cluster (igual que el halo de selección del pin):
+        // source dedicada + capa, porque este runtime MapLibre descarta capas
+        // con feature-state. Se rellena al `mouseenter` y vacía al `mouseleave`.
+        if (!map.getSource(SOURCE_CLUSTER_HOVER_ID)) {
+          map.addSource(SOURCE_CLUSTER_HOVER_ID, {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
+          });
+        }
+        ensureLayer({
+          id: LAYER_CLUSTER_HOVER_ID,
+          type: 'circle',
+          source: SOURCE_CLUSTER_HOVER_ID,
+          paint: {
+            'circle-radius': ['get', 'r'],
+            'circle-color': COLOR_VERIFIED,
+            'circle-opacity': 0.3,
+            'circle-blur': 0.5
+          }
+        });
+        if (map.getLayer(LAYER_CLUSTER_ID) && map.getLayer(LAYER_CLUSTER_HOVER_ID)) {
+          map.moveLayer(LAYER_CLUSTER_HOVER_ID, LAYER_CLUSTER_ID);
+        }
+
         // Individual pins (sin feature-state: MapLibre de este proyecto descarta
 // silenciosamente capas con expresiones feature-state). El pin seleccionado
 // vive en su propia capa, filtrada por la property `selected` del GeoJSON.
@@ -595,13 +631,17 @@ ensureLayer({
             const center: [number, number] = coords.coordinates as [number, number]; // [lng,lat]
 
             const cb = callbacksRef.current.onClusterClick;
+            const expansionZoom = await src.getClusterExpansionZoom(clusterId).catch(() => Math.min(map.getZoom() + 1, 16));
             try {
-              const leaves = await src.getClusterLeaves(clusterId, 8, 0);
+              // Trae todas las hojas del cluster (point_count acotado por
+              // clusterMaxZoom); la paginación de la tarjeta es pura UI.
+              const pointCount = Number(feature.properties?.point_count ?? 8);
+              const leaves = await src.getClusterLeaves(clusterId, Math.max(pointCount, 8), 0);
               const bizs = leaves
                 .map((l) => businessesByIdRef.current.get(String(l.properties?.id)))
                 .filter((b): b is Business => Boolean(b));
               if (bizs.length > 0 && cb) {
-                cb({ businesses: bizs, center: [center[1], center[0]] });
+                cb({ businesses: bizs, center: [center[1], center[0]], clusterId, expansionZoom });
                 return;
               }
             } catch {
@@ -609,8 +649,7 @@ ensureLayer({
             }
 
             // Fallback: zoom into the cluster (Google '+' behaviour).
-            const targetZoom = await src.getClusterExpansionZoom(clusterId);
-            map.easeTo({ center, zoom: targetZoom, duration: 600 });
+            map.easeTo({ center, zoom: expansionZoom, duration: 600 });
           };
 
           map.on('click', LAYER_CLUSTER_ID, onClusterBubbleClick);
@@ -640,6 +679,30 @@ ensureLayer({
           map.on('mouseleave', LAYER_CLUSTER_ID, () => {
             map.getCanvas().style.cursor = '';
           });
+
+          // Halo de hover del cluster: escribe el punto bajo el cursor con su
+          // radio en la source dedicada (vacía al salir).
+          const setClusterHover = (feature: maplibregl.GeoJSONFeature | undefined) => {
+            const hoverSrc = map.getSource(SOURCE_CLUSTER_HOVER_ID) as GeoJSONSource | undefined;
+            if (!hoverSrc) return;
+            if (feature && feature.geometry.type === 'Point') {
+              const count = Number(feature.properties?.point_count ?? 0);
+              hoverSrc.setData({
+                type: 'FeatureCollection',
+                features: [
+                  {
+                    type: 'Feature',
+                    geometry: feature.geometry,
+                    properties: { r: clusterRadius(count) + 5 }
+                  }
+                ]
+              });
+            } else {
+              hoverSrc.setData({ type: 'FeatureCollection', features: [] });
+            }
+          };
+          map.on('mouseenter', LAYER_CLUSTER_ID, (e) => setClusterHover(e.features?.[0]));
+          map.on('mouseleave', LAYER_CLUSTER_ID, () => setClusterHover(undefined));
 
           // Hover popup: business name (desktop nicety)
           const popup = new maplibregl.Popup({

@@ -424,8 +424,17 @@ arquitectura de arriba está diseñada para que cada pieza sea reemplazable.
 - [ ] Self-host OSRM cuando el demo público sea cuello de botella.
 
 ### Mejoras de mapa (post-10)
-- [ ] Hover en clusters (cursor + outline) igual que pins
-- [ ] Animación de "expansión" al abrir cluster (hoy easeTo directo)
-- [ ] Tarjeta de cluster: paginar >8 negocios con "Ver más"
+- [x] Hover en clusters (cursor + outline/halo) igual que pins
+      — `cluster-hover-source` + `cluster-hover-halo` (halo emerald con radio
+      dinámico `clusterRadius(count) + 5`, pintado solo mientras el puntero está
+      encima; verificado headless: `haloOn=1, haloOff=0`)
+- [x] Animación de "expansión" al abrir cluster (antes easeTo directo a z15)
+      — click captura el zoom para desagregar todo el cluster (`expansionZoom`)
+      y "Ver mapa" hace `easeTo` a ese zoom (900 ms) tras cerrar la tarjeta
+      (verificado headless: z12.97 → z15, tarjeta cerrada)
+- [x] Tarjeta de cluster: paginar >8 negocios con "Ver más"
+      — click trae todas las hojas (`getClusterLeaves`); tarjeta muestra 9 y
+      "Ver más negocios (N)" expande al total y desaparece (verificado
+      headless: 9 → 14 con cluster de 14)
 - [ ] Reproducir el bug MapLibre `feature-state` en issue upstream (bundle
       `public/map/maplibre-gl-shared.mjs`) y valorar upgrade del runtime

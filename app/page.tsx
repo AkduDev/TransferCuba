@@ -28,6 +28,7 @@ import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { ClusterInfo } from '@/components/MapLibreMap';
 import {
   Check,
+  ChevronDown,
   Sparkles,
   MapPin,
   ShieldCheck,
@@ -417,18 +418,28 @@ export default function Home() {
 
   // Cluster card (Sprint 9): lista de negocios dentro del cluster clickeado
   const [clusterView, setClusterView] = useState<ClusterInfo | null>(null);
+  const [clusterVisibleCount, setClusterVisibleCount] = useState(8);
   const handleClusterClick = useCallback((info: ClusterInfo) => {
     setClusterView(info);
+    setClusterVisibleCount(8);
   }, []);
-  const handleCloseCluster = useCallback(() => setClusterView(null), []);
+  const handleCloseCluster = useCallback(() => {
+    setClusterView(null);
+    setClusterVisibleCount(8);
+  }, []);
   const handleExpandCluster = useCallback(() => {
     const m = mapRef.current;
     if (!m || !clusterView) return;
+    // Animación de expansión: vuela al zoom exacto donde el cluster se
+    // disuelve en pins (no un salto arbitrario a z15).
+    const zoom = clusterView.expansionZoom ?? Math.max(m.getZoom(), 15);
     m.easeTo({
       center: [clusterView.center[1], clusterView.center[0]],
-      zoom: Math.max(m.getZoom(), 15),
-      duration: 800
+      zoom,
+      duration: 900
     });
+    setClusterView(null);
+    setClusterVisibleCount(8);
   }, [clusterView]);
 
   // Select Business from list or map
@@ -983,7 +994,7 @@ export default function Home() {
             </div>
           </div>
           <div className="overflow-y-auto">
-            {clusterView.businesses.map((b) => (
+            {clusterView.businesses.slice(0, clusterVisibleCount).map((b) => (
               <button
                 key={b.id}
                 onClick={() => handleSelectBusiness(b)}
@@ -1009,6 +1020,15 @@ export default function Home() {
                 </span>
               </button>
             ))}
+            {clusterVisibleCount < clusterView.businesses.length && (
+              <button
+                onClick={() => setClusterVisibleCount((n) => n + 8)}
+                className="w-full flex items-center justify-center gap-1.5 py-3 text-[13px] font-semibold text-cerulean hover:bg-tm-bg active:bg-slate-100 transition-colors"
+              >
+                Ver más negocios ({clusterView.businesses.length - clusterVisibleCount})
+                <ChevronDown className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       )}

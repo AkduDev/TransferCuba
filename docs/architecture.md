@@ -229,6 +229,24 @@ capas idempotentes (re-añadidas si faltan):
 - **Debug**: en dev, `window.__MAP__` expone la instancia (lo usan los tests
   de Playwright para proyectar coordenadas y clickear pins/clusters).
 
+### Interacción con clusters (post-10, Sprint 10)
+- **Hover halo**: `cluster-hover-source` (GeoJSON vacío) + `cluster-hover-halo`
+  (circle con `circle-radius: ['get','r']`, COLOR_VERIFIED, blur 0.5,
+  opacity 0.3, colocada bajo `clusters-layer` en el orden de capas).
+  `mouseenter` en `clusters-layer` escribe un FeatureToPoint con radio
+  dinámico `clusterRadius(count) + 5`; `mouseleave` vacía la source.
+  Solo se pinta mientras el cursor está encima (verificado headless:
+  haloOn=1, haloOff=0).
+- **Click de cluster**: `getClusterLeaves(clusterId, Math.max(pointCount,8), 0)`
+  trae todas las hojas (max 8 necesarios para desagrupar con clusterMaxZoom
+  14, pero aquí pide todo el tamaño real para la paginación).
+- **Paginación en tarjeta**: la tarjeta de cluster muestra las primeras 9 filas
+  con un botón "Ver más negocios (N)" que expande al total y desaparece.
+- **Expansión**: el click de cluster captura `expansionZoom` (el zoom necesario
+  para desagrupar ese cluster concreto). "Ver mapa" cierra la tarjeta y hace
+  `easeTo({zoom: expansionZoom, duration: 900})` en vez del zoom fijo 15
+  anterior (verificado headless: z12.97 → z15, tarjeta cerrada).
+
 ## Futuro: PostGIS
 
 El diseño está listo para migrar la capa de datos:
