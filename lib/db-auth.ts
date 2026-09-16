@@ -156,6 +156,18 @@ export async function touchLastLogin(userId: string): Promise<void> {
   await run((p) => p.query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [userId]));
 }
 
+/** Cambio de rol (solo admin en la capa de API). Usado por el alta de mensajeros. */
+export async function updateUserRole(userId: string, role: Role): Promise<PublicUser | null> {
+  const res = await run((p) =>
+    p.query<PublicUser>(
+      `UPDATE users SET role = $2 WHERE id = $1 AND status = 'active'
+       RETURNING id, phone, name, role, status`,
+      [userId, role]
+    )
+  );
+  return res.rows[0] ?? null;
+}
+
 /* ---------------- sesiones ---------------- */
 
 export async function createSession(userId: string): Promise<{ id: string; expiresAt: Date }> {

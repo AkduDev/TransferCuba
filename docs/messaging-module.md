@@ -10,7 +10,7 @@ dependencias.
 | Fase | Descripción | Estado |
 |---|---|---|
 | 0 | **Identidad teléfono + PIN** (`users`/`sessions`) | ✅ hecho (Sprint 10) |
-| 1 | Modelo delivery (mensajeros, pricing, plataforma, carreras, pagos) | ⏳ |
+| 1 | **Modelo delivery** (mensajeros, pricing, plataforma, carreras, pagos) | ✅ hecho (Sprint 11) |
 | 2 | Solicitud de carrera (form + precio estimado + OSRM server-side una vez) | ⏳ |
 | 3 | Matching mensajero (listado, aceptar, confiar) | ⏳ |
 | 4 | Tracking en mapa + transición de estados | ⏳ |
@@ -48,6 +48,62 @@ Alcance por sesión: `requireAuth` / `requireRole` en `lib/auth.ts` (server-only
 - `lib/hooks/useAuth.ts` — estado de sesión en el cliente (hidrata con `/me`).
 - `components/GoogleMapsAuthModal.tsx` — login/registro/perfil; acceso desde
   `GoogleMapsTopBar` (botón "Cuenta") y `GoogleMapsSideDrawer`.
+
+## Fase 1 — Modelo de datos (hecho, Sprint 11)
+
+Migración `db/migrate_delivery.sql` (idempotente), DAO `lib/db-delivery.ts`
+(pool propio + breaker, **sin** fallback in-memory) y motor de precios
+`lib/pricing.ts`. Verificado contra Neon con script que recorre toda la macro
+(sin datos de prueba residuales).
+
+- **`pricing_config`** (singleton `id=1`): `base_cup`, `free_km`,
+  `small_km_threshold` + `small_km_rate_cup`, `large_km_threshold` +
+  `large_km_rate_cup`, `extra_km_rate_cup`, `updated_by`, `updated_at`.
+  CHECK de coherencia (tramos crecientes, tarifas ≥ 0). Defaults seed:
+  200/3/5·50/10·70/100.
+- **`platform_config`** (singleton `id=1`): `messenger_fee_cup`,
+  `messenger_pay_card`, `messenger_whatsapp`, `updated_by`, `updated_at`.
+- **`messengers_profiles`**: perfil operativo (`vehicle`, `service_areas[]`,
+  `status PENDING|ACTIVE|SUSPENDED`, `rating 0-5`, `completed_orders`,
+  `active_since`), UNIQUE por `user_id`.
+- **`delivery_requests`**: la carrera. Código `code TC-XXXXX` UNIQUE (5 chars
+  base36 del UUID, retry en colisión), `status` con CHECK, `requester_id`
+  (RESTRICT), `messenger_id` (SET NULL), paquete (`package_type`,
+  `fragile`, `payable_on_delivery`), pickup/dropoff con lat/lng+address+note,
+  ruta cacheada (`distance_km`, `duration_min`, `route_geojson`) y tarifas
+  (`base_fare_cup`, `total_fare_cup`), timestamps por evento. Índice parcial
+  `(status) WHERE status='PENDING'` para el matching, + índices por
+  solicitante/mensajero.
+- **`delivery_status_events`**: auditoría de cada transición
+  (`from_status`, `to_status`, `actor_id`, `actor_role`, `note`).
+- **`messengers_payments`**: ledger del alta/activación
+  (`amount_cup > 0`, `status PENDING|PAID|CONFIRMED|REJECTED`, `reference`,
+  `evidence_note`, `confirmed_by`, `confirmed_at`).
+
+### Transiciones (whitelist dura en backend)
+
+```
+PENDING   → ACCEPTED | CANCELLED | EXPIRED
+ACCEPTED  → PICKED_UP | CANCELLED
+PICKED_UP → IN_TRANSIT
+IN_TRANSIT→ DELIVERED
+(DELIVERED / CANCELLED / EXPIRED son terminales)
+```
+
+`transitionDelivery` bloquea la fila (`SELECT ... FOR UPDATE`), valida que el
+estado actual esté en `fromStatuses` **y** que el destino esté en la
+whitelist (`ALLOWED_TRANSITIONS`), actualiza estado+timestamps
+(`responded_at`, `picked_up_at`, `delivered_at`, `cancelled_at`) y asigna
+`messenger_id` al aceptar, todo en una transacción + evento de auditoría.
+La doble aceptación es imposible (segundo UPDATE → 0 filas).
+`expirePendingDeliveries()` es **lazy** (15 min, se llama en el listado) y
+genera el evento `SYSTEM` correspondiente.
+
+### Precios (`lib/pricing.ts`)
+
+`computeFare(distanceKm, cfg)` — base incluye `free_km`; luego por km según
+el tramo. `fareBreakdown()` expone el desglose para la UI. Ejemplos con el
+seed: 2 km = 200, 5 km = 300, 10 km = 650, 12 km = 850.
 
 ## Fase 1 — Modelo de datos (pendiente de crear)
 

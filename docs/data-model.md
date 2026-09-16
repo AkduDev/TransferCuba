@@ -114,3 +114,23 @@ Definido en `db/migrate_auth.sql`, accedido vía `lib/db-auth.ts`.
 
 Sin identidad no se puede pedir servicios de delivery; es la base del módulo
 de mensajería (ver `docs/messaging-module.md`).
+
+## Delivery (Fase 1 — módulo mensajería)
+
+Definido en `db/migrate_delivery.sql`, DAO en `lib/db-delivery.ts`.
+
+- **`pricing_config`** (singleton): tramos de tarifa por km (`base`, `free_km`,
+  tarifas 3-5 / 5-10 / 10+ km).
+- **`platform_config`** (singleton): alta pagada de mensajeros
+  (`messenger_fee_cup`, `messenger_pay_card`, `messenger_whatsapp`).
+- **`messengers_profiles`**: perfil operativo del mensajero (UNIQUE
+  `user_id`), `status PENDING|ACTIVE|SUSPENDED`, `vehicle`, `service_areas[]`.
+- **`delivery_requests`**: carrera con `code TC-XXXXX` UNIQUE, `status`
+  (CHECK), `requester_id` / `messenger_id`, paquete, pickup/dropoff, ruta y
+  tarifas cacheadas, timestamps por evento. Índice parcial en `PENDING`.
+- **`delivery_status_events`**: auditoría de transiciones.
+- **`messengers_payments`**: ledger del alta (`PENDING|PAID|CONFIRMED|REJECTED`).
+
+Transiciones regidas por `ALLOWED_TRANSITIONS` (PENDING→ACCEPTED/CANCELLED/
+EXPIRED; ACCEPTED→PICKED_UP/CANCELLED; PICKED_UP→IN_TRANSIT;
+IN_TRANSIT→DELIVERED; terminales el resto). Expiración lazy a 15 min.
