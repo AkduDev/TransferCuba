@@ -749,18 +749,19 @@ export async function POST(req: NextRequest) {
 - [x] Tabla `business_confirmations` (1.6)
 - [x] Tabla `business_reviews` (1.7)
 - [x] Tabla `business_promotions` (1.8)
-- [ ] Simplificar `businesses` (1.9) — **cutover al Sprint 3**: las columnas legacy (photos, hours, transfer_details, featured, *_count, rating) se mantienen como cache hasta que el DAO v2 las lea de las tablas normalizadas; el `DROP COLUMN` se hace al cierre del Sprint 3 para no romper el app en cada commit.
+- [ ] Simplificar `businesses` (1.9) — **cutover al Sprint 3**: las columnas legacy (photos, hours, transfer_details, featured, *_count, rating) se mantienen como cache hasta que el DAO v2 las lea de las tablas normalizadas; el `DROP COLUMN` se hace al cierre del Sprint 3 para no romper el app en cada commit. El DAO ya lee de las tablas V2 (Sprint 13 roadmap); el DROP queda como tarea de cierre tras consolidar el frontend.
 - **Duración estimada:** 4-6 horas
 - **Riesgo:** Medio (requiere migración de datos)
 - **Nota (estado real):** tablas creadas en Neon + backfill idempotente (`db/migrate_v2.sql`): 5 métodos de pago, 47 relaciones negocio-método, 5 promociones featured, 11 verificaciones, 84 horarios, 0 imágenes (todas `photos: []`). Horarios sembrados L-V 8:30-18:00 estándar (el texto libre cubano no es parseable de forma fiable; se pule por negocio con el UI de horarios).
 
 ### Sprint 3: API v2 (Fase 2)
-- [ ] Crear DTOs (2.1)
-- [ ] Separar endpoints (2.2)
-- [ ] Query optimizada para mapa (2.3)
-- [ ] Validación con Zod (Fase 5)
+- [x] Crear DTOs (2.1) — `lib/dto.ts` (MapBusiness, BusinessHour, BusinessImage, PaymentMethod, BusinessPromotion, BusinessDetails)
+- [x] Separar endpoints (2.2) — `GET /api/businesses/[id]` → BusinessDetails (hours/images/paymentMethods/promotions de tablas V2; stats caen al contador legacy hasta que existan eventos). Una sola query + agregados.
+- [x] Query optimizada para mapa (2.3) — `queryBusinesses`/`queryBusinessesByIds` derivan featured de business_promotions y transferDetails de business_payment_methods (mapeo slug `qr`→`qrPayment`); filtros qr/online/verificación desde tablas V2; escrituras en transacción (insertBusiness, patchBusiness vote/report/verify)
+- [ ] Validación con Zod (Fase 5) — validación manual ya en Sprint 11; decidir si añadir zod (AGENTS.md desaconseja deps no necesarias)
 - **Duración estimada:** 3-4 horas
 - **Riesgo:** Medio
+- **Nota (estado real):** `GET /api/businesses` mantiene la forma `Business[]` (frontend intacto hasta Sprint 4); los filtros qr/online/verificación ya consultan las tablas V2 con `EXISTS`/subqueries.
 
 ### Sprint 4: Frontend refactor (Fase 3)
 - [ ] Hooks personalizados (3.1)

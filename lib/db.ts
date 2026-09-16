@@ -11,7 +11,15 @@
  */
 
 import { Pool } from 'pg';
-import { Business, INITIAL_BUSINESSES, calculateDistanceMeters } from '@/lib/cuba-data';
+import { INITIAL_BUSINESSES, calculateDistanceMeters } from '@/lib/cuba-data';
+import type { Business } from '@/lib/cuba-data';
+import type {
+  BusinessDetails,
+  BusinessHour,
+  BusinessImage,
+  PaymentMethod,
+  BusinessPromotion
+} from '@/lib/dto';
 
 export interface BusinessFilters {
   bbox?: [number, number, number, number]; // [west, south, east, north]
@@ -45,6 +53,7 @@ type Row = {
   phone: string;
   hours: string;
   transfer_details: Business['transferDetails'];
+  transfer_details_v2?: Record<string, boolean> | null;
   accepts_transfer: boolean;
   transfer_active_now: boolean;
   transfer_verified: boolean;
@@ -145,6 +154,26 @@ export function sanitizePhotos(photos: unknown): string[] {
 }
 
 function rowToBusiness(r: Row): Business {
+  // V2: transferDetails se reconstruye desde business_payment_methods.
+  // La columna legacy transfer_details queda como cache (mismos booleans).
+  const tdV2 = r.transfer_details_v2 as Record<string, boolean> | null | undefined;
+  const tdB = r.transfer_details as Record<string, boolean>;
+  const transferDetails = tdV2
+    ? {
+        transfermovil: tdV2.transfermovil === true,
+        enzona: tdV2.enzona === true,
+        qrPayment: tdV2.qr === true,
+        onlineGateway: tdV2.onlineGateway === true,
+        cash: tdV2.cash === true
+      }
+    : {
+        transfermovil: tdB?.transfermovil === true,
+        enzona: tdB?.enzona === true,
+        qrPayment: tdB?.qrPayment === true,
+        onlineGateway: tdB?.onlineGateway === true,
+        cash: tdB?.cash === true
+      };
+
   return {
     id: r.id,
     name: r.name,
@@ -159,7 +188,7 @@ function rowToBusiness(r: Row): Business {
     lng: 0,
     acceptsTransfer: r.accepts_transfer,
     transferActiveNow: r.transfer_active_now,
-    transferDetails: r.transfer_details,
+    transferDetails,
     transferVerified: r.transfer_verified,
     lastStatusUpdate: r.last_status_update,
     lastUpdatedDate: new Date(r.last_updated_date).toISOString(),
@@ -309,7 +338,7 @@ export async function queryBusinesses(filters: BusinessFilters): Promise<Busines
   const pool = getPool();
   if (!pool || !shouldAttemptDb()) return memoryFilter(filters);
 
-  const where: string[] = filters.includeAll ? [] : [`status = 'active'`];
+  const where: string[] = filters.includeAll ? [] : [`b.status = 'active'`];
   const params: unknown[] = [];
   let p = 0;
   const next = (v: unknown) => {
@@ -318,20 +347,32 @@ export async function queryBusinesses(filters: BusinessFilters): Promise<Busines
   };
 
   if (filters.province && filters.province !== 'all')
-    where.push(`province ILIKE ${next(filters.province)}`);
+    where.push(`b.province ILIKE ${next(filters.province)}`);
   if (filters.municipality && filters.municipality !== 'all')
-    where.push(`municipality ILIKE ${next(filters.municipality)}`);
+    where.push(`b.municipality ILIKE ${next(filters.municipality)}`);
   if (filters.category && filters.category !== 'all')
-    where.push(`category = ${next(filters.category)}`);
-  if (filters.onlyTransfer) where.push(`accepts_transfer = TRUE`);
-  if (filters.activeNow) where.push(`transfer_active_now = TRUE`);
-  if (filters.qr) where.push(`(transfer_details->>'qrPayment')::boolean = TRUE`);
-  if (filters.online) where.push(`(transfer_details->>'onlineGateway')::boolean = TRUE`);
+    where.push(`b.category = ${next(filters.category)}`);
+  if (filters.onlyTransfer) where.push(`b.accepts_transfer = TRUE`);
+  if (filters.activeNow) where.push(`b.transfer_active_now = TRUE`);
+  // Sprint 3 (V2): los métodos de pago viven en business_payment_methods.
+  if (filters.qr)
+    where.push(
+      `EXISTS (SELECT 1 FROM business_payment_methods bpm
+               JOIN payment_methods pm ON pm.id = bpm.payment_method_id
+               WHERE bpm.business_id = b.id AND pm.slug = 'qr' AND bpm.is_active)`
+    );
+  if (filters.online)
+    where.push(
+      `EXISTS (SELECT 1 FROM business_payment_methods bpm
+               JOIN payment_methods pm ON pm.id = bpm.payment_method_id
+               WHERE bpm.business_id = b.id AND pm.slug = 'onlineGateway' AND bpm.is_active)`
+    );
   if (!filters.includeAll && filters.verification && filters.verification !== 'all') {
     const v = next(filters.verification);
     where.push(
-      `(CASE WHEN reports_count > 0 THEN 'reported'
-             WHEN transfer_verified THEN 'verified'
+      `(CASE WHEN (SELECT COUNT(*) FROM business_reports br WHERE br.business_id = b.id AND status = 'pending') > 0 THEN 'reported'
+             WHEN EXISTS (SELECT 1 FROM business_verifications bv WHERE bv.business_id = b.id
+                          AND (bv.expires_at IS NULL OR bv.expires_at > NOW())) THEN 'verified'
              ELSE 'pending' END) = ${v}`
     );
   }
@@ -339,8 +380,8 @@ export async function queryBusinesses(filters: BusinessFilters): Promise<Busines
     const like = `%${filters.q.trim()}%`;
     const l = next(like);
     where.push(
-      `(name ILIKE ${l} OR description ILIKE ${l} OR address ILIKE ${l}
-        OR municipality ILIKE ${l} OR neighborhood ILIKE ${l})`
+      `(b.name ILIKE ${l} OR b.description ILIKE ${l} OR b.address ILIKE ${l}
+        OR b.municipality ILIKE ${l} OR b.neighborhood ILIKE ${l})`
     );
   }
 
@@ -351,32 +392,45 @@ export async function queryBusinesses(filters: BusinessFilters): Promise<Busines
   if (filters.bbox) {
     const [w, s, e, n] = filters.bbox;
     where.push(
-      `geom && ST_MakeEnvelope(${next(w)}, ${next(s)}, ${next(e)}, ${next(n)}, 4326)`
+      `b.geom && ST_MakeEnvelope(${next(w)}, ${next(s)}, ${next(e)}, ${next(n)}, 4326)`
     );
   }
   if (hasOrigin && filters.radius) {
     where.push(
-      `ST_DWithin(geom, ST_GeomFromText(${originParam}, 4326)::geography, ${next(filters.radius)})`
+      `ST_DWithin(b.geom, ST_GeomFromText(${originParam}, 4326)::geography, ${next(filters.radius)})`
     );
   }
 
   const emptyWhere = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
-  const select = `SELECT id, name, category, category_icon, description, province, municipality,
-    neighborhood, address, whatsapp, phone, hours, transfer_details,
-    accepts_transfer, transfer_active_now, transfer_verified, status,
-    confirmations_count, reports_count, rating, reviews_count, featured, photos,
-    last_status_update, last_updated_date, ${
+  const select = `SELECT b.id, b.name, b.category, b.category_icon, b.description, b.province, b.municipality,
+    b.neighborhood, b.address, b.whatsapp, b.phone, b.hours, b.transfer_details,
+    b.accepts_transfer, b.transfer_active_now, b.transfer_verified, b.status,
+    b.confirmations_count, b.reports_count, b.rating, b.reviews_count,
+    b.last_status_update, b.last_updated_date,
+    -- V2: featured deriva de business_promotions (no de la columna legacy)
+    COALESCE(
+      (SELECT bp.active FROM business_promotions bp
+       WHERE bp.business_id = b.id AND bp.type = 'featured'
+       AND (bp.ends_at IS NULL OR bp.ends_at > NOW())
+       ORDER BY bp.priority DESC LIMIT 1),
+      b.featured
+    ) AS featured,
+    -- V2: transferDetails se reconstruye desde business_payment_methods
+    (SELECT COALESCE(jsonb_object_agg(pm.slug, true), '{}'::jsonb)
+     FROM business_payment_methods bpm JOIN payment_methods pm ON pm.id = bpm.payment_method_id
+     WHERE bpm.business_id = b.id AND bpm.is_active) AS transfer_details_v2,
+    ${
     hasOrigin
-      ? `ST_Distance(geom, ST_GeomFromText(${originParam}, 4326)::geography) AS distance_meters`
+      ? `ST_Distance(b.geom, ST_GeomFromText(${originParam}, 4326)::geography) AS distance_meters`
       : 'NULL::double precision AS distance_meters'
   },
-    ST_X(geom::geometry) AS lng, ST_Y(geom::geometry) AS lat
-  FROM businesses`;
+    ST_X(b.geom::geometry) AS lng, ST_Y(b.geom::geometry) AS lat
+  FROM businesses b`;
 
   const orderBy = hasOrigin
     ? `ORDER BY distance_meters ASC NULLS LAST`
-    : `ORDER BY featured DESC, rating DESC`;
+    : `ORDER BY featured DESC, b.rating DESC`;
   const limit = next(filters.limit ?? 500);
 
   const sql = `${select} ${emptyWhere} ${orderBy} LIMIT ${limit}`;
@@ -407,13 +461,76 @@ export async function insertBusiness(b: Business): Promise<void> {
     throw new Error('Database unavailable');
   }
   try {
-    await pool.query(INSERT_SQL, businessToInsert(b));
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(INSERT_SQL, businessToInsert(b));
+      await insertV2Details(client, b);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
     markDbAvailable();
   } catch (err) {
     markDbUnavailable(err);
     if (!canFallbackToMemory()) throw new Error('Database unavailable');
     memoryEnsure().unshift({ ...b });
   }
+}
+
+// V2 (Sprint 3): mantiene las tablas normalizadas sincronizadas con la columna
+// legacy (que el frontend aún consume). Métodos de pago, promoción featured,
+// verificación seed y horario estándar.
+async function insertV2Details(
+  client: import('pg').PoolClient,
+  b: Business
+): Promise<void> {
+  // Métodos de pago: mapear transferDetails → slugs de payment_methods ('qr' ← qrPayment)
+  const slugs: Record<string, boolean> = {
+    transfermovil: b.transferDetails.transfermovil,
+    enzona: b.transferDetails.enzona,
+    qr: b.transferDetails.qrPayment,
+    onlineGateway: b.transferDetails.onlineGateway,
+    cash: b.transferDetails.cash
+  };
+  for (const [slug, isActive] of Object.entries(slugs)) {
+    if (!isActive) continue;
+    await client.query(
+      `INSERT INTO business_payment_methods (business_id, payment_method_id)
+       SELECT $1::text, id FROM payment_methods WHERE slug = $2::text
+       ON CONFLICT (business_id, payment_method_id) DO NOTHING`,
+      [b.id, slug]
+    );
+  }
+
+  if (b.featured) {
+    await client.query(
+      `INSERT INTO business_promotions (business_id, type, active)
+       VALUES ($1, 'featured', TRUE)
+       ON CONFLICT DO NOTHING`,
+      [b.id]
+    );
+  }
+
+  if (b.transferVerified) {
+    await client.query(
+      `INSERT INTO business_verifications (business_id, user_session, expires_at)
+       VALUES ($1, 'seed', NOW() + INTERVAL '12 months')
+       ON CONFLICT (business_id, user_session) DO NOTHING`,
+      [b.id]
+    );
+  }
+
+  await client.query(
+    `INSERT INTO business_hours (business_id, day_of_week, opens_at, closes_at)
+     SELECT $1::text, dow, '08:30'::time, '18:00'::time
+     FROM generate_series(0, 6) AS dow
+     ON CONFLICT (business_id, day_of_week) DO NOTHING`,
+    [b.id]
+  );
 }
 
 export type PatchAction =
@@ -504,9 +621,51 @@ export async function patchBusiness(
   try {
     // Solo vote/verify usan el segundo parámetro; el resto espera exactamente 1
     const params = action === 'vote' ? [id, payload?.isConfirm ?? null] : [id];
-    const res = await pool.query(updates[action], params);
-    if (!res.rows.length) return null;
-    if (action === 'delete') return null;
+
+    // V2 (Sprint 3): las acciones de comunidad escriben su fila en la tabla
+    // normalizada (business_confirmations / business_reports / verifications)
+    // además del contador legacy que el frontend aún consume.
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      if (action === 'vote') {
+        await client.query(
+          `INSERT INTO business_confirmations (business_id, user_session)
+           VALUES ($1, COALESCE($2, 'public'))`,
+          [id, payload?.isConfirm ? 'public-confirm' : null]
+        );
+        if (!payload?.isConfirm) {
+          await client.query(
+            `INSERT INTO business_reports (business_id, reason)
+             VALUES ($1, 'other')`,
+            [id]
+          );
+        }
+      } else if (action === 'report') {
+        await client.query(
+          `INSERT INTO business_reports (business_id, reason)
+           VALUES ($1, 'other')`,
+          [id]
+        );
+      } else if (action === 'verify' || action === 'approve') {
+        await client.query(
+          `INSERT INTO business_verifications (business_id, user_session, expires_at)
+           VALUES ($1, 'admin', NOW() + INTERVAL '12 months')
+           ON CONFLICT (business_id, user_session) DO NOTHING`,
+          [id]
+        );
+      }
+      const res = await client.query(updates[action], params);
+      await client.query('COMMIT');
+      if (!res.rows.length) return null;
+      if (action === 'delete') return null;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
     const fetched = await queryBusinessesByIds([id]);
     markDbAvailable();
     return fetched.get(id) ?? null;
@@ -534,14 +693,24 @@ export async function queryBusinessesByIds(ids: string[]): Promise<Map<string, B
   }
   try {
     const res = await pool.query(
-      `SELECT id, name, category, category_icon, description, province, municipality,
-        neighborhood, address, whatsapp, phone, hours, transfer_details,
-        accepts_transfer, transfer_active_now, transfer_verified, status,
-        confirmations_count, reports_count, rating, reviews_count, featured,
-        photos, last_status_update, last_updated_date,
+      `SELECT b.id, b.name, b.category, b.category_icon, b.description, b.province, b.municipality,
+        b.neighborhood, b.address, b.whatsapp, b.phone, b.hours, b.transfer_details,
+        b.accepts_transfer, b.transfer_active_now, b.transfer_verified, b.status,
+        b.confirmations_count, b.reports_count, b.rating, b.reviews_count,
+        b.photos, b.last_status_update, b.last_updated_date,
+        COALESCE(
+          (SELECT bp.active FROM business_promotions bp
+           WHERE bp.business_id = b.id AND bp.type = 'featured'
+           AND (bp.ends_at IS NULL OR bp.ends_at > NOW())
+           ORDER BY bp.priority DESC LIMIT 1),
+          b.featured
+        ) AS featured,
+        (SELECT COALESCE(jsonb_object_agg(pm.slug, true), '{}'::jsonb)
+         FROM business_payment_methods bpm JOIN payment_methods pm ON pm.id = bpm.payment_method_id
+         WHERE bpm.business_id = b.id AND bpm.is_active) AS transfer_details_v2,
         NULL::double precision AS distance_meters,
-        ST_X(geom::geometry) AS lng, ST_Y(geom::geometry) AS lat
-       FROM businesses WHERE id = ANY($1::text[])`,
+        ST_X(b.geom::geometry) AS lng, ST_Y(b.geom::geometry) AS lat
+       FROM businesses b WHERE b.id = ANY($1::text[])`,
       [ids]
     );
     const map = new Map<string, Business>();
@@ -555,6 +724,178 @@ export async function queryBusinessesByIds(ids: string[]): Promise<Map<string, B
     if (canFallbackToMemory()) return fromMemory();
     throw new Error('Database unavailable');
   }
+}
+
+// Sprint 3 (V2): detalle completo de un negocio (DTO BusinessDetails) con
+// agregados de las tablas normalizadas. Usado por GET /api/businesses/[id].
+export async function queryBusinessDetails(id: string): Promise<BusinessDetails | null> {
+  const pool = getPool();
+  if (!pool || !shouldAttemptDb()) {
+    if (!canFallbackToMemory()) throw new Error('Database unavailable');
+    const b = memoryEnsure().find((x) => x.id === id);
+    return b ? legacyToDetails(b) : null;
+  }
+
+  try {
+    const [bizRes, hoursRes, imagesRes, paysRes, promosRes, statsRes] = await Promise.all([
+      pool.query(
+        `SELECT b.id, b.name, b.description, b.address, b.province, b.municipality,
+                b.neighborhood, b.whatsapp, b.phone, b.status,
+                b.transfer_active_now, b.transfer_verified, b.accepts_transfer,
+                b.last_updated_date
+         FROM businesses b WHERE b.id = $1`,
+        [id]
+      ),
+      pool.query(
+        `SELECT day_of_week, opens_at, closes_at, is_closed
+         FROM business_hours WHERE business_id = $1 ORDER BY day_of_week`,
+        [id]
+      ),
+      pool.query(
+        `SELECT id, url, thumbnail_url, alt, sort_order, is_cover
+         FROM business_images WHERE business_id = $1 ORDER BY sort_order`,
+        [id]
+      ),
+      pool.query(
+        `SELECT pm.id, pm.name, pm.slug, pm.icon, bpm.is_active
+         FROM business_payment_methods bpm
+         JOIN payment_methods pm ON pm.id = bpm.payment_method_id
+         WHERE bpm.business_id = $1 ORDER BY pm.name`,
+        [id]
+      ),
+      pool.query(
+        `SELECT type, active FROM business_promotions
+         WHERE business_id = $1 AND (ends_at IS NULL OR ends_at > NOW())
+         ORDER BY priority DESC`,
+        [id]
+      ),
+      pool.query(
+        `SELECT
+           COALESCE(
+             (SELECT COUNT(*) FROM business_confirmations WHERE business_id = $1),
+             b.confirmations_count::bigint
+           )::int AS confirmations_count,
+           COALESCE(
+             (SELECT COUNT(*) FROM business_reports WHERE business_id = $1 AND status = 'pending'),
+             b.reports_count::bigint
+           )::int AS reports_count,
+           CASE WHEN EXISTS (
+             SELECT 1 FROM business_reviews WHERE business_id = $1 AND status = 'active'
+           ) THEN (SELECT ROUND(AVG(rating), 1) FROM business_reviews
+                   WHERE business_id = $1 AND status = 'active')::float
+             ELSE b.rating::float END AS average_rating,
+           CASE WHEN EXISTS (
+             SELECT 1 FROM business_reviews WHERE business_id = $1 AND status = 'active'
+           ) THEN (SELECT COUNT(*) FROM business_reviews
+                   WHERE business_id = $1 AND status = 'active')::int
+             ELSE b.reviews_count END AS reviews_count
+         FROM businesses b WHERE b.id = $1`,
+        [id]
+      )
+    ]);
+
+    const b = bizRes.rows[0];
+    if (!b) return null;
+
+    markDbAvailable();
+    return {
+      id: b.id,
+      name: b.name,
+      description: b.description,
+      address: b.address,
+      province: b.province,
+      municipality: b.municipality,
+      neighborhood: b.neighborhood,
+      whatsapp: b.whatsapp ?? '',
+      phone: b.phone ?? '',
+      hours: hoursRes.rows.map(
+        (h: { day_of_week: number; opens_at: string | null; closes_at: string | null; is_closed: boolean }): BusinessHour => ({
+          dayOfWeek: h.day_of_week,
+          opensAt: h.opens_at ? h.opens_at.slice(0, 5) : null,
+          closesAt: h.closes_at ? h.closes_at.slice(0, 5) : null,
+          isClosed: h.is_closed
+        })
+      ),
+      images: imagesRes.rows.map(
+        (i): BusinessImage => ({
+          id: i.id,
+          url: i.url,
+          thumbnailUrl: i.thumbnail_url,
+          alt: i.alt,
+          sortOrder: i.sort_order,
+          isCover: i.is_cover
+        })
+      ),
+      paymentMethods: paysRes.rows.map(
+        (p): PaymentMethod => ({
+          id: p.id,
+          name: p.name,
+          slug: p.slug,
+          icon: p.icon,
+          isActive: p.is_active
+        })
+      ),
+      promotions: promosRes.rows.map(
+        (pr): BusinessPromotion => ({ type: pr.type, active: pr.active })
+      ),
+      status: b.status,
+      transferActiveNow: b.transfer_active_now,
+      transferVerified: b.transfer_verified,
+      acceptsTransfer: b.accepts_transfer,
+      averageRating: statsRes.rows[0].average_rating,
+      reviewsCount: statsRes.rows[0].reviews_count,
+      confirmationsCount: statsRes.rows[0].confirmations_count,
+      reportsCount: statsRes.rows[0].reports_count,
+      createdAt: b.last_updated_date
+        ? new Date(b.last_updated_date).toISOString()
+        : new Date(0).toISOString(),
+      updatedAt: b.last_updated_date
+        ? new Date(b.last_updated_date).toISOString()
+        : new Date(0).toISOString()
+    };
+  } catch (err) {
+    markDbUnavailable(err);
+    if (canFallbackToMemory()) {
+      const b = memoryEnsure().find((x) => x.id === id);
+      return b ? legacyToDetails(b) : null;
+    }
+    throw new Error('Database unavailable');
+  }
+}
+
+// Fallback dev: construye BusinessDetails desde el Business en memoria.
+function legacyToDetails(b: Business): BusinessDetails {
+  return {
+    id: b.id,
+    name: b.name,
+    description: b.description,
+    address: b.address,
+    province: b.province,
+    municipality: b.municipality,
+    neighborhood: b.neighborhood ?? null,
+    whatsapp: b.whatsapp,
+    phone: b.phone,
+    hours: [],
+    images: [],
+    paymentMethods: [
+      { id: 'transfermovil', name: 'Transfermóvil', slug: 'transfermovil', icon: 'Smartphone', isActive: b.transferDetails.transfermovil },
+      { id: 'enzona', name: 'EnZona', slug: 'enzona', icon: 'Zap', isActive: b.transferDetails.enzona },
+      { id: 'qr', name: 'Pago QR', slug: 'qr', icon: 'QrCode', isActive: b.transferDetails.qrPayment },
+      { id: 'cash', name: 'Efectivo', slug: 'cash', icon: 'Banknote', isActive: b.transferDetails.cash },
+      { id: 'onlineGateway', name: 'Pago online', slug: 'onlineGateway', icon: 'CreditCard', isActive: b.transferDetails.onlineGateway }
+    ],
+    promotions: b.featured ? [{ type: 'featured', active: true }] : [],
+    status: b.status,
+    transferActiveNow: b.transferActiveNow,
+    transferVerified: b.transferVerified,
+    acceptsTransfer: b.acceptsTransfer,
+    averageRating: b.rating,
+    reviewsCount: b.reviewsCount,
+    confirmationsCount: b.confirmationsCount,
+    reportsCount: b.reportsCount,
+    createdAt: b.lastUpdatedDate,
+    updatedAt: b.lastUpdatedDate
+  };
 }
 
 export async function countBusinesses(): Promise<{ total: number; active: number }> {
