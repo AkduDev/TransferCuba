@@ -764,11 +764,12 @@ export async function POST(req: NextRequest) {
 - **Nota (estado real):** `GET /api/businesses` mantiene la forma `Business[]` (frontend intacto hasta Sprint 4); los filtros qr/online/verificación ya consultan las tablas V2 con `EXISTS`/subqueries.
 
 ### Sprint 4: Frontend refactor (Fase 3)
-- [ ] Hooks personalizados (3.1)
-- [ ] Componentes extraídos (3.2)
-- [ ] Page.tsx refactorizado (3.3)
+- [x] Hooks personalizados (3.1) — 8 hooks en `lib/hooks/`: `useToast`, `useMapViewport`, `useFilters`, `useGeolocation`, `useGeocoding`, `useBusinessesData`, `useBusinessActions`, `useModals`
+- [x] Componentes extraídos (3.2) — `GoogleMapsToast`, `GoogleMapsAttribution`, `GoogleMapsClusterCard`, `GoogleMapsPinningControls` (presentacionales puros)
+- [x] Page.tsx refactorizado (3.3) — 1134 → **91 líneas**; orquestador puro que baja estado desde hooks por props
 - **Duración estimada:** 4-6 horas
 - **Riesgo:** Bajo (sin cambios de API)
+- **Nota (estado real):** `tsc --noEmit` 0 errores, `bun run build` OK, smoke E2E verificado (mapa, búsqueda, panel con negocios de la API, filtros/admin/register modals, click en tarjeta → detalle, voto Sí 48→49, 0 errores JS). Fix de warning React: reset del bottom sheet al cambiar de negocio — `onSheetStateChange` del padre pasó de render-time a `useEffect`.
 
 ### Sprint 5: MVT (Fase 4)
 - [ ] Extensiones PostgreSQL (4.1)

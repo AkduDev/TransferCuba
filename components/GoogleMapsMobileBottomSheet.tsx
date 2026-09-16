@@ -74,10 +74,17 @@ export default function GoogleMapsMobileBottomSheet({
   const currentBusinessId = selectedBusiness?.id ?? null;
   if (currentBusinessId !== prevBusinessId) {
     setPrevBusinessId(currentBusinessId);
-    setSheetState('peek');
+    setInternalSheetState('peek');
     setVotedType(null);
     setShowReportForm(false);
   }
+
+  // Parent sync (controlled sheet state) fuera del render para evitar setState en render.
+  useEffect(() => {
+    if (currentBusinessId !== null) {
+      onSheetStateChange?.('peek');
+    }
+  }, [currentBusinessId, onSheetStateChange]);
 
   // Touch drag tracking
   const touchStartY = useRef<number | null>(null);
