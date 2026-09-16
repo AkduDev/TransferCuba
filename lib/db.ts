@@ -91,6 +91,17 @@ export function isDbConfigured(): boolean {
 
 /* ---------------- circuit breaker (Sprint 10) ---------------- */
 
+// En desarrollo sin BD (o con red bloqueada) el fallback in-memory mantiene
+// la app usable. En producción el fallback silencioso ocultaría errores
+// reales (un POST que "confirma" un negocio que nunca se guardó): aquí la
+// DB es la única verdad y hay que fallar de forma visible (HTTP 503).
+const isProduction = process.env.NODE_ENV === 'production';
+
+// True cuando, tras un fallo de BD, la capa superior puede seguir con memoria.
+function canFallbackToMemory(): boolean {
+  return !isProduction;
+}
+
 // Si la BD es inalcanzable (p.ej. red que bloquea el TLS a 5432 de Neon),
 // cada request esperaría el timeout del pool antes de caer al fallback.
 // El breaker abre el circuito durante DB_RETRY_MS para que el desarrollo
@@ -170,7 +181,7 @@ function rowToBusiness(r: Row): Business {
 }
 
 const businessToInsert = (b: Business) => [
-  b.id,
+  b.id || crypto.randomUUID(),
   b.name,
   b.category,
   b.categoryIcon,
@@ -351,11 +362,17 @@ export async function queryBusinesses(filters: BusinessFilters): Promise<Busines
 
   const emptyWhere = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
-  const select = `SELECT *, ${
+  const select = `SELECT id, name, category, category_icon, description, province, municipality,
+    neighborhood, address, whatsapp, phone, hours, transfer_details,
+    accepts_transfer, transfer_active_now, transfer_verified, status,
+    confirmations_count, reports_count, rating, reviews_count, featured, photos,
+    last_status_update, last_updated_date, ${
     hasOrigin
       ? `ST_Distance(geom, ST_GeomFromText(${originParam}, 4326)::geography) AS distance_meters`
       : 'NULL::double precision AS distance_meters'
-  }, ST_X(geom::geometry) AS lng, ST_Y(geom::geometry) AS lat FROM businesses`;
+  },
+    ST_X(geom::geometry) AS lng, ST_Y(geom::geometry) AS lat
+  FROM businesses`;
 
   const orderBy = hasOrigin
     ? `ORDER BY distance_meters ASC NULLS LAST`
@@ -375,21 +392,26 @@ export async function queryBusinesses(filters: BusinessFilters): Promise<Busines
     }));
   } catch (err) {
     markDbUnavailable(err);
-    return memoryFilter(filters);
+    if (canFallbackToMemory()) return memoryFilter(filters);
+    throw new Error('Database unavailable');
   }
 }
 
 export async function insertBusiness(b: Business): Promise<void> {
   const pool = getPool();
   if (!pool || !shouldAttemptDb()) {
-    memoryEnsure().unshift({ ...b });
-    return;
+    if (canFallbackToMemory()) {
+      memoryEnsure().unshift({ ...b });
+      return;
+    }
+    throw new Error('Database unavailable');
   }
   try {
     await pool.query(INSERT_SQL, businessToInsert(b));
     markDbAvailable();
   } catch (err) {
     markDbUnavailable(err);
+    if (!canFallbackToMemory()) throw new Error('Database unavailable');
     memoryEnsure().unshift({ ...b });
   }
 }
@@ -444,7 +466,10 @@ export async function patchBusiness(
     return { ...b };
   };
 
-  if (!pool || !shouldAttemptDb()) return applyInMemory();
+  if (!pool || !shouldAttemptDb()) {
+    if (canFallbackToMemory()) return applyInMemory();
+    throw new Error('Database unavailable');
+  }
 
   const updates: Record<PatchAction, string> = {
     verify: `UPDATE businesses SET
@@ -487,7 +512,8 @@ export async function patchBusiness(
     return fetched.get(id) ?? null;
   } catch (err) {
     markDbUnavailable(err);
-    return applyInMemory();
+    if (canFallbackToMemory()) return applyInMemory();
+    throw new Error('Database unavailable');
   }
 }
 
@@ -502,23 +528,32 @@ export async function queryBusinessesByIds(ids: string[]): Promise<Map<string, B
     return map;
   };
 
-  if (!pool || !shouldAttemptDb()) return fromMemory();
+  if (!pool || !shouldAttemptDb()) {
+    if (canFallbackToMemory()) return fromMemory();
+    throw new Error('Database unavailable');
+  }
   try {
     const res = await pool.query(
-      `SELECT *, NULL::double precision AS distance_meters,
-              ST_X(geom::geometry) AS lng_raw, ST_Y(geom::geometry) AS lat_raw
+      `SELECT id, name, category, category_icon, description, province, municipality,
+        neighborhood, address, whatsapp, phone, hours, transfer_details,
+        accepts_transfer, transfer_active_now, transfer_verified, status,
+        confirmations_count, reports_count, rating, reviews_count, featured,
+        photos, last_status_update, last_updated_date,
+        NULL::double precision AS distance_meters,
+        ST_X(geom::geometry) AS lng, ST_Y(geom::geometry) AS lat
        FROM businesses WHERE id = ANY($1::text[])`,
       [ids]
     );
     const map = new Map<string, Business>();
-    res.rows.forEach((r: Row & { lng_raw: number; lat_raw: number }) => {
-      map.set(r.id, { ...rowToBusiness(r), lat: r.lat_raw, lng: r.lng_raw });
+    res.rows.forEach((r: Row & { lng: number; lat: number }) => {
+      map.set(r.id, { ...rowToBusiness(r), lat: r.lat, lng: r.lng });
     });
     markDbAvailable();
     return map;
   } catch (err) {
     markDbUnavailable(err);
-    return fromMemory();
+    if (canFallbackToMemory()) return fromMemory();
+    throw new Error('Database unavailable');
   }
 }
 
@@ -533,7 +568,10 @@ export async function countBusinesses(): Promise<{ total: number; active: number
     };
   };
 
-  if (!pool || !shouldAttemptDb()) return fromMemory();
+  if (!pool || !shouldAttemptDb()) {
+    if (canFallbackToMemory()) return fromMemory();
+    throw new Error('Database unavailable');
+  }
   try {
     const res = await pool.query(
       `SELECT COUNT(*)::int AS total,
@@ -544,6 +582,7 @@ export async function countBusinesses(): Promise<{ total: number; active: number
     return res.rows[0];
   } catch (err) {
     markDbUnavailable(err);
-    return fromMemory();
+    if (canFallbackToMemory()) return fromMemory();
+    throw new Error('Database unavailable');
   }
 }

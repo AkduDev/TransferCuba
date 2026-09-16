@@ -100,7 +100,7 @@ export default function Home() {
            // cache corrupto -> seed
          }
        }
-       setBusinesses(INITIAL_BUSINESSES);
+       setBusinesses(process.env.NODE_ENV === 'production' ? [] : INITIAL_BUSINESSES);
      };
      const t = setTimeout(hydrate, 0);
      return () => clearTimeout(t);

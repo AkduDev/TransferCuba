@@ -38,85 +38,144 @@ export async function GET(req: NextRequest) {
     const parts = bboxParam.split(',').map(Number);
     if (parts.length === 4 && parts.every((n) => !isNaN(n))) {
       bbox = parts as [number, number, number, number];
+    } else {
+      return NextResponse.json({ success: false, error: 'bbox inválido (w,s,e,n)' }, { status: 400 });
     }
   }
 
-  const results = await queryBusinesses({
-    bbox,
-    lat: latParam ? parseFloat(latParam) : undefined,
-    lng: lngParam ? parseFloat(lngParam) : undefined,
-    radius: radiusParam ? parseFloat(radiusParam) : undefined,
-    province: searchParams.get('province') ?? undefined,
-    municipality: searchParams.get('municipality') ?? undefined,
-    category: searchParams.get('category') ?? undefined,
-    onlyTransfer: searchParams.get('transfer') === 'true',
-    activeNow: searchParams.get('activeNow') === 'true',
-    qr: searchParams.get('qr') === 'true',
-    online: searchParams.get('online') === 'true',
-    includeAll,
-    verification: (searchParams.get('verification') as 'verified' | 'pending' | 'reported' | 'all' | null) ?? undefined,
-    q: searchParams.get('q') ?? undefined,
-    limit: Math.min(parseInt(searchParams.get('limit') ?? '500', 10) || 500, 500)
-  });
+  const lat = latParam ? parseFloat(latParam) : undefined;
+  const lng = lngParam ? parseFloat(lngParam) : undefined;
+  if (lat !== undefined && (Number.isNaN(lat) || lat < -90 || lat > 90)) {
+    return NextResponse.json({ success: false, error: 'lat inválida' }, { status: 400 });
+  }
+  if (lng !== undefined && (Number.isNaN(lng) || lng < -180 || lng > 180)) {
+    return NextResponse.json({ success: false, error: 'lng inválida' }, { status: 400 });
+  }
 
-  return NextResponse.json(
-    { success: true, total: results.length, businesses: results },
-    {
-      headers: {
-        // Vercel edge cache: barato para el viewport, refresca en background
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
+  try {
+    const results = await queryBusinesses({
+      bbox,
+      lat,
+      lng,
+      radius: radiusParam ? parseFloat(radiusParam) : undefined,
+      province: searchParams.get('province') ?? undefined,
+      municipality: searchParams.get('municipality') ?? undefined,
+      category: searchParams.get('category') ?? undefined,
+      onlyTransfer: searchParams.get('transfer') === 'true',
+      activeNow: searchParams.get('activeNow') === 'true',
+      qr: searchParams.get('qr') === 'true',
+      online: searchParams.get('online') === 'true',
+      includeAll,
+      verification: (searchParams.get('verification') as 'verified' | 'pending' | 'reported' | 'all' | null) ?? undefined,
+      q: searchParams.get('q') ?? undefined,
+      limit: Math.min(parseInt(searchParams.get('limit') ?? '500', 10) || 500, 500)
+    });
+
+    return NextResponse.json(
+      { success: true, total: results.length, businesses: results },
+      {
+        headers: {
+          // Vercel edge cache: barato para el viewport, refresca en background
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
+        }
       }
-    }
-  );
+    );
+  } catch (err) {
+    console.error('[api] error en GET /api/businesses:', (err as Error)?.message ?? err);
+    return NextResponse.json(
+      { success: false, error: 'Servicio temporalmente no disponible' },
+      { status: 503 }
+    );
+  }
 }
 
 // POST /api/businesses — registro de negocio (nace pending).
 // lat/lng llegan ya geocodificados (Nominatim en el modal, write-time only).
 export async function POST(req: NextRequest) {
+  let body: Record<string, unknown>;
   try {
-    const body = await req.json();
-
-    const newBusiness: Business = {
-      id: `biz-${Date.now()}`,
-      name: body.name || 'Nuevo Negocio',
-      category: body.category || 'tiendas',
-      categoryIcon: body.categoryIcon || '🏪',
-      description: body.description || '',
-      province: body.province || 'La Habana',
-      municipality: body.municipality || 'Playa',
-      neighborhood: body.neighborhood || '',
-      address: body.address || '',
-      lat: body.lat ?? 23.1136,
-      lng: body.lng ?? -82.3666,
-      acceptsTransfer: body.acceptsTransfer ?? true,
-      transferActiveNow: body.transferActiveNow ?? true,
-      transferDetails: body.transferDetails || {
-        transfermovil: true,
-        enzona: false,
-        qrPayment: false,
-        onlineGateway: false,
-        cash: true
-      },
-      transferVerified: false,
-      lastStatusUpdate: 'Registrado hoy (Pendiente de aprobación)',
-      lastUpdatedDate: new Date().toISOString(),
-      confirmationsCount: 1,
-      reportsCount: 0,
-      hours: body.hours || '9:00 AM - 6:00 PM',
-      whatsapp: body.whatsapp || '',
-      phone: body.phone || '',
-      rating: 5.0,
-      reviewsCount: 1,
-      photos: sanitizePhotos(body.photos),
-      featured: false,
-      status: 'pending'
-    };
-
-    await insertBusiness(newBusiness);
-
-    return NextResponse.json({ success: true, business: newBusiness }, { status: 201 });
+    body = await req.json();
   } catch {
-    return NextResponse.json({ success: false, error: 'Invalid payload' }, { status: 400 });
+    return NextResponse.json({ success: false, error: 'JSON inválido' }, { status: 400 });
+  }
+
+  // Validación estricta: una petición incompleta/inválida NO crea un negocio
+  // con valores por defecto inventados (uo mensaje de error claro).
+  const lat = body.lat;
+  const lng = body.lng;
+  if (typeof lat !== 'number' || lat < -90 || lat > 90 || Number.isNaN(lat)) {
+    return NextResponse.json({ success: false, error: 'lat inválida (debe ser -90..90)' }, { status: 400 });
+  }
+  if (typeof lng !== 'number' || lng < -180 || lng > 180 || Number.isNaN(lng)) {
+    return NextResponse.json({ success: false, error: 'lng inválida (debe ser -180..180)' }, { status: 400 });
+  }
+  if (typeof body.name !== 'string' || body.name.trim().length < 3) {
+    return NextResponse.json({ success: false, error: 'name requerido (mínimo 3 caracteres)' }, { status: 400 });
+  }
+  const validCategories = ['tiendas', 'comida', 'farmacias', 'cafeterias', 'servicios', 'ferreteria', 'ropa'];
+  if (typeof body.category !== 'string' || !validCategories.includes(body.category)) {
+    return NextResponse.json({ success: false, error: 'category inválida' }, { status: 400 });
+  }
+  if (typeof body.province !== 'string' || body.province.trim().length < 2) {
+    return NextResponse.json({ success: false, error: 'province requerida' }, { status: 400 });
+  }
+  if (typeof body.municipality !== 'string' || body.municipality.trim().length < 2) {
+    return NextResponse.json({ success: false, error: 'municipality requerido' }, { status: 400 });
+  }
+  if (typeof body.address !== 'string' || body.address.trim().length < 3) {
+    return NextResponse.json({ success: false, error: 'address requerida (mínimo 3 caracteres)' }, { status: 400 });
+  }
+
+  const details =
+    body.transferDetails && typeof body.transferDetails === 'object'
+      ? (body.transferDetails as Record<string, unknown>)
+      : {};
+  const newBusiness: Business = {
+    id: crypto.randomUUID(),
+    name: body.name.trim(),
+    category: body.category,
+    categoryIcon: typeof body.categoryIcon === 'string' ? body.categoryIcon : '🏪',
+    description: typeof body.description === 'string' ? body.description : '',
+    province: body.province.trim(),
+    municipality: body.municipality.trim(),
+    neighborhood: typeof body.neighborhood === 'string' ? body.neighborhood : '',
+    address: body.address.trim(),
+    lat,
+    lng,
+    acceptsTransfer: body.acceptsTransfer !== false,
+    transferActiveNow: body.transferActiveNow !== false,
+    transferDetails: {
+      transfermovil: true,
+      enzona: details.enzona === true,
+      qrPayment: details.qrPayment === true,
+      onlineGateway: details.onlineGateway === true,
+      cash: true
+    },
+    transferVerified: false,
+    lastStatusUpdate: 'Registrado hoy (Pendiente de aprobación)',
+    lastUpdatedDate: new Date().toISOString(),
+    confirmationsCount: 1,
+    reportsCount: 0,
+    hours: typeof body.hours === 'string' ? body.hours : '',
+    whatsapp: typeof body.whatsapp === 'string' ? body.whatsapp : '',
+    phone: typeof body.phone === 'string' ? body.phone : '',
+    rating: 5.0,
+    reviewsCount: 1,
+    photos: sanitizePhotos(body.photos),
+    featured: false,
+    status: 'pending'
+  };
+
+  try {
+    await insertBusiness(newBusiness);
+    return NextResponse.json({ success: true, business: newBusiness }, { status: 201 });
+  } catch (err) {
+    // Producción: fallo real de BD → 503 (no un falso "registrado").
+    console.error('[api] error registrando negocio:', (err as Error)?.message ?? err);
+    return NextResponse.json(
+      { success: false, error: 'Servicio temporalmente no disponible' },
+      { status: 503 }
+    );
   }
 }
 
@@ -172,7 +231,15 @@ export async function PATCH(req: NextRequest) {
       success: true,
       ...(updated ? { business: updated } : { deleted: true })
     });
-  } catch {
+  } catch (err) {
+    // Producción: fallo real de BD → 503; el resto de errores → 400.
+    if ((err as Error)?.message === 'Database unavailable') {
+      return NextResponse.json(
+        { success: false, error: 'Servicio temporalmente no disponible' },
+        { status: 503 }
+      );
+    }
+    console.error('[api] error en PATCH /api/businesses:', (err as Error)?.message ?? err);
     return NextResponse.json({ success: false, error: 'Update failed' }, { status: 400 });
   }
 }

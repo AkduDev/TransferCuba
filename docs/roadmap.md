@@ -291,11 +291,39 @@ como protagonista visual:
    click en fila → tarjeta se cierra, panel abre, capa sel + halo renderizan
    el negocio correcto con su icono; 0 errores JS; `bun run build` OK.
 
-### Sprint 10 — Persistencia real (PostGIS/Neon) 🔜
-Ejecuta el Sprint 2-3 del plan: migrar `INITIAL_BUSINESSES` a Postgres
-(Neon free, extensión PostGIS, índice GIST), API routes sobre SQL con
-filtrado server-side, queries por viewport (bbox) y eliminación del
-doble store localStorage/memoria.
+### Sprint 10 — Persistencia real (PostGIS/Neon) ✅
+El Sprint 2-3 del plan quedó ejecutado: migración de `INITIAL_BUSINESSES` a
+Postgres (Neon free, extensión PostGIS, índice GIST), API routes sobre SQL con
+filtrado server-side, queries por viewport (bbox) y unificación del store.
+
+1. **Conexión real a Neon** verificada (PostgreSQL 18.6, `neondb`, pooler).
+   `DATABASE_URL` en `.env.local` (gitignored). Schema + seed aplicados.
+2. **`db/schema.sql`** — tabla `businesses` con `geom geography(POINT,4326)`,
+   CHECK de `status`, defaults, e índices canónicos (sin duplicados).
+3. **`db/seed.sql`** — 12 negocios (11 activos + 1 pending), `photos`
+   `'[]'::jsonb`, `transfer_details` con booleanos JSON reales,
+   `reviews_count` correcto (biz-1 = 64), BEGIN/COMMIT.
+4. **`lib/db.ts`** — queries SQL directas con `pg` Pool:
+   - viewport `ST_MakeEnvelope`/`&&`, nearby `ST_DWithin` con `ST_Distance`
+   - **una sola query** con `ST_X/ST_Y(geom::geometry)` inline (lat/lng sin
+     segunda consulta), campos explícitos (sin `SELECT *`)
+   - pool warm con `idleTimeoutMillis: 60_000` (TLS)
+   - **circuit breaker**: DB inalcanzable → fallback memory (dev) o **throw →
+     HTTP 503** (producción, sin fallos silenciosos)
+5. **`app/api/businesses/route.ts`**:
+   - GET con bbox/lat/lng validados (400) y try/catch → 503; cache edge
+     `s-maxage=60, stale-while-revalidate=300`
+   - POST con validación estricta (400: lat/lng en rango, name/category/
+     province/municipality/address requeridos) y **UUID** (`crypto.randomUUID()`)
+     en vez de `biz-${Date.now()}`
+   - PATCH distingue 503 (DB caída) de 400 (payload)
+6. **`app/page.tsx`** — hidrata optimista desde localStorage/seed; en
+   producción el fallback no usa `INITIAL_BUSINESSES` (arranca vacío y lo
+   llena el sync effect desde la API).
+
+**Métricas**: API warm 0.13s (antes 6.7s), cold 8.4s; page load map-ready
+6.6s warm; EXPLAIN viewport query 0.9ms con `Index Scan using
+businesses_geom_gist`.
 
 ## 4. Lo que NO haremos ahora (y por qué)
 
@@ -347,6 +375,8 @@ arquitectura de arriba está diseñada para que cada pieza sea reemplazable.
 - [x] `page.tsx` consume `GET /api/businesses` (commit aaaf2ee)
 - [x] Registro → `POST /api/businesses` real — `page.tsx` `handleRegisterBusiness` llama POST, route.ts `insertBusiness()` escribe con PostGIS/ST_MakePoint
 - [x] HTTP cache edge: `s-maxage=60, stale-while-revalidate=300` — headers en GET route.ts
+- [x] Sprint 11 (integridad): índices duplicados eliminados de Neon (`idx_businesses_geom`, `idx_businesses_status_prov_mun`, `idx_businesses_status_category`, `idx_businesses_rating`) — quedan los 6 canónicos
+- [x] Sprint 11: validación estricta POST/GET/PATCH (400) + UUID + 503 en producción (sin fallback silencioso)
 
 ### Deuda técnica vista en Sprint 9 (ordenada por prioridad)
 - [x] **DB caída en dev**: `queryBusinesses` en `lib/db.ts` lanzaba `ECONNRESET`

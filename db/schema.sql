@@ -34,11 +34,14 @@ CREATE TABLE IF NOT EXISTS businesses (
     geom geography(POINT, 4326) NOT NULL
 );
 
--- Índices para consultas espaciales y filtrado
-CREATE INDEX IF NOT EXISTS idx_businesses_geom ON businesses USING GIST (geom);
-CREATE INDEX IF NOT EXISTS idx_businesses_status_prov_mun ON businesses (status, province, municipality);
-CREATE INDEX IF NOT EXISTS idx_businesses_status_category ON businesses (status, category);
+-- Índices canónicos (sin duplicados — Sprint 11 / Fase 0)
+CREATE INDEX IF NOT EXISTS businesses_geom_gist ON businesses USING GIST (geom);
+CREATE INDEX IF NOT EXISTS businesses_status ON businesses (status);
+CREATE INDEX IF NOT EXISTS businesses_status_province_municipality ON businesses (status, province, municipality);
+CREATE INDEX IF NOT EXISTS businesses_status_category ON businesses (status, category);
+CREATE INDEX IF NOT EXISTS businesses_active_now ON businesses (status, transfer_active_now) WHERE status = 'active';
 
--- Índices adicionales comúnmente usados
+-- Índice soporte orden por destacado (USO real: ORDER BY featured DESC, rating DESC)
 CREATE INDEX IF NOT EXISTS idx_businesses_featured ON businesses (featured);
-CREATE INDEX IF NOT EXISTS idx_businesses_rating ON businesses (rating DESC);
+
+-- Nota: index de rating eliminado (0 scans, las queries principales son geográficas)
