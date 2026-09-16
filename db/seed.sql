@@ -1,6 +1,7 @@
 -- Seed data for businesses table
 -- Generated from INITIAL_BUSINESSES (12 negocios)
 -- Compatible con 'db/schema.sql': requiere postgis + tabla businesses.
+-- Fresh install: schema.sql → seed.sql → migrate_v2.sql (backfill tablas V2).
 BEGIN;
 
 INSERT INTO businesses (id, name, category, category_icon, description, province, municipality, neighborhood, address, whatsapp, phone, hours, transfer_details, accepts_transfer, transfer_active_now, transfer_verified, status, confirmations_count, reports_count, rating, reviews_count, featured, photos, last_status_update, last_updated_date, geom) VALUES ('biz-1', 'La Esquina Market', 'tiendas', 'ShoppingBag', 'Minisupermercado con amplia variedad de víveres, enlatados, confituras, lácteos y productos de higiene.', 'La Habana', 'Plaza de la Revolución', 'Vedado', 'Calle 23 #123 e/ L y M, Vedado', '+5352849102', '+5378321045', '08:00 — 21:00 (Lunes a Domingo)', '{"transfermovil":true,"enzona":true,"qrPayment":true,"onlineGateway":true,"cash":true}'::jsonb, TRUE, TRUE, TRUE, 'active', 48, 1, 4.8, 64, TRUE, '[]'::jsonb, 'Hace 12 min', '2026-09-16T12:52:01.705Z', ST_SetSRID(ST_MakePoint(-82.3855, 23.1382), 4326)::geography);

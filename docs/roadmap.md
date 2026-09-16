@@ -377,6 +377,7 @@ arquitectura de arriba está diseñada para que cada pieza sea reemplazable.
 - [x] HTTP cache edge: `s-maxage=60, stale-while-revalidate=300` — headers en GET route.ts
 - [x] Sprint 11 (integridad): índices duplicados eliminados de Neon (`idx_businesses_geom`, `idx_businesses_status_prov_mun`, `idx_businesses_status_category`, `idx_businesses_rating`) — quedan los 6 canónicos
 - [x] Sprint 11: validación estricta POST/GET/PATCH (400) + UUID + 503 en producción (sin fallback silencioso)
+- [x] **Sprint 12 (Modelo V2)**: tablas normalizadas creadas en Neon (`business_images`, `business_hours`, `payment_methods`, `business_payment_methods`, `business_reports`, `business_verifications`, `business_confirmations`, `business_reviews`, `business_promotions`) + backfill de datos reales (`db/migrate_v2.sql`, idempotente): 47 relaciones de pago, 5 promociones featured, 11 verificaciones, 84 horarios L-V 8:30-18:00, imágenes 0 (todas `photos: []`). Columnas legacy de `businesses` se mantienen como cache hasta el cutover del DAO (Sprint 13).
 
 ### Deuda técnica vista en Sprint 9 (ordenada por prioridad)
 - [x] **DB caída en dev**: `queryBusinesses` en `lib/db.ts` lanzaba `ECONNRESET`

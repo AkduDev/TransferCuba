@@ -741,17 +741,18 @@ export async function POST(req: NextRequest) {
 - **Riesgo:** Bajo (sin cambios de esquema)
 
 ### Sprint 2: Modelo V2 (Fase 1)
-- [ ] Tabla `business_images` (1.1)
-- [ ] Tabla `business_hours` (1.2)
-- [ ] Tabla `payment_methods` + `business_payment_methods` (1.3)
-- [ ] Tabla `business_reports` (1.4)
-- [ ] Tabla `business_verifications` (1.5)
-- [ ] Tabla `business_confirmations` (1.6)
-- [ ] Tabla `business_reviews` (1.7)
-- [ ] Tabla `business_promotions` (1.8)
-- [ ] Simplificar `businesses` (1.9)
+- [x] Tabla `business_images` (1.1)
+- [x] Tabla `business_hours` (1.2)
+- [x] Tabla `payment_methods` + `business_payment_methods` (1.3)
+- [x] Tabla `business_reports` (1.4)
+- [x] Tabla `business_verifications` (1.5)
+- [x] Tabla `business_confirmations` (1.6)
+- [x] Tabla `business_reviews` (1.7)
+- [x] Tabla `business_promotions` (1.8)
+- [ ] Simplificar `businesses` (1.9) — **cutover al Sprint 3**: las columnas legacy (photos, hours, transfer_details, featured, *_count, rating) se mantienen como cache hasta que el DAO v2 las lea de las tablas normalizadas; el `DROP COLUMN` se hace al cierre del Sprint 3 para no romper el app en cada commit.
 - **Duración estimada:** 4-6 horas
 - **Riesgo:** Medio (requiere migración de datos)
+- **Nota (estado real):** tablas creadas en Neon + backfill idempotente (`db/migrate_v2.sql`): 5 métodos de pago, 47 relaciones negocio-método, 5 promociones featured, 11 verificaciones, 84 horarios, 0 imágenes (todas `photos: []`). Horarios sembrados L-V 8:30-18:00 estándar (el texto libre cubano no es parseable de forma fiable; se pule por negocio con el UI de horarios).
 
 ### Sprint 3: API v2 (Fase 2)
 - [ ] Crear DTOs (2.1)
