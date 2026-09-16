@@ -338,15 +338,15 @@ arquitectura de arriba está diseñada para que cada pieza sea reemplazable.
 
 ## 7. Tareas pendientes (backlog)
 
-### Sprint 10 — Persistencia real PostGIS/Neon (siguiente)
-- [ ] Proyecto Neon free + extensión `postgis`
-- [ ] Esquema `businesses` + `geom geography(Point,4326)` + índice GIST
-- [ ] Migrar `INITIAL_BUSINESSES` → `seed.sql` (fuera del bundle JS)
-- [ ] API routes sobre SQL (`pg` directo); GET acepta `bbox` (viewport queries)
-- [ ] Unificar stores: eliminar doble fuente localStorage/memoria
-- [ ] `page.tsx` consume `GET /api/businesses` (hoy solo localStorage)
-- [ ] Registro → `POST /api/businesses` real (hoy no llama al API)
-- [ ] HTTP cache edge: `s-maxage=60, stale-while-revalidate=300`
+### Sprint 10 — Persistencia real PostGIS/Neon
+- [ ] Proyecto Neon free + extensión `postgis` *(bloqueado: firewall de red impide handshake TLS a Neon 5432)*
+- [x] Esquema `businesses` + `geom geography(Point,4326)` + índice GIST — `db/schema.sql`
+- [x] Migrar `INITIAL_BUSINESSES` → `seed.sql` (fuera del bundle JS) — `db/seed.sql` (12 negocios, BEGIN/COMMIT)
+- [x] API routes sobre SQL (`pg` directo); GET acepta `bbox` (viewport queries) — `lib/db.ts` (circuit breaker + bbox/radius/nearby) + `app/api/businesses/route.ts` (GET + POST)
+- [x] Unificar stores: eliminar doble fuente localStorage/memoria — `page.tsx` hidrata desde `GET /api/businesses`, fallback a `localStorage`, fallback a `INITIAL_BUSINESSES`
+- [x] `page.tsx` consume `GET /api/businesses` (commit aaaf2ee)
+- [x] Registro → `POST /api/businesses` real — `page.tsx` `handleRegisterBusiness` llama POST, route.ts `insertBusiness()` escribe con PostGIS/ST_MakePoint
+- [x] HTTP cache edge: `s-maxage=60, stale-while-revalidate=300` — headers en GET route.ts
 
 ### Deuda técnica vista en Sprint 9 (ordenada por prioridad)
 - [x] **DB caída en dev**: `queryBusinesses` en `lib/db.ts` lanzaba `ECONNRESET`
