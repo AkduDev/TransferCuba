@@ -919,3 +919,34 @@ export async function countBusinesses(): Promise<{ total: number; active: number
     throw new Error('Database unavailable');
   }
 }
+
+/* ---------------- MVT vector tiles (Sprint 5, Fase 4) ---------------- */
+
+// Servir el tile Web Mercator z/x/y generado por `get_businesses_mvt`
+// (solo negocios active). Devuelve el bytea `mvt` como Buffer; en dev sin BD
+// (o con el circuito abierto) devuelve un tile vacío: MapLibre lo dibuja
+// como zona sin datos y el fallback in-memory mantiene la app usable.
+export async function queryBusinessesMvt(
+  z: number,
+  x: number,
+  y: number
+): Promise<Buffer | null> {
+  const pool = getPool();
+  if (!pool || !shouldAttemptDb()) {
+    if (canFallbackToMemory()) return null;
+    throw new Error('Database unavailable');
+  }
+  try {
+    const res = await pool.query(
+      `SELECT get_businesses_mvt($1::integer, $2::integer, $3::integer) AS mvt`,
+      [z, x, y]
+    );
+    markDbAvailable();
+    const mvt = res.rows[0]?.mvt;
+    return mvt ? Buffer.from(mvt) : null;
+  } catch (err) {
+    markDbUnavailable(err);
+    if (canFallbackToMemory()) return null;
+    throw new Error('Database unavailable');
+  }
+}

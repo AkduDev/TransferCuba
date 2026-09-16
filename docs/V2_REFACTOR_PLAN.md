@@ -608,61 +608,64 @@ export default function Home() {
 
 ---
 
-## 📅 Fase 4: Preparación MVT (futuro)
+## 📅 Fase 4: Preparación MVT
 
 **Objetivo:** Habilitar vector tiles para escalabilidad del mapa.
+> ✅ **EJECUTADO (Sprint 5)**: función `get_businesses_mvt(z,x,y)` en PostGIS
+> puro (sin extensiones extra; ST_AsMVT/ST_TileEnvelope vienen en PostGIS 3.x)
+> y endpoint `GET /api/tiles/[z]/[x]/[y]`. La frontend sigue consumiendo
+> GeoJSON+clusters por ahora; la fuente vector queda lista para el cutover.
 
 ### 4.1 Extensiones PostgreSQL necesarias
-```sql
-CREATE EXTENSION IF NOT EXISTS pg_tileserv;
--- o
-CREATE EXTENSION IF NOT EXISTS pg_tiler;
-```
+> ✅ **No se requieren extensiones extra.** `ST_AsMVT`/`ST_AsMVTGeom`/
+> `ST_TileEnvelope` vienen en PostGIS base (Neon verifica 3.6). `pg_tileserv`
+> y `pg_tiler` son servicios REST aparte (no extensiones PG) y duplicarían el
+> endpoint propio de la app, así que se descartan.
 
 ### 4.2 Función para generar MVT
-```sql
-CREATE OR REPLACE FUNCTION get_businesses_mvt(
-  bbox geometry,
-  z integer
-) RETURNS bytea AS $$
-DECLARE
-  result bytea;
-BEGIN
-  SELECT ST_AsMVT(q, 'businesses', 4096, 'geom')
-  INTO result
-  FROM (
-    SELECT 
-      id,
-      name,
-      category,
-      ST_AsMVTGeom(geom, bbox, 4096, 256, true) AS geom
-    FROM businesses
-    WHERE geom && bbox
-    AND status = 'active'
-  ) q;
-  
-  RETURN result;
-END;
-$$ LANGUAGE plpgsql;
-```
+> ✅ Implementada en `db/schema.sql` (idempotente, `CREATE OR REPLACE FUNCTION`).
+> ```sql
+> CREATE OR REPLACE FUNCTION get_businesses_mvt(z integer, x integer, y integer)
+> RETURNS bytea LANGUAGE sql STABLE AS $$
+>   SELECT ST_AsMVT(tile, 'businesses', 4096, 'geom')
+>   FROM (
+>     SELECT id, name, category, category_icon, province, municipality,
+>            accepts_transfer, transfer_active_now, transfer_verified, rating,
+>            ST_AsMVTGeom(ST_Transform(geom::geometry, 3857),
+>                         ST_TileEnvelope(z, x, y), 4096, 256, true) AS geom
+>     FROM businesses
+>     WHERE geom && ST_Transform(ST_TileEnvelope(z, x, y), 4326)::geography
+>       AND status = 'active'
+>   ) AS tile
+> $$;
+> ```
+> Notas: el bbox se filtra en **4326** (el tipo de `geom` es `geography`, que no
+> soporta 3857: "Only lon/lat coordinate systems are supported in geography");
+> la proyección a 3857 ocurre solo dentro de `ST_AsMVTGeom`.
 
 ### 4.3 API para MVT
-```typescript
+> ✅ Implementada en `app/api/tiles/[z]/[x]/[y]/route.ts` (usa `queryBusinessesMvt`
+> de `lib/db.ts`: pool + circuit breaker; dev sin BD → tile vacío). Validación:
+> enteros ≥ 0, `z ≤ 22`, `x,y < 2**z` (400 si no). `Content-Type:
+> application/vnd.mapbox-vector-tile`; `Cache-Control: public, s-maxage=300,
+> stale-while-revalidate=3600`. Tile sin negocios → 200 con 0 bytes (válido).
+> ```typescript
 // app/api/tiles/[z]/[x]/[y]/route.ts
-export async function GET(req: NextRequest) {
-  const { z, x, y } = getParams(req);
-  const bbox = tileToBbox(z, x, y);
-  
-  const result = await pool.query(
-    'SELECT get_businesses_mvt($1, $2) AS mvt',
-    [bbox, z]
-  );
-  
-  return new Response(result.rows[0].mvt, {
-    headers: { 'Content-Type': 'application/vnd.mapbox-vector-tile' }
-  });
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ z: string; x: string; y: string }> }
+) {
+  const { z, x, y } = await params;
+  // ... validación ...
+  try {
+    const mvt = await queryBusinessesMvt(Number(z), Number(x), Number(y));
+    if (mvt === null) return new Response(new Uint8Array(0), { headers: MVT_HEADERS });
+    return new Response(new Uint8Array(mvt), { headers: MVT_HEADERS });
+  } catch {
+    return new Response('Servicio temporalmente no disponible', { status: 503 });
+  }
 }
-```
+> ```
 
 ---
 
@@ -773,11 +776,12 @@ export async function POST(req: NextRequest) {
 - **Nota (estado real):** `tsc --noEmit` 0 errores, `bun run build` OK, smoke E2E verificado (mapa, búsqueda, panel con negocios de la API, filtros/admin/register modals, click en tarjeta → detalle, voto Sí 48→49, 0 errores JS). Fix de warning React: reset del bottom sheet al cambiar de negocio — `onSheetStateChange` del padre pasó de render-time a `useEffect`.
 
 ### Sprint 5: MVT (Fase 4)
-- [ ] Extensiones PostgreSQL (4.1)
-- [ ] Función MVT (4.2)
-- [ ] API tiles (4.3)
+- [x] Extensiones PostgreSQL (4.1) — **sin extensiones extra**: `ST_AsMVT` + `ST_TileEnvelope` vienen en PostGIS base (Neon 3.6). No hace falta `pg_tileserv`/`pg_tiler` (un API REST aparte duplicaría el work; y no son extensiones PG).
+- [x] Función MVT (4.2) — `get_businesses_mvt(z, x, y)` en `db/schema.sql`: filtra por bbox en 4326 (`geom && ST_Transform(ST_TileEnvelope(z,x,y),4326)::geography`, respeta el tipo `geography` de `geom`) y proyecta a 3857 solo para `ST_AsMVTGeom`; payload ligero (`id, name, category, category_icon, province, municipality, accepts_transfer, transfer_active_now, transfer_verified, rating`); solo `status='active'`.
+- [x] API tiles (4.3) — `GET /api/tiles/[z]/[x]/[y]` → `queryBusinessesMvt` en `lib/db.ts` (mismo pool + circuit breaker; dev sin BD devuelve tile vacío). Params validados (enteros ≥ 0, z ≤ 22, x/y dentro de `2**z`), `Content-Type: application/vnd.mapbox-vector-tile`, `Cache-Control: s-maxage=300, stale-while-revalidate=3600`. Tile sin negocios → 0 bytes con 200 (válido, no error).
 - **Duración estimada:** 2-3 horas
 - **Riesgo:** Bajo (adicional, no rompe nada)
+- **Nota (estado real):** verificado — z12/1110/1777 → tile MVT de 1040 bytes con la capa `businesses` (La Esquina Market, Taller TechHabana Fix, categoría/provincia en propiedades); z14/4442/7109 → 285 bytes (biz-1); tile vacío 0 B/200; z23 y coords inválidas → 400. MapLibre sigue consumiendo GeoJSON+clusters (Sprint 9); la fuente vector queda lista para el cutover del frontend (que trasladaría clustering/símbolos a capas de estilo).
 
 ---
 

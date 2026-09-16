@@ -30,6 +30,10 @@ Regla: tras cualquier cambio de código, correr `bun run lint` y si es posible
   provincias), `osrm.ts`, `nominatim.ts`, `dto.ts`, `db.ts`.
 - `MapLibreMap` se importa SIEMPRE con `dynamic(..., { ssr: false })` (requiere
   `window`) y envuelto en `MapErrorBoundary`.
+- Vector tiles (Sprint 5): `GET /api/tiles/[z]/[x]/[y]` sirve MVT vía
+  `queryBusinessesMvt` (`lib/db.ts`) y la función `get_businesses_mvt(z,x,y)`
+  de `db/schema.sql` (PostGIS puro, solo negocios `active`). La frontend aún
+  consume GeoJSON+clusters; no romper los dos caminos si se corta a MVT.
 - Path alias `@/*` → raíz del proyecto.
 
 ## Código

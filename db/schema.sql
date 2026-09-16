@@ -165,3 +165,32 @@ CREATE TABLE IF NOT EXISTS business_promotions (
 CREATE INDEX IF NOT EXISTS idx_business_promotions_business ON business_promotions (business_id);
 CREATE INDEX IF NOT EXISTS idx_business_promotions_active
     ON business_promotions (business_id) WHERE active = TRUE AND ends_at IS NULL OR ends_at > NOW();
+
+/* ===================== MVT — vector tiles (Sprint 5, Fase 4) =====================
+   Genera el tile Web Mercator z/x/y como MVT con solo negocios activos.
+   El bbox se filtra en 4326 (geography, el tipo de `geom`) y la geometría se
+   proyecta a 3857 para ST_AsMVTGeom. No necesita extensiones extra: ST_AsMVT y
+   ST_TileEnvelope vienen en PostGIS base (3.x). Endpoint: GET /api/tiles/[z]/[x]/[y].
+============================================================================= */
+
+CREATE OR REPLACE FUNCTION get_businesses_mvt(z integer, x integer, y integer)
+RETURNS bytea
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT ST_AsMVT(tile, 'businesses', 4096, 'geom')
+  FROM (
+    SELECT
+      id, name, category, category_icon,
+      province, municipality, accepts_transfer, transfer_active_now,
+      transfer_verified, rating,
+      ST_AsMVTGeom(
+        ST_Transform(geom::geometry, 3857),
+        ST_TileEnvelope(z, x, y),
+        4096, 256, true
+      ) AS geom
+    FROM businesses
+    WHERE geom && ST_Transform(ST_TileEnvelope(z, x, y), 4326)::geography
+      AND status = 'active'
+  ) AS tile
+$$;
