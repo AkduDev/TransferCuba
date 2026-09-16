@@ -12,7 +12,8 @@ import {
   ExternalLink,
   ChevronRight,
   Sparkles,
-  Info
+  Info,
+  User
 } from 'lucide-react';
 import { CUBAN_PROVINCES } from '@/lib/cuba-data';
 
@@ -24,6 +25,8 @@ interface GoogleMapsSideDrawerProps {
   onNearMeClick: () => void;
   onRegisterClick: () => void;
   onAdminClick: () => void;
+  onAccountClick: () => void;
+  authUser: { name: string; role: string } | null;
   totalBusinesses: number;
 }
 
@@ -35,6 +38,8 @@ export default function GoogleMapsSideDrawer({
   onNearMeClick,
   onRegisterClick,
   onAdminClick,
+  onAccountClick,
+  authUser,
   totalBusinesses
 }: GoogleMapsSideDrawerProps) {
   if (!isOpen) return null;
@@ -165,6 +170,32 @@ export default function GoogleMapsSideDrawer({
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Cuenta de usuario (identidad teléfono + PIN) */}
+          <div className="pt-2 border-t border-border-subtle">
+            <button
+              onClick={() => {
+                onClose();
+                onAccountClick();
+              }}
+              className="w-full p-3.5 rounded-lg bg-white hover:bg-slate-50 border border-border-subtle text-slate-700 flex items-center justify-between text-xs font-bold transition-all shadow-level-1 group"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-xl bg-emerald-brand/10 border border-emerald-brand/30 text-emerald-brand flex items-center justify-center">
+                  <User className="w-4 h-4" />
+                </div>
+                <div className="text-left">
+                  <p className="font-extrabold text-text-primary font-display">
+                    {authUser ? authUser.name : 'Mi cuenta'}
+                  </p>
+                  <p className="text-[10px] text-slate-400 font-normal">
+                    {authUser ? 'Ver perfil y sesión' : 'Entrar con teléfono y PIN'}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+            </button>
           </div>
 
           {/* Admin center shortcut */}

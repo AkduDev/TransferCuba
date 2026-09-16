@@ -14,6 +14,7 @@ import GoogleMapsAttribution from '@/components/GoogleMapsAttribution';
 import RouteInfoBar from '@/components/RouteInfoBar';
 import RegisterBusinessModal from '@/components/RegisterBusinessModal';
 import AdminDashboardModal from '@/components/AdminDashboardModal';
+import GoogleMapsAuthModal from '@/components/GoogleMapsAuthModal';
 import LocationPickerModal from '@/components/LocationPickerModal';
 import MapErrorBoundary from '@/components/MapErrorBoundary';
 import type { Business } from '@/lib/cuba-data';
@@ -25,6 +26,7 @@ import { useGeocoding } from '@/lib/hooks/useGeocoding';
 import { useBusinessesData } from '@/lib/hooks/useBusinessesData';
 import { useBusinessActions } from '@/lib/hooks/useBusinessActions';
 import { useModals } from '@/lib/hooks/useModals';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 const MapLibreMap = dynamic(() => import('@/components/MapLibreMap'), {
   ssr: false,
@@ -49,6 +51,7 @@ export default function Home() {
   });
   const actions = useBusinessActions({ setBusinesses: data.setBusinesses, syncMutation: data.syncMutation, applyToStates: data.applyToStates, userLocation: geo.userLocation, setUserLocation: geo.setUserLocation, setUserLocationName: geo.setUserLocationName, centerOn: vp.centerOn, mapRef: vp.mapRef, showToast });
   const ui = useModals();
+  const auth = useAuth();
 
   const onSelectBiz = (b: Business) => { actions.handleSelectBusiness(b); ui.setIsDesktopPanelOpen(true); ui.setMobileSheetState('peek'); };
 
@@ -64,7 +67,7 @@ export default function Home() {
 
       <GoogleMapsAttribution />
 
-      <GoogleMapsTopBar searchQuery={fl.searchQuery} onSearchChange={fl.setSearchQuery} onMenuClick={() => ui.setIsSideDrawerOpen(true)} onNearMeClick={geo.handleUseCurrentGps} hasUserLocation={geo.userLocation !== null} isLocating={geo.isLocating} selectedCategory={fl.selectedCategory} onCategoryChange={fl.setSelectedCategory} onlyActiveNow={fl.onlyActiveNow} onToggleOnlyActiveNow={() => fl.setOnlyActiveNow(!fl.onlyActiveNow)} onlyTransfer={fl.onlyTransfer} onToggleOnlyTransfer={() => fl.setOnlyTransfer(!fl.onlyTransfer)} filterVerification={fl.filterVerification} onFilterVerificationChange={fl.setFilterVerification} selectedProvince={fl.selectedProvince} onProvinceClick={() => ui.setIsLocationModalOpen(true)} onToggleFiltersModal={() => ui.setIsFiltersModalOpen(true)} hasActiveFilters={fl.hasActiveFilters} onResetFilters={fl.handleResetFilters} onAdminClick={() => ui.setIsAdminModalOpen(true)} searchPlaces={gc.geocodePlaces} isGeocoding={gc.isGeocoding} searchFocused={gc.searchFocused} onSearchFocusChange={gc.setSearchFocused} searchSuggestions={data.filteredBusinesses.slice(0, 3)} onSelectPlace={gc.handleSelectPlace} onSelectBusiness={actions.handleSelectSearchBusiness} />
+      <GoogleMapsTopBar searchQuery={fl.searchQuery} onSearchChange={fl.setSearchQuery} onMenuClick={() => ui.setIsSideDrawerOpen(true)} onNearMeClick={geo.handleUseCurrentGps} hasUserLocation={geo.userLocation !== null} isLocating={geo.isLocating} selectedCategory={fl.selectedCategory} onCategoryChange={fl.setSelectedCategory} onlyActiveNow={fl.onlyActiveNow} onToggleOnlyActiveNow={() => fl.setOnlyActiveNow(!fl.onlyActiveNow)} onlyTransfer={fl.onlyTransfer} onToggleOnlyTransfer={() => fl.setOnlyTransfer(!fl.onlyTransfer)} filterVerification={fl.filterVerification} onFilterVerificationChange={fl.setFilterVerification} selectedProvince={fl.selectedProvince} onProvinceClick={() => ui.setIsLocationModalOpen(true)} onToggleFiltersModal={() => ui.setIsFiltersModalOpen(true)} hasActiveFilters={fl.hasActiveFilters} onResetFilters={fl.handleResetFilters} onAdminClick={() => ui.setIsAdminModalOpen(true)} onAccountClick={() => ui.setIsAuthModalOpen(true)} searchPlaces={gc.geocodePlaces} isGeocoding={gc.isGeocoding} searchFocused={gc.searchFocused} onSearchFocusChange={gc.setSearchFocused} searchSuggestions={data.filteredBusinesses.slice(0, 3)} onSelectPlace={gc.handleSelectPlace} onSelectBusiness={actions.handleSelectSearchBusiness} />
 
       {actions.activeRoute && <RouteInfoBar route={actions.activeRoute.route} business={actions.activeRoute.business} onClearRoute={() => actions.setActiveRoute(null)} />}
 
@@ -78,7 +81,7 @@ export default function Home() {
 
       {ui.isPinningMode && <GoogleMapsPinningControls onConfirm={() => ui.handleConfirmPinLocation(showToast)} onCancel={() => { ui.setIsPinningMode(false); ui.setIsRegisterModalOpen(true); }} />}
 
-      <GoogleMapsSideDrawer isOpen={ui.isSideDrawerOpen} onClose={() => ui.setIsSideDrawerOpen(false)} selectedProvince={fl.selectedProvince} onProvinceChange={fl.handleProvinceChange} onNearMeClick={geo.handleUseCurrentGps} onRegisterClick={() => ui.setIsRegisterModalOpen(true)} onAdminClick={() => ui.setIsAdminModalOpen(true)} totalBusinesses={data.businesses.length} />
+      <GoogleMapsSideDrawer isOpen={ui.isSideDrawerOpen} onClose={() => ui.setIsSideDrawerOpen(false)} selectedProvince={fl.selectedProvince} onProvinceChange={fl.handleProvinceChange} onNearMeClick={geo.handleUseCurrentGps} onRegisterClick={() => ui.setIsRegisterModalOpen(true)} onAdminClick={() => ui.setIsAdminModalOpen(true)} onAccountClick={() => ui.setIsAuthModalOpen(true)} authUser={auth.user} totalBusinesses={data.businesses.length} />
 
       <GoogleMapsFiltersModal isOpen={ui.isFiltersModalOpen} onClose={() => ui.setIsFiltersModalOpen(false)} selectedProvince={fl.selectedProvince} onProvinceChange={fl.handleProvinceChange} selectedMunicipality={fl.selectedMunicipality} onMunicipalityChange={fl.setSelectedMunicipality} selectedCategory={fl.selectedCategory} onCategoryChange={fl.setSelectedCategory} onlyActiveNow={fl.onlyActiveNow} onToggleOnlyActiveNow={() => fl.setOnlyActiveNow(!fl.onlyActiveNow)} onlyTransfer={fl.onlyTransfer} onToggleOnlyTransfer={() => fl.setOnlyTransfer(!fl.onlyTransfer)} filterQr={fl.filterQr} onToggleFilterQr={() => fl.setFilterQr(!fl.filterQr)} filterOnline={fl.filterOnline} onToggleFilterOnline={() => fl.setFilterOnline(!fl.filterOnline)} filterVerification={fl.filterVerification} onFilterVerificationChange={fl.setFilterVerification} onResetFilters={fl.handleResetFilters} totalResults={data.filteredBusinesses.length} />
 
@@ -87,6 +90,8 @@ export default function Home() {
       <LocationPickerModal isOpen={ui.isLocationModalOpen} onClose={() => ui.setIsLocationModalOpen(false)} onSelectCoordinates={geo.handleSelectPresetLocation} onUseCurrentGps={geo.handleUseCurrentGps} isLocating={geo.isLocating} />
 
       <AdminDashboardModal isOpen={ui.isAdminModalOpen} onOpen={data.fetchAdminAll} onClose={() => { data.handleAdminClose(); ui.setIsAdminModalOpen(false); }} businesses={data.businesses} onToggleVerify={actions.handleToggleVerify} onToggleTransferActive={actions.handleToggleTransferActive} onDeleteBusiness={actions.handleDeleteBusiness} onSelectBusiness={actions.handleSelectBusiness} onApproveBusiness={actions.handleApproveBusiness} onRejectBusiness={actions.handleRejectBusiness} />
+
+      <GoogleMapsAuthModal isOpen={ui.isAuthModalOpen} onClose={() => ui.setIsAuthModalOpen(false)} auth={auth} />
     </main>
   );
 }

@@ -11,7 +11,8 @@ import {
   Lock,
   SlidersHorizontal,
   RotateCcw,
-  Loader2
+  Loader2,
+  User
 } from 'lucide-react';
 import { CATEGORIES, CATEGORY_EMOJI, Business } from '@/lib/cuba-data';
 import type { NominatimResult } from '@/lib/nominatim';
@@ -37,6 +38,7 @@ interface GoogleMapsTopBarProps {
   hasActiveFilters: boolean;
   onResetFilters: () => void;
   onAdminClick?: () => void;
+  onAccountClick?: () => void;
   searchPlaces: NominatimResult[];
   isGeocoding: boolean;
   searchFocused: boolean;
@@ -67,6 +69,7 @@ export default function GoogleMapsTopBar({
   hasActiveFilters,
   onResetFilters,
   onAdminClick,
+  onAccountClick,
   searchPlaces,
   isGeocoding,
   searchFocused,
@@ -341,6 +344,18 @@ export default function GoogleMapsTopBar({
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Limpiar</span>
+          </button>
+        )}
+
+        {/* Cuenta de usuario (identidad teléfono + PIN) */}
+        {onAccountClick && (
+          <button
+            onClick={onAccountClick}
+            className={`${chipBase} ${chipIdle} text-slate-400`}
+            title="Mi cuenta"
+          >
+            <User className="w-3.5 h-3.5" />
+            <span>Cuenta</span>
           </button>
         )}
 

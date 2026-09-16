@@ -11,6 +11,8 @@ export interface ModalsState {
   setIsRegisterModalOpen: (v: boolean) => void;
   isAdminModalOpen: boolean;
   setIsAdminModalOpen: (v: boolean) => void;
+  isAuthModalOpen: boolean;
+  setIsAuthModalOpen: (v: boolean) => void;
   isLocationModalOpen: boolean;
   setIsLocationModalOpen: (v: boolean) => void;
   mobileSheetState: 'peek' | 'half' | 'full';
@@ -29,6 +31,7 @@ export function useModals(): ModalsState {
   const [isSideDrawerOpen, setIsSideDrawerOpen] = useState(false);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [mobileSheetState, setMobileSheetState] = useState<'peek' | 'half' | 'full'>('peek');
   const [isPinningMode, setIsPinningMode] = useState(false);
@@ -56,6 +59,7 @@ export function useModals(): ModalsState {
     isSideDrawerOpen, setIsSideDrawerOpen,
     isRegisterModalOpen, setIsRegisterModalOpen,
     isAdminModalOpen, setIsAdminModalOpen,
+    isAuthModalOpen, setIsAuthModalOpen,
     isLocationModalOpen, setIsLocationModalOpen,
     mobileSheetState, setMobileSheetState,
     isPinningMode, setIsPinningMode, pinLocation, setPinLocation,

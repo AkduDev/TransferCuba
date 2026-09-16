@@ -98,3 +98,19 @@ Un negocio se considera:
 - Rutas: `lib/osrm.ts` → distancia/tiempo reales de conducción vía OSRM.
 - Geocoding: `lib/nominatim.ts` → search + reverse, limitado a Cuba
   (`countrycodes=cu`).
+
+## Identidad (Fase 0 — módulo mensajería)
+
+Definido en `db/migrate_auth.sql`, accedido vía `lib/db-auth.ts`.
+
+- **`users`**: `id uuid`, `phone text UNIQUE` (normalizado, 7-15 dígitos),
+  `name`, `pin_hash` (scrypt con sal, 4-8 dígitos), `role`
+  (`USER|BUSINESS|MESSENGER|ADMIN`, defecto `USER`), `status`
+  (`active|blocked`), `created_at`, `last_login_at`.
+- **`sessions`**: `id uuid`, `user_id FK → users ON DELETE CASCADE`,
+  `created_at`, `expires_at` (30 días), `revoked_at`.
+- **`businesses.owner_user_id`**: FK opcional → `users (ON DELETE SET NULL)`;
+  vincula un negocio registrado a su dueño de cuenta.
+
+Sin identidad no se puede pedir servicios de delivery; es la base del módulo
+de mensajería (ver `docs/messaging-module.md`).

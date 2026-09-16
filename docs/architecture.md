@@ -313,3 +313,19 @@ inaccesibles, y el placeholder local siempre es más rápido.
 - **Estado de sesión**: `GET /api/auth/me` lo expone al frontend al abrir el
   modal; `POST /api/auth/logout` invalida la cookie. Sin variables en `.env`
   el login responde 503.
+
+## Identidad de usuarios (Fase 0 — módulo mensajería)
+
+- **Registro por teléfono + PIN**, sin email. PIN hasheado con `scrypt`
+  (`node:crypto`, sal aleatoria); `normalizePhone` elimina espacios/guiones/`+`.
+- **Dos auths separadas**: la admin del panel es `lib/admin-auth.ts`
+  (cookie `tc_admin_session`, HMAC). La de usuarios es `lib/auth.ts` +
+  `lib/db-auth.ts` (cookie HttpOnly `tc_session`, sesión persistida en la
+  tabla `sessions`). Namespaces de API distintos: `/api/auth/*` vs
+  `/api/account/*`.
+- **Estado en el cliente**: `lib/hooks/useAuth.ts` hidrata con
+  `GET /api/account/me`; la autoridad es la cookie, no el estado local.
+  `components/GoogleMapsAuthModal.tsx` gestiona login/registro/perfil y lo
+  abren `GoogleMapsTopBar` (botón "Cuenta") y `GoogleMapsSideDrawer`.
+- **Sin BD → 503** (a propósito): no hay fallback in-memory para cuentas.
+- **Mensajería/delivery**: plan completo en `docs/messaging-module.md`.

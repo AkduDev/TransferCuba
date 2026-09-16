@@ -135,3 +135,40 @@ curl -X PATCH http://localhost:3000/api/businesses \
   -H "Content-Type: application/json" \
   -d '{"id":"tc-biz-001","action":"vote","payload":{"isConfirm":true}}'
 ```
+
+---
+
+# Autenticación de usuarios — `/api/account/*`
+
+Registro/login/cierre de sesión de usuarios reales (identidad teléfono + PIN,
+Fase 0). Namespace separado de la auth admin (`/api/auth/*`). Cookie de
+sesión HttpOnly `tc_session` (30 días). BD caída → `503` (sin fallback).
+
+| Endpoint | Método | Respuestas |
+|---|---|---|
+| `/api/account/register` | POST | `201` + `{ success, user }` y cookie |
+| `/api/account/login` | POST | `200` + `{ success, user }` y cookie; `401` teléfono/PIN incorrectos; `403` cuenta bloqueada |
+| `/api/account/me` | GET | `{ authenticated, user? }` |
+| `/api/account/logout` | POST | `{ success }`; revoca sesión y borra cookie |
+
+`user` público: `{ id, phone, name, role, status }`.
+
+### Registro
+
+```json
+POST /api/account/register
+{ "name": "Ana Pérez", "phone": "5355551234", "pin": "1234" }
+```
+
+- Errores comunes: `400` (validación), `409` (teléfono ya registrado,
+  incluida la carrera de doble registro → UNIQUE 23505).
+
+### Login / me / logout
+
+```bash
+curl -X POST http://localhost:3000/api/account/login \
+  -H "Content-Type: application/json" -c cookies.txt \
+  -d '{"phone":"5355551234","pin":"1234"}'
+curl -b cookies.txt http://localhost:3000/api/account/me
+curl -b cookies.txt -X POST http://localhost:3000/api/account/logout
+```
