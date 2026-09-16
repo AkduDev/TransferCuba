@@ -339,7 +339,7 @@ arquitectura de arriba está diseñada para que cada pieza sea reemplazable.
 ## 7. Tareas pendientes (backlog)
 
 ### Sprint 10 — Persistencia real PostGIS/Neon
-- [ ] Proyecto Neon free + extensión `postgis` *(bloqueado: firewall de red impide handshake TLS a Neon 5432)*
+- [x] Proyecto Neon free + extensión `postgis` — conexión verificada, schema + seed aplicados, API sirve datos reales
 - [x] Esquema `businesses` + `geom geography(Point,4326)` + índice GIST — `db/schema.sql`
 - [x] Migrar `INITIAL_BUSINESSES` → `seed.sql` (fuera del bundle JS) — `db/seed.sql` (12 negocios, BEGIN/COMMIT)
 - [x] API routes sobre SQL (`pg` directo); GET acepta `bbox` (viewport queries) — `lib/db.ts` (circuit breaker + bbox/radius/nearby) + `app/api/businesses/route.ts` (GET + POST)
