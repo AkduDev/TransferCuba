@@ -762,10 +762,11 @@ export async function POST(req: NextRequest) {
 - [x] Crear DTOs (2.1) — `lib/dto.ts` (MapBusiness, BusinessHour, BusinessImage, PaymentMethod, BusinessPromotion, BusinessDetails)
 - [x] Separar endpoints (2.2) — `GET /api/businesses/[id]` → BusinessDetails (hours/images/paymentMethods/promotions de tablas V2; stats caen al contador legacy hasta que existan eventos). Una sola query + agregados.
 - [x] Query optimizada para mapa (2.3) — `queryBusinesses`/`queryBusinessesByIds` derivan featured de business_promotions y transferDetails de business_payment_methods (mapeo slug `qr`→`qrPayment`); filtros qr/online/verificación desde tablas V2; escrituras en transacción (insertBusiness, patchBusiness vote/report/verify)
+- [x] Payload ligero de mapa — `GET /api/businesses?map=true` → `MapBusiness[]` (id, name, category, lat, lng, transferActiveNow, transferVerified, featured). `queryBusinessesMap` en `lib/db.ts` reutiliza `buildBusinessesWhere` (el mismo WHERE de filtros+bbox+distancia sin duplicar SQL); el frontend aún consume `Business[]` (cutover en una fase posterior).
 - [ ] Validación con Zod (Fase 5) — validación manual ya en Sprint 11; decidir si añadir zod (AGENTS.md desaconseja deps no necesarias)
 - **Duración estimada:** 3-4 horas
 - **Riesgo:** Medio
-- **Nota (estado real):** `GET /api/businesses` mantiene la forma `Business[]` (frontend intacto hasta Sprint 4); los filtros qr/online/verificación ya consultan las tablas V2 con `EXISTS`/subqueries.
+- **Nota (estado real):** `GET /api/businesses` mantiene la forma `Business[]` (frontend intacto hasta Sprint 4); los filtros qr/online/verificación ya consultan las tablas V2 con `EXISTS`/subqueries. Verificado `?map=true`: 11 negocios (solo active), bbox → 4, `lat/lng` ordena por distancia.
 
 ### Sprint 4: Frontend refactor (Fase 3)
 - [x] Hooks personalizados (3.1) — 8 hooks en `lib/hooks/`: `useToast`, `useMapViewport`, `useFilters`, `useGeolocation`, `useGeocoding`, `useBusinessesData`, `useBusinessActions`, `useModals`

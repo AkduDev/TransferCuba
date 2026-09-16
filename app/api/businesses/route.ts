@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { queryBusinesses, insertBusiness, patchBusiness, PatchAction } from '@/lib/db';
+import { queryBusinesses, queryBusinessesMap, insertBusiness, patchBusiness, PatchAction } from '@/lib/db';
 import { Business } from '@/lib/cuba-data';
 import { sessionValidFromRequest } from '@/lib/admin-auth';
 
@@ -52,8 +52,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'lng inválida' }, { status: 400 });
   }
 
+  const mapMode = searchParams.get('map') === 'true';
+
   try {
-    const results = await queryBusinesses({
+    const results = await (mapMode ? queryBusinessesMap : queryBusinesses)({
       bbox,
       lat,
       lng,

@@ -14,6 +14,7 @@ import { Pool } from 'pg';
 import { INITIAL_BUSINESSES, calculateDistanceMeters } from '@/lib/cuba-data';
 import type { Business } from '@/lib/cuba-data';
 import type {
+  MapBusiness,
   BusinessDetails,
   BusinessHour,
   BusinessImage,
@@ -321,10 +322,9 @@ function memoryFilter(filters: BusinessFilters): Business[] {
 
 /* ---------------- API pública ---------------- */
 
-export async function queryBusinesses(filters: BusinessFilters): Promise<Business[]> {
-  const pool = getPool();
-  if (!pool || !shouldAttemptDb()) return memoryFilter(filters);
-
+// Construcción del WHERE (filtros + espaciales), compartida por la query
+// completa (Business[]) y la ligera de mapa (MapBusiness[]).
+function buildBusinessesWhere(filters: BusinessFilters) {
   const where: string[] = filters.includeAll ? [] : [`b.status = 'active'`];
   const params: unknown[] = [];
   let p = 0;
@@ -388,6 +388,14 @@ export async function queryBusinesses(filters: BusinessFilters): Promise<Busines
     );
   }
 
+  return { where, params, hasOrigin, originParam };
+}
+
+export async function queryBusinesses(filters: BusinessFilters): Promise<Business[]> {
+  const pool = getPool();
+  if (!pool || !shouldAttemptDb()) return memoryFilter(filters);
+
+  const { where, params, hasOrigin, originParam } = buildBusinessesWhere(filters);
   const emptyWhere = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
   const select = `SELECT b.id, b.name, b.category, b.category_icon, b.description, b.province, b.municipality,
@@ -418,7 +426,8 @@ export async function queryBusinesses(filters: BusinessFilters): Promise<Busines
   const orderBy = hasOrigin
     ? `ORDER BY distance_meters ASC NULLS LAST`
     : `ORDER BY featured DESC, b.rating DESC`;
-  const limit = next(filters.limit ?? 500);
+  const limit = `$${params.length + 1}`;
+  params.push(filters.limit ?? 500);
 
   const sql = `${select} ${emptyWhere} ${orderBy} LIMIT ${limit}`;
 
@@ -434,6 +443,77 @@ export async function queryBusinesses(filters: BusinessFilters): Promise<Busines
   } catch (err) {
     markDbUnavailable(err);
     if (canFallbackToMemory()) return memoryFilter(filters);
+    throw new Error('Database unavailable');
+  }
+}
+
+// Payload mínimo para el mapa (DTO MapBusiness): solo lo que dibujan pins y
+// clústeres. El detalle completo se sirve bajo demanda por GET /api/businesses/[id].
+// Fase 2.1 (V2_REFACTOR_PLAN.md): el mapa no necesita el Business entero.
+export async function queryBusinessesMap(filters: BusinessFilters): Promise<MapBusiness[]> {
+  const pool = getPool();
+
+  const fromMemory = (): MapBusiness[] =>
+    memoryFilter(filters).map((b) => ({
+      id: b.id,
+      name: b.name,
+      category: b.category,
+      lat: b.lat,
+      lng: b.lng,
+      transferActiveNow: b.transferActiveNow,
+      transferVerified: b.transferVerified,
+      featured: b.featured
+    }));
+
+  if (!pool || !shouldAttemptDb()) return fromMemory();
+
+  const { where, params, hasOrigin, originParam } = buildBusinessesWhere(filters);
+  const emptyWhere = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+  const select = `SELECT b.id, b.name, b.category,
+    COALESCE(
+      (SELECT bp.active FROM business_promotions bp
+       WHERE bp.business_id = b.id AND bp.type = 'featured'
+       AND (bp.ends_at IS NULL OR bp.ends_at > NOW())
+       ORDER BY bp.priority DESC LIMIT 1),
+      FALSE
+    ) AS featured,
+    b.transfer_active_now,
+    b.transfer_verified,
+    ${
+    hasOrigin
+      ? `ST_Distance(b.geom, ST_GeomFromText(${originParam}, 4326)::geography) AS distance_meters`
+      : 'NULL::double precision AS distance_meters'
+  },
+    ST_X(b.geom::geometry) AS lng, ST_Y(b.geom::geometry) AS lat
+  FROM businesses b`;
+
+  const orderBy = hasOrigin
+    ? `ORDER BY distance_meters ASC NULLS LAST`
+    : `ORDER BY featured DESC, b.rating DESC`;
+  const limit = `$${params.length + 1}`;
+  params.push(filters.limit ?? 500);
+
+  const sql = `${select} ${emptyWhere} ${orderBy} LIMIT ${limit}`;
+
+  try {
+    const res = await pool.query(sql, params);
+    markDbAvailable();
+    return res.rows.map(
+      (r): MapBusiness => ({
+        id: r.id,
+        name: r.name,
+        category: r.category,
+        lat: r.lat,
+        lng: r.lng,
+        transferActiveNow: r.transfer_active_now,
+        transferVerified: r.transfer_verified,
+        featured: r.featured
+      })
+    );
+  } catch (err) {
+    markDbUnavailable(err);
+    if (canFallbackToMemory()) return fromMemory();
     throw new Error('Database unavailable');
   }
 }
