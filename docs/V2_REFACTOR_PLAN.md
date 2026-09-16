@@ -669,11 +669,15 @@ export async function GET(
 
 ---
 
-## 📅 Fase 5: Validación con Zod
+## 📅 Fase 5: Validación con Zod — 💡 RESUELTA: no añadir zod
 
-**Objetivo:** Validación robusta de todos los inputs.
+**DECISIÓN (2026-09-16):** no se añade `zod`. La validación manual de Sprint 11 cubre el
+mismo alcance (POST/GET/PATCH con errores 400 claros, sin crear datos inválidos, sin
+valores inventados por defecto) y AGENTS.md prohíbe dependencias no necesarias. El código
+de los esquemas de esta sección queda a modo de referencia por si la validación crece
+(schemas reusados entre endpoints) y la decisión se reabre.
 
-### 5.1 Esquemas Zod
+### 5.1 Esquemas Zod (referencia — no implementados)
 
 ```typescript
 // lib/validations.ts
@@ -734,14 +738,15 @@ export async function POST(req: NextRequest) {
 ## 📅 Orden de implementación
 
 ### Sprint 1: Limpieza (Fase 0)
-- [ ] Eliminar índices duplicados (0.1)
-- [ ] Fusionar queries en `queryBusinesses` (0.2)
-- [ ] Comportamiento DB failure por entorno (0.3)
-- [ ] Eliminar `SELECT *` del GET (0.4)
-- [ ] Validación básica de inputs (0.5)
-- [ ] ID: `Date.now()` → UUID (0.6)
-- [ ] Borrar fallback `INITIAL_BUSINESSES` en producción (0.7)
-- **Duración estimada:** 2-3 horas
+> ✅ **EJECUTADO** — estos 7 ítems se completaron de forma incremental en los Sprints 10-11 (ver docs/roadmap.md) y se verifican con tsc + build + smoke E2E.
+- [x] Eliminar índices duplicados (0.1) — Sprint 11: dropeados de Neon los 4 índices duplicados (`idx_businesses_geom`, `idx_businesses_status_prov_mun`, `idx_businesses_status_category`, `idx_businesses_rating`); quedan los 6 canónicos
+- [x] Fusionar queries en `queryBusinesses` (0.2) — lng/lat salen del geometry en la misma query (sin rehidratación separada); `buildBusinessesWhere` centraliza filtros+espaciales (Sprint 3/15)
+- [x] Comportamiento DB failure por entorno (0.3) — circuit breaker en `lib/db.ts` (timeout 5s, abre 60s, reintenta): dev cae al fallback in-memory <100ms; producción responde HTTP 503 sin fallback silencioso
+- [x] Eliminar `SELECT *` del GET (0.4) — columnas explícitas en `queryBusinesses`/`queryBusinessesByIds`/`queryBusinessesMap`
+- [x] Validación básica de inputs (0.5) — Sprint 11: POST/GET/PATCH validan estrictamente (400 con mensaje), sin crear negocios con valores inventados
+- [x] ID: `Date.now()` → UUID (0.6) — `crypto.randomUUID()` en POST `/api/businesses` y `insertBusiness`
+- [x] Borrar fallback `INITIAL_BUSINESSES` en producción (0.7) — `canFallbackToMemory()` = `!isProduction`; en prod el fallback in-memory no existe (errores reales visibles)
+- **Duración estimada:** 2-3 horas (ejecutado en Sprints 10-11)
 - **Riesgo:** Bajo (sin cambios de esquema)
 
 ### Sprint 2: Modelo V2 (Fase 1)
@@ -763,7 +768,7 @@ export async function POST(req: NextRequest) {
 - [x] Separar endpoints (2.2) — `GET /api/businesses/[id]` → BusinessDetails (hours/images/paymentMethods/promotions de tablas V2; stats caen al contador legacy hasta que existan eventos). Una sola query + agregados.
 - [x] Query optimizada para mapa (2.3) — `queryBusinesses`/`queryBusinessesByIds` derivan featured de business_promotions y transferDetails de business_payment_methods (mapeo slug `qr`→`qrPayment`); filtros qr/online/verificación desde tablas V2; escrituras en transacción (insertBusiness, patchBusiness vote/report/verify)
 - [x] Payload ligero de mapa — `GET /api/businesses?map=true` → `MapBusiness[]` (id, name, category, lat, lng, transferActiveNow, transferVerified, featured). `queryBusinessesMap` en `lib/db.ts` reutiliza `buildBusinessesWhere` (el mismo WHERE de filtros+bbox+distancia sin duplicar SQL); el frontend aún consume `Business[]` (cutover en una fase posterior).
-- [ ] Validación con Zod (Fase 5) — validación manual ya en Sprint 11; decidir si añadir zod (AGENTS.md desaconseja deps no necesarias)
+- [x] Validación con Zod (Fase 5) — **DECISIÓN: no añadir zod**. La validación manual (Sprint 11) ya cubre POST/GET/PATCH con errores 400 claros y sin crear datos inválidos; AGENTS.md desaconseja dependencias no necesarias y el proyecto es deliberadamente libre de librerías pesadas. Reabrir solo si la validación crece (schemas reusados en múltiples endpoints).
 - **Duración estimada:** 3-4 horas
 - **Riesgo:** Medio
 - **Nota (estado real):** `GET /api/businesses` mantiene la forma `Business[]` (frontend intacto hasta Sprint 4); los filtros qr/online/verificación ya consultan las tablas V2 con `EXISTS`/subqueries. Verificado `?map=true`: 11 negocios (solo active), bbox → 4, `lat/lng` ordena por distancia.
