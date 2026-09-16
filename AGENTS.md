@@ -20,12 +20,14 @@ Regla: tras cualquier cambio de código, correr `bun run lint` y si es posible
 
 ## Estructura y convenciones
 
-- `app/page.tsx` es el orchestrador: TODO el estado vive ahí y baja por props.
-  Los componentes hijos no mantienen estado de negocio propio.
+- `app/page.tsx` es un orquestador DELGADO (~90 líneas): el estado vive en
+  hooks de `lib/hooks/` (useMapViewport, useFilters, useGeolocation,
+  useGeocoding, useBusinessesData, useBusinessActions, useModals, useToast)
+  y baja por props. No añadir estado nuevo a page.tsx.
 - Componentes de UI estilo "Google Maps" en `components/` con prefijo
   `GoogleMaps*`, modales con sufijo `*Modal`.
 - Lógica de dominio y datos en `lib/`: `cuba-data.ts` (tipos, seed,
-  provincias), `osrm.ts`, `nominatim.ts`.
+  provincias), `osrm.ts`, `nominatim.ts`, `dto.ts`, `db.ts`.
 - `MapLibreMap` se importa SIEMPRE con `dynamic(..., { ssr: false })` (requiere
   `window`) y envuelto en `MapErrorBoundary`.
 - Path alias `@/*` → raíz del proyecto.
@@ -46,9 +48,9 @@ Regla: tras cualquier cambio de código, correr `bun run lint` y si es posible
 - Registro nuevo → `pending` → requiere aprobación admin.
 - Servicios externos Nominatim/OSRM: máximo 1 req/s, con `User-Agent`
   identificatorio. No abusar.
-- Persistencia actual: `localStorage` clave `transfercuba_businesses_v2`
-  (frontend) + store in-memory en `app/api/businesses/route.ts`. Aún no
-  conectados entre sí.
+- Persistencia: `localStorage` clave `transfercuba_businesses_v2` como cache
+  offline del frontend; fuente real es Postgres/Neon vía `lib/db.ts`
+  (tablas normalizadas V2 desde el DAO — ver `db/migrate_v2.sql`).
 
 ## No hacer
 
