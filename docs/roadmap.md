@@ -96,9 +96,8 @@ CREATE TABLE businesses (
   address TEXT NOT NULL,
   whatsapp TEXT,
   phone TEXT,
-  hours TEXT,
-  description TEXT,
-  transfer_details JSONB NOT NULL,
+  hours TEXT NOT NULL,
+  description TEXT NOT NULL,
   transfer_active_now BOOLEAN DEFAULT false,
   transfer_verified BOOLEAN DEFAULT false,
   status TEXT NOT NULL DEFAULT 'pending',
@@ -106,10 +105,11 @@ CREATE TABLE businesses (
   reports_count INT DEFAULT 0,
   rating NUMERIC(2,1) DEFAULT 5.0,
   reviews_count INT DEFAULT 0,
-  featured BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
+-- (1.9) transfer_details / featured / photos: DROP — derivables desde las
+-- tablas V2; `hours` y los contadores se mantienen como cache plana.
 SELECT AddColumnGeography... -- geom geography(Point,4326)
 CREATE INDEX ON businesses USING GIST (geom);
 CREATE INDEX ON businesses (status, province, municipality);
@@ -300,9 +300,11 @@ filtrado server-side, queries por viewport (bbox) y unificación del store.
    `DATABASE_URL` en `.env.local` (gitignored). Schema + seed aplicados.
 2. **`db/schema.sql`** — tabla `businesses` con `geom geography(POINT,4326)`,
    CHECK de `status`, defaults, e índices canónicos (sin duplicados).
-3. **`db/seed.sql`** — 12 negocios (11 activos + 1 pending), `photos`
-   `'[]'::jsonb`, `transfer_details` con booleanos JSON reales,
-   `reviews_count` correcto (biz-1 = 64), BEGIN/COMMIT.
+3. **`db/seed.sql`** — 12 negocios (11 activos + 1 pending), `hours` con texto
+   curado, `reviews_count` correcto (biz-1 = 64), BEGIN/COMMIT. Tras 1.9 los
+   INSERT van SIN las columnas legacy eliminadas y se siembran además las
+   tablas V2 directamente (47 métodos de pago, 5 promociones featured, 11
+   verificaciones, 84 horarios).
 4. **`lib/db.ts`** — queries SQL directas con `pg` Pool:
    - viewport `ST_MakeEnvelope`/`&&`, nearby `ST_DWithin` con `ST_Distance`
    - **una sola query** con `ST_X/ST_Y(geom::geometry)` inline (lat/lng sin
@@ -380,6 +382,7 @@ arquitectura de arriba está diseñada para que cada pieza sea reemplazable.
 - [x] **Sprint 12 (Modelo V2)**: tablas normalizadas creadas en Neon (`business_images`, `business_hours`, `payment_methods`, `business_payment_methods`, `business_reports`, `business_verifications`, `business_confirmations`, `business_reviews`, `business_promotions`) + backfill de datos reales (`db/migrate_v2.sql`, idempotente): 47 relaciones de pago, 5 promociones featured, 11 verificaciones, 84 horarios L-V 8:30-18:00, imágenes 0 (todas `photos: []`). Columnas legacy de `businesses` se mantienen como cache hasta el cutover del DAO (Sprint 13).
 - [x] **Sprint 13 (API v2 — cutover DAO)**: las lecturas de `queryBusinesses`/`queryBusinessesByIds` derivan `featured` de `business_promotions` y `transferDetails` de `business_payment_methods` (mapeo slug `qr`→`qrPayment`); filtros `qr`/`online`/verificación consultan tablas V2 (`EXISTS`); escrituras (`insertBusiness`) van en transacción sincronizando `business_payment_methods`, `business_promotions`, `business_verifications`, `business_hours`; `vote`/`report`/`verify` inserts en `business_confirmations`/`business_reports`/`business_verifications` además del contador legacy. Nuevo `lib/dto.ts` (DTOs tipados) y endpoint `GET /api/businesses/[id]` → `BusinessDetails` (hours/images/paymentMethods/promotions con agregados; stats caen al contador legacy cuando no hay eventos V2 aún).
 - [x] **Sprint 14 (Frontend — refactor a hooks)**: `app/page.tsx` pasa de 1134 → 91 líneas: todo el estado se mueve a `lib/hooks/` (`useMapViewport`, `useFilters`, `useGeolocation`, `useGeocoding`, `useBusinessesData`, `useBusinessActions`, `useModals`, `useToast`) y los componentes presentacionales extraídos (`GoogleMapsToast`, `GoogleMapsAttribution`, `GoogleMapsClusterCard`, `GoogleMapsPinningControls`). `page.tsx` queda como orquestador puro (props por hook). TSC 0 errores, build OK, smoke E2E verificado (mapa, búsqueda, panel con negocios de la API, filtros/admin/register modals, click en tarjeta → detalle, voto Sí 48→49, 0 errores JS). Fix de warning React: el reset de estado del bottom sheet al cambiar de negocio movió la sincronización del padre (`onSheetStateChange`) de render-time a `useEffect`.
+- [x] **Cierre Sprint 3 (1.9) — DROP de columnas legacy**: `db/migrate_1_9_drop_legacy.sql` aplicado a Neon elimina de `businesses` las columnas `transfer_details`, `featured` y `photos` (derivables: featured/transferDetails desde las tablas V2 en el SELECT; fotos desde `business_images`, 0 filas → `[]`; el índice `idx_businesses_featured` se dropeó). Se **mantienen** `hours` (texto curado no reproducible desde el horario normalizado) y los contadores `confirmations_count`, `reports_count`, `rating`, `reviews_count` (cache de alto tráfico; tablas de eventos aún vacías). El DAO ya era 100% V2 (Sprint 13), así que ninguna query usa las columnas eliminadas. `db/seed.sql` ahora siembra `business_payment_methods` (47), `business_promotions` (5 featured), `business_verifications` (11) y `business_hours` (84) directamente; `db/migrate_v2.sql` queda como histórico solo para bases pre-1.9. Verificado: tsc 0 errores, build OK, `/api/businesses` con featured/transferDetails/`photos:[]` correctos (11 activos, 5 featured), smoke4 E2E en verde.
 
 ### Deuda técnica vista en Sprint 9 (ordenada por prioridad)
 - [x] **DB caída en dev**: `queryBusinesses` en `lib/db.ts` lanzaba `ECONNRESET`

@@ -1,6 +1,10 @@
 -- Migración V2 — backfill de tablas normalizadas desde columnas legacy.
 -- Sprint 2 (V2_REFACTOR_PLAN.md, Fase 1). Idempotente: seguro de re-ejecutar.
--- Las columnas legacy se mantienen como cache hasta el cutover del DAO (Sprint 3).
+--
+-- OBJETIVO HISTÓRICO: aplica SOLO a bases de datos creadas ANTES de 1.9
+-- (schema con columnas legacy transfer_details/featured/photos). Para
+-- instalaciones nuevas, schema.sql → seed.sql ya siembran las tablas V2
+-- directamente y estas columnas ya no existen en `businesses`.
 BEGIN;
 
 /* ---- 1.3 Métodos de pago de cada negocio (transfer_details jsonb → tabla) ----

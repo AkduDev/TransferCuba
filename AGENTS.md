@@ -50,7 +50,9 @@ Regla: tras cualquier cambio de código, correr `bun run lint` y si es posible
   identificatorio. No abusar.
 - Persistencia: `localStorage` clave `transfercuba_businesses_v2` como cache
   offline del frontend; fuente real es Postgres/Neon vía `lib/db.ts`
-  (tablas normalizadas V2 desde el DAO — ver `db/migrate_v2.sql`).
+  (tablas normalizadas V2 desde el DAO — ver `db/schema.sql`; `hours` y los
+  contadores de `businesses` son cache plana, las columnas legacy de 1.9 ya
+  no existen).
 
 ## No hacer
 

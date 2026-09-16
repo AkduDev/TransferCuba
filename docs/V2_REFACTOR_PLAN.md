@@ -345,6 +345,7 @@ ALTER TABLE businesses DROP COLUMN featured;
 ```
 
 ### 1.9 Esquema final simplificado de businesses
+> ✅ **EJECUTADO (cierre Sprint 3)**: `db/migrate_1_9_drop_legacy.sql` eliminó `transfer_details`, `featured` y `photos` de `businesses` (fíjate abajo — NOTA COMPLETADA tras el bloque: se mantienen `hours`, `confirmations_count`, `reports_count`, `rating`, `reviews_count` como cache; el DAO deriva el resto desde las tablas V2).
 ```sql
 CREATE TABLE businesses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -749,7 +750,7 @@ export async function POST(req: NextRequest) {
 - [x] Tabla `business_confirmations` (1.6)
 - [x] Tabla `business_reviews` (1.7)
 - [x] Tabla `business_promotions` (1.8)
-- [ ] Simplificar `businesses` (1.9) — **cutover al Sprint 3**: las columnas legacy (photos, hours, transfer_details, featured, *_count, rating) se mantienen como cache hasta que el DAO v2 las lea de las tablas normalizadas; el `DROP COLUMN` se hace al cierre del Sprint 3 para no romper el app en cada commit. El DAO ya lee de las tablas V2 (Sprint 13 roadmap); el DROP queda como tarea de cierre tras consolidar el frontend.
+- [x] Simplificar `businesses` (1.9) — **cutover al Sprint 3**: `migrate_1_9_drop_legacy.sql` eliminó `transfer_details`, `featured` y `photos` (columnas derivables). Se mantienen como cache `hours` (texto curado) y los contadores (`confirmations_count`, `reports_count`, `rating`, `reviews_count`, datos reales de alto tráfico). `seed.sql` siembra las tablas V2 directamente; `migrate_v2.sql` queda como histórico pre-1.9 (instalaciones nuevas: schema.sql → seed.sql).
 - **Duración estimada:** 4-6 horas
 - **Riesgo:** Medio (requiere migración de datos)
 - **Nota (estado real):** tablas creadas en Neon + backfill idempotente (`db/migrate_v2.sql`): 5 métodos de pago, 47 relaciones negocio-método, 5 promociones featured, 11 verificaciones, 84 horarios, 0 imágenes (todas `photos: []`). Horarios sembrados L-V 8:30-18:00 estándar (el texto libre cubano no es parseable de forma fiable; se pule por negocio con el UI de horarios).

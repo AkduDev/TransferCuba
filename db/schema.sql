@@ -18,7 +18,6 @@ CREATE TABLE IF NOT EXISTS businesses (
     whatsapp TEXT,
     phone TEXT,
     hours TEXT NOT NULL,
-    transfer_details JSONB NOT NULL,
     accepts_transfer BOOLEAN NOT NULL DEFAULT false,
     transfer_active_now BOOLEAN NOT NULL DEFAULT false,
     transfer_verified BOOLEAN NOT NULL DEFAULT false,
@@ -27,8 +26,6 @@ CREATE TABLE IF NOT EXISTS businesses (
     reports_count INTEGER NOT NULL DEFAULT 0,
     rating NUMERIC(2,1) NOT NULL DEFAULT 5.0,
     reviews_count INTEGER NOT NULL DEFAULT 0,
-    featured BOOLEAN NOT NULL DEFAULT false,
-    photos TEXT[] NOT NULL DEFAULT '{}',
     last_status_update TEXT NOT NULL,
     last_updated_date TIMESTAMPTZ NOT NULL,
     geom geography(POINT, 4326) NOT NULL
@@ -41,16 +38,15 @@ CREATE INDEX IF NOT EXISTS businesses_status_province_municipality ON businesses
 CREATE INDEX IF NOT EXISTS businesses_status_category ON businesses (status, category);
 CREATE INDEX IF NOT EXISTS businesses_active_now ON businesses (status, transfer_active_now) WHERE status = 'active';
 
--- Índice soporte orden por destacado (USO real: ORDER BY featured DESC, rating DESC)
-CREATE INDEX IF NOT EXISTS idx_businesses_featured ON businesses (featured);
-
 -- Nota: index de rating eliminado (0 scans, las queries principales son geográficas)
 
 /* ===================== Modelo V2 — tablas normalizadas =====================
-   Sprint 2 (V2_REFACTOR_PLAN.md). Las columnas legacy de `businesses`
-   (photos, hours, transfer_details, featured, *_count, rating) se MANTIENEN
-   como cache de solo-lectura hasta el Sprint 3 (cutover del DAO a estas
-   tablas). No eliminar ninguna columna legacy hasta ese punto.
+   Sprint 2 (V2_REFACTOR_PLAN.md). Desde 1.9 las columnas legacy derivables
+   (transfer_details, featured, photos) se ELIMINARON de `businesses`; el DAO
+   las reconstruye desde las tablas V2. Se mantienen como cache plana:
+   `hours` (texto curado por negocio) y los contadores
+   confirmations_count / reports_count / rating / reviews_count
+   (conteos de alto tráfico; las tablas de eventos aún no son la fuente real).
 ============================================================================= */
 
 -- 1.1 Imágenes de negocio (fotos → tabla)

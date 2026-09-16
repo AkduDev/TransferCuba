@@ -52,7 +52,6 @@ type Row = {
   whatsapp: string;
   phone: string;
   hours: string;
-  transfer_details: Business['transferDetails'];
   transfer_details_v2?: Record<string, boolean> | null;
   accepts_transfer: boolean;
   transfer_active_now: boolean;
@@ -155,24 +154,15 @@ export function sanitizePhotos(photos: unknown): string[] {
 
 function rowToBusiness(r: Row): Business {
   // V2: transferDetails se reconstruye desde business_payment_methods.
-  // La columna legacy transfer_details queda como cache (mismos booleans).
+  // (La columna legacy transfer_details se eliminó — Sprint 3 / 1.9.)
   const tdV2 = r.transfer_details_v2 as Record<string, boolean> | null | undefined;
-  const tdB = r.transfer_details as Record<string, boolean>;
-  const transferDetails = tdV2
-    ? {
-        transfermovil: tdV2.transfermovil === true,
-        enzona: tdV2.enzona === true,
-        qrPayment: tdV2.qr === true,
-        onlineGateway: tdV2.onlineGateway === true,
-        cash: tdV2.cash === true
-      }
-    : {
-        transfermovil: tdB?.transfermovil === true,
-        enzona: tdB?.enzona === true,
-        qrPayment: tdB?.qrPayment === true,
-        onlineGateway: tdB?.onlineGateway === true,
-        cash: tdB?.cash === true
-      };
+  const transferDetails = {
+    transfermovil: tdV2?.transfermovil === true,
+    enzona: tdV2?.enzona === true,
+    qrPayment: tdV2?.qr === true,
+    onlineGateway: tdV2?.onlineGateway === true,
+    cash: tdV2?.cash === true
+  };
 
   return {
     id: r.id,
@@ -222,7 +212,6 @@ const businessToInsert = (b: Business) => [
   b.whatsapp,
   b.phone,
   b.hours,
-  JSON.stringify(b.transferDetails),
   b.acceptsTransfer,
   b.transferActiveNow,
   b.transferVerified,
@@ -231,8 +220,6 @@ const businessToInsert = (b: Business) => [
   b.reportsCount,
   b.rating,
   b.reviewsCount,
-  b.featured,
-  JSON.stringify(sanitizePhotos(b.photos)),
   b.lastStatusUpdate,
   b.lat,
   b.lng
@@ -241,13 +228,13 @@ const businessToInsert = (b: Business) => [
 const INSERT_SQL = `
   INSERT INTO businesses (
     id, name, category, category_icon, description, province, municipality,
-    neighborhood, address, whatsapp, phone, hours, transfer_details,
+    neighborhood, address, whatsapp, phone, hours,
     accepts_transfer, transfer_active_now, transfer_verified, status,
-    confirmations_count, reports_count, rating, reviews_count, featured,
-    photos, last_status_update, geom
+    confirmations_count, reports_count, rating, reviews_count,
+    last_status_update, geom
   ) VALUES (
     $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-    $21,$22,$23,$24, ST_SetSRID(ST_MakePoint($26, $25), 4326)::geography
+    $21, ST_SetSRID(ST_MakePoint($23, $22), 4326)::geography
   )
   ON CONFLICT (id) DO NOTHING
 `;
@@ -404,17 +391,17 @@ export async function queryBusinesses(filters: BusinessFilters): Promise<Busines
   const emptyWhere = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
   const select = `SELECT b.id, b.name, b.category, b.category_icon, b.description, b.province, b.municipality,
-    b.neighborhood, b.address, b.whatsapp, b.phone, b.hours, b.transfer_details,
+    b.neighborhood, b.address, b.whatsapp, b.phone, b.hours,
     b.accepts_transfer, b.transfer_active_now, b.transfer_verified, b.status,
     b.confirmations_count, b.reports_count, b.rating, b.reviews_count,
     b.last_status_update, b.last_updated_date,
-    -- V2: featured deriva de business_promotions (no de la columna legacy)
+    -- V2: featured deriva de business_promotions (columna legacy eliminada en 1.9)
     COALESCE(
       (SELECT bp.active FROM business_promotions bp
        WHERE bp.business_id = b.id AND bp.type = 'featured'
        AND (bp.ends_at IS NULL OR bp.ends_at > NOW())
        ORDER BY bp.priority DESC LIMIT 1),
-      b.featured
+      FALSE
     ) AS featured,
     -- V2: transferDetails se reconstruye desde business_payment_methods
     (SELECT COALESCE(jsonb_object_agg(pm.slug, true), '{}'::jsonb)
@@ -694,17 +681,22 @@ export async function queryBusinessesByIds(ids: string[]): Promise<Map<string, B
   try {
     const res = await pool.query(
       `SELECT b.id, b.name, b.category, b.category_icon, b.description, b.province, b.municipality,
-        b.neighborhood, b.address, b.whatsapp, b.phone, b.hours, b.transfer_details,
+        b.neighborhood, b.address, b.whatsapp, b.phone, b.hours,
         b.accepts_transfer, b.transfer_active_now, b.transfer_verified, b.status,
         b.confirmations_count, b.reports_count, b.rating, b.reviews_count,
-        b.photos, b.last_status_update, b.last_updated_date,
+        b.last_status_update, b.last_updated_date,
         COALESCE(
           (SELECT bp.active FROM business_promotions bp
            WHERE bp.business_id = b.id AND bp.type = 'featured'
            AND (bp.ends_at IS NULL OR bp.ends_at > NOW())
            ORDER BY bp.priority DESC LIMIT 1),
-          b.featured
+          FALSE
         ) AS featured,
+        COALESCE(
+          (SELECT ARRAY(SELECT url FROM business_images bi
+            WHERE bi.business_id = b.id ORDER BY bi.sort_order)),
+          ARRAY[]::text[]
+        ) AS photos,
         (SELECT COALESCE(jsonb_object_agg(pm.slug, true), '{}'::jsonb)
          FROM business_payment_methods bpm JOIN payment_methods pm ON pm.id = bpm.payment_method_id
          WHERE bpm.business_id = b.id AND bpm.is_active) AS transfer_details_v2,
