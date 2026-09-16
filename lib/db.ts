@@ -68,7 +68,9 @@ const poolOrNull = (): Pool | null => {
   return new Pool({
     connectionString: url,
     max: 5,
-    idleTimeoutMillis: 10_000,
+    // Conexiones vivas más tiempo: evita rehacer el handshake TLS a Neon
+    // (~1s RTT) en cada request si pasan >10s entre una y otra.
+    idleTimeoutMillis: 60_000,
     // Tiempos acotados: redes restrictivas pueden bloquear el TLS a 5432 y
     // dejar el intento colgado si no hay límite (Sprint 10 — circuit breaker).
     connectionTimeoutMillis: 5_000,
@@ -353,7 +355,7 @@ export async function queryBusinesses(filters: BusinessFilters): Promise<Busines
     hasOrigin
       ? `ST_Distance(geom, ST_GeomFromText(${originParam}, 4326)::geography) AS distance_meters`
       : 'NULL::double precision AS distance_meters'
-  } FROM businesses`;
+  }, ST_X(geom::geometry) AS lng, ST_Y(geom::geometry) AS lat FROM businesses`;
 
   const orderBy = hasOrigin
     ? `ORDER BY distance_meters ASC NULLS LAST`
@@ -364,24 +366,13 @@ export async function queryBusinesses(filters: BusinessFilters): Promise<Busines
 
   try {
     const res = await pool.query(sql, params);
-    const businesses = res.rows.map(rowToBusiness);
-    // lat/lng no vengan en row: los rehidratamos del geometry para el cliente
-    if (res.rows.length) {
-      const coords = await pool.query(
-        `SELECT id, ST_X(geom::geometry) AS lng, ST_Y(geom::geometry) AS lat FROM businesses WHERE id = ANY($1::text[])`,
-        [businesses.map((b) => b.id)]
-      );
-      const coordsMap = new Map(
-        coords.rows.map((r: { id: string; lng: number; lat: number }) => [r.id, r])
-      );
-      markDbAvailable();
-      return businesses.map((b) => {
-        const c = coordsMap.get(b.id);
-        return c ? { ...b, lat: c.lat, lng: c.lng } : b;
-      });
-    }
+    // lng/lat vienen ya del geometry (una sola query, sin rehidratación)
     markDbAvailable();
-    return businesses;
+    return res.rows.map((r: Row & { lng: number; lat: number }) => ({
+      ...rowToBusiness(r),
+      lat: r.lat,
+      lng: r.lng
+    }));
   } catch (err) {
     markDbUnavailable(err);
     return memoryFilter(filters);
