@@ -52,16 +52,17 @@ function poolOrNull(): Pool | null {
 
 let poolRef: Pool | null | undefined;
 
-function getPool(): Pool | null {
+/** Pool compartido con el resto del backend (delivery). */
+export function getDbPool(): Pool | null {
   if (poolRef === undefined) poolRef = poolOrNull();
   return poolRef;
 }
 
-export function isAuthDbConfigured(): boolean {
-  return getPool() !== null;
+export function isDbConfigured(): boolean {
+  return getDbPool() !== null;
 }
 
-/** Error controlado cuando la BD de identidad no está disponible (→ HTTP 503). */
+/** Error controlado cuando la BD no está disponible (→ HTTP 503). */
 export class DbUnavailableError extends Error {
   constructor() {
     super('Database unavailable');
@@ -69,26 +70,26 @@ export class DbUnavailableError extends Error {
   }
 }
 
-/* ---------------- circuit breaker ---------------- */
+/* ---------------- circuit breaker compartido ---------------- */
 
 const DB_RETRY_MS = 60_000;
 let dbUnavailableUntil = 0;
 
-function shouldAttemptDb(): boolean {
+export function shouldAttemptDb(): boolean {
   return Date.now() >= dbUnavailableUntil;
 }
 
-function markDbUnavailable(err: unknown): void {
+export function markDbUnavailable(err: unknown): void {
   if (dbUnavailableUntil <= Date.now()) {
     console.error(
-      '[db-auth] PostgreSQL inalcanzable; reintentando en 60s:',
+      '[db] PostgreSQL inalcanzable; reintentando en 60s:',
       (err as Error)?.message ?? err
     );
   }
   dbUnavailableUntil = Date.now() + DB_RETRY_MS;
 }
 
-function markDbAvailable(): void {
+export function markDbAvailable(): void {
   dbUnavailableUntil = 0;
 }
 
@@ -98,7 +99,7 @@ function markDbAvailable(): void {
  * para que la API lo traduzca (409). Un error sin code se trata como caída.
  */
 async function run<T>(fn: (pool: Pool) => Promise<T>): Promise<T> {
-  const pool = getPool();
+  const pool = getDbPool();
   if (!pool || !shouldAttemptDb()) throw new DbUnavailableError();
   try {
     const out = await fn(pool);

@@ -172,3 +172,186 @@ curl -X POST http://localhost:3000/api/account/login \
 curl -b cookies.txt http://localhost:3000/api/account/me
 curl -b cookies.txt -X POST http://localhost:3000/api/account/logout
 ```
+
+---
+
+# API REST — `/api/deliveries` (Fase 2-3)
+
+Base URL (dev): `http://localhost:3000/api/deliveries`
+
+Todos los endpoints devuelven JSON con campo `success: boolean`.
+Autenticación vía cookie `tc_session` (ver sección `/api/account/*`).
+
+---
+
+## `GET /api/deliveries/estimate`
+
+Estima precio y distancia de una carrera sin crearla.
+
+**Rol:** USER | BUSINESS | ADMIN  
+**Params (query):** `fromLat` (requerido), `fromLng` (requerido), `toLat` (requerido), `toLng` (requerido).  
+**Respuesta 200:**
+```json
+{
+  "success": true,
+  "distanceMeters": 4451,
+  "distanceKm": 4.5,
+  "durationMin": 8,
+  "totalFareCup": 273,
+  "breakdown": {
+    "baseCup": 200,
+    "paidKm": 1.45,
+    "details": [{"label": "5 km", "km": 1.45, "rate": 50}]
+  }
+}
+```
+**Errores:** 400 (coords faltantes/inválidas), 401, 502 (OSRM cae), 503.
+
+---
+
+## `POST /api/deliveries`
+
+Crea una carrera. La ruta OSRM se calcula **una vez** aquí (write-time) y se
+persiste para que la vista recurrente no la recalcule.
+
+**Rol:** USER | BUSINESS | ADMIN  
+**Body:**
+```json
+{
+  "packageType": "comida",            // documento|comida|medicina|paquete|generic
+  "packageNote": "dos pizzas",        // opcional, máx 300 chars
+  "fragile": true,                    // opcional, default false
+  "payableOnDelivery": true,          // opcional, default false
+  "pickup": {
+    "lat": 23.1136,
+    "lng": -82.3666,
+    "address": "Av 5ta y 42",
+    "note": "piso 2"                  // opcional
+  },
+  "dropoff": {
+    "lat": 23.1385,
+    "lng": -82.3842,
+    "address": "Calle 18 esq 3ra",
+    "note": null                      // opcional
+  }
+}
+```
+**Respuesta 201:** `{ success: true, delivery: <DeliveryDTO> }` (con `includeLocations: true, includeRequester: true`).  
+**Errores:** 400 (JSON inválido, tipo paquete, coords, dirección), 401, 502 (OSRM falla), 503.
+
+---
+
+## `GET /api/deliveries`
+
+Historial de carreras del solicitante autenticado (últimas 30).
+
+**Rol:** USER | BUSINESS | ADMIN  
+**Respuesta 200:** `{ success: true, deliveries: [<DeliveryDTO>] }` (completo: locations + requester + messenger).
+
+---
+
+## `GET /api/deliveries/[id]`
+
+Detalle de una carrera con filtrado por rol.
+
+**Rol:** solicitante | admin | mensajero asignado  
+**Filtrado:**
+- Solicitante / admin → DTO completo.
+- Mensajero asignado (cuando status ≠ PENDING) → DTO completo.
+- Cualquier otro → 403.
+
+**Respuesta 200:** `{ success: true, delivery: <DeliveryDTO> }`  
+**Errores:** 401, 403, 404, 503.
+
+---
+
+## `GET /api/deliveries/available`
+
+Carreras PENDING disponibles para mensajeros. Sin dirección de entrega ni
+identidad del solicitante; solo pickup + distancia + tarifa + datos de paquete.
+
+**Rol:** MESSENGER (exclusivo)  
+**Respuesta 200:**
+```json
+{
+  "success": true,
+  "deliveries": [{
+    "id": "...", "code": "TC-XXX",
+    "status": "PENDING", "packageType": "comida",
+    "distanceKm": 4.5, "durationMin": 8, "totalFareCup": 273,
+    "requestedAt": "2026-...",
+    "pickup": { "lat": 23.1, "lng": -82.3, "address": "...", "note": null }
+  }]
+}
+```
+**Errores:** 401, 403 (no es MESSENGER), 503.
+
+---
+
+## `PATCH /api/deliveries/[id]`
+
+Acciones del ciclo de vida de una carrera.
+
+**Rol:** varía por acción (ver tabla)  
+**Body:** `{ "action": "...", "note?" }`  
+**Acciones:**
+
+| action | Rol | De → A | Guard |
+|---|---|---|---|
+| `accept` | MESSENGER | PENDING → ACCEPTED | Perfil ACTIVE requerido; doble accept → 409 |
+| `pick_up` | MESSENGER (asignado) | ACCEPTED → PICKED_UP | — |
+| `in_transit` | MESSENGER (asignado) | PICKED_UP → IN_TRANSIT | — |
+| `deliver` | MESSENGER (asignado) | IN_TRANSIT → DELIVERED | — |
+| `cancel` | solicitante (PENDING) / admin (activos) | → CANCELLED | motivo en `note` |
+| `trust` | solicitante | DELIVERED → trust | solo una vez; si no es DELIVERED → 400 |
+
+**Respuesta exitosa (200):** `{ success: true, delivery: <DeliveryDTO> }` (completo: locations + requester + messenger).  
+**Errores:** 400 (acción inválida), 401, 403 (rol/perfil), 404, 409 (transición inválida), 503.
+
+---
+
+## DeliveryDTO
+
+Estructura pública de una carrera (campos condicionales por opciones):
+
+```json
+{
+  "id": "uuid", "code": "TC-XXXXX", "status": "PENDING",
+  "packageType": "comida", "packageNote": "dos pizzas",
+  "fragile": false, "payableOnDelivery": true,
+  "pickup": { "lat": 23.1, "lng": -82.3, "address": "...", "note": null },
+  "dropoff": { "lat": 23.1, "lng": -82.3, "address": "...", "note": null },
+  "distanceKm": 4.5, "durationMin": 8, "totalFareCup": 273,
+  "requestedAt": "2026-...", "respondedAt": null,
+  "pickedUpAt": null, "deliveredAt": null, "cancelledAt": null,
+  "updatedAt": "2026-...",
+  "trustedBy": null, "trustedAt": null,
+  "requester": { "id": "uuid", "name": "Walker" },
+  "messenger": null
+}
+```
+
+**Ejemplo curl completo (crear + aceptar):**
+```bash
+# login
+curl -c jar.txt -b jar.txt -X POST http://localhost:3000/api/account/login \
+  -H 'Content-Type: application/json' -d '{"phone":"5355551234","pin":"1234"}'
+
+# estimar
+curl -b jar.txt 'http://localhost:3000/api/deliveries/estimate?fromLat=23.11&fromLng=-82.37&toLat=23.14&toLng=-82.38'
+
+# crear carrera
+curl -b jar.txt -X POST http://localhost:3000/api/deliveries \
+  -H 'Content-Type: application/json' \
+  -d '{"packageType":"comida","packageNote":"pizza","payableOnDelivery":true,"pickup":{"lat":23.11,"lng":-82.37,"address":"Centro"},"dropoff":{"lat":23.14,"lng":-82.38,"address":"Vedado"}}'
+
+# historial
+curl -b jar.txt http://localhost:3000/api/deliveries
+
+# ver disponibles (requiere MESSENGER)
+curl -b jar-mensajero.txt http://localhost:3000/api/deliveries/available
+
+# aceptar carrera (requiere MESSENGER + perfil ACTIVE)
+curl -b jar-mensajero.txt -X PATCH http://localhost:3000/api/deliveries/UUID \
+  -H 'Content-Type: application/json' -d '{"action":"accept"}'
+```

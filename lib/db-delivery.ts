@@ -12,6 +12,8 @@ import type { Role } from './db-auth';
 import { DEFAULT_PRICING } from './pricing';
 import type { PricingConfig } from './pricing';
 
+export { DbUnavailableError };
+
 export type DeliveryStatus =
   | 'PENDING'
   | 'ACCEPTED'
@@ -50,6 +52,8 @@ export interface DeliveryRequestRow {
   total_fare_cup: string | number | null;
   cancel_reason: string | null;
   cancelled_by: string | null;
+  trusted_by: string | null;
+  trusted_at: Date | null;
   requested_at: Date;
   responded_at: Date | null;
   picked_up_at: Date | null;
@@ -80,47 +84,17 @@ export interface DeliveryCreationInput {
   totalFareCup: number;
 }
 
-/* ---------------- pool y breaker ---------------- */
+/* ---------------- pool y breaker (compartidos con identidad) ---------------- */
 
-function poolOrNull(): Pool | null {
-  const url = process.env.DATABASE_URL;
-  if (!url) return null;
-  const needsSsl = /neon\.tech|sslmode=require/.test(url) && !/sslmode=disable/.test(url);
-  return new Pool({
-    connectionString: url,
-    max: 5,
-    idleTimeoutMillis: 60_000,
-    connectionTimeoutMillis: 5_000,
-    ssl: needsSsl ? { rejectUnauthorized: false } : undefined
-  });
-}
+import {
+  getDbPool,
+  shouldAttemptDb,
+  markDbUnavailable,
+  markDbAvailable
+} from './db-auth';
 
-let poolRef: Pool | null | undefined;
-
-function getPool(): Pool | null {
-  if (poolRef === undefined) poolRef = poolOrNull();
-  return poolRef;
-}
-
-const DB_RETRY_MS = 60_000;
-let dbUnavailableUntil = 0;
-
-function shouldAttemptDb(): boolean {
-  return Date.now() >= dbUnavailableUntil;
-}
-
-function markDbUnavailable(err: unknown): void {
-  if (dbUnavailableUntil <= Date.now()) {
-    console.error(
-      '[db-delivery] PostgreSQL inalcanzable; reintentando en 60s:',
-      (err as Error)?.message ?? err
-    );
-  }
-  dbUnavailableUntil = Date.now() + DB_RETRY_MS;
-}
-
-function markDbAvailable(): void {
-  dbUnavailableUntil = 0;
+export function isDeliveryDbConfigured(): boolean {
+  return getDbPool() !== null;
 }
 
 function isDomainError(err: unknown): boolean {
@@ -128,7 +102,7 @@ function isDomainError(err: unknown): boolean {
 }
 
 async function run<T>(fn: (pool: Pool) => Promise<T>): Promise<T> {
-  const pool = getPool();
+  const pool = getDbPool();
   if (!pool || !shouldAttemptDb()) throw new DbUnavailableError();
   try {
     const out = await fn(pool);
@@ -146,7 +120,7 @@ async function run<T>(fn: (pool: Pool) => Promise<T>): Promise<T> {
 }
 
 async function withClient<T>(fn: (client: import('pg').PoolClient) => Promise<T>): Promise<T> {
-  const pool = getPool();
+  const pool = getDbPool();
   if (!pool || !shouldAttemptDb()) throw new DbUnavailableError();
   let client: import('pg').PoolClient;
   try {
@@ -438,6 +412,7 @@ export interface TransitionInput {
   actorId: string | null;
   actorRole: Role | 'SYSTEM';
   note?: string | null;
+  cancelReason?: string | null;
 }
 
 export const ALLOWED_TRANSITIONS: Record<DeliveryStatus, DeliveryStatus[]> = {
@@ -478,9 +453,11 @@ export async function transitionDelivery(input: TransitionInput): Promise<Delive
          responded_at = CASE WHEN $1 = 'ACCEPTED' THEN COALESCE(responded_at, NOW()) ELSE responded_at END,
          picked_up_at = CASE WHEN $1 = 'PICKED_UP' THEN COALESCE(picked_up_at, NOW()) ELSE picked_up_at END,
          delivered_at = CASE WHEN $1 = 'DELIVERED' THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END,
-         cancelled_at = CASE WHEN $1 = 'CANCELLED' THEN COALESCE(cancelled_at, NOW()) ELSE cancelled_at END
+         cancelled_at = CASE WHEN $1 = 'CANCELLED' THEN COALESCE(cancelled_at, NOW()) ELSE cancelled_at END,
+         cancel_reason = CASE WHEN $1 = 'CANCELLED' THEN $4 ELSE cancel_reason END,
+         cancelled_by = CASE WHEN $1 = 'CANCELLED' THEN $3 ELSE cancelled_by END
        WHERE id = $2`,
-      [input.toStatus, input.id, input.actorId]
+      [input.toStatus, input.id, input.actorId, input.cancelReason ?? null]
     );
     await client.query(
       `INSERT INTO delivery_status_events (delivery_id, from_status, to_status, actor_id, actor_role, note)
@@ -501,6 +478,22 @@ export async function transitionDelivery(input: TransitionInput): Promise<Delive
     );
     return updated.rows[0];
   });
+}
+
+/**
+ * El solicitante "confía" el pago al mensajero una vez entregado (solo DELIVERED
+ * y una sola vez por carrera). No valida rol aquí: lo hace la ruta.
+ */
+export async function trustDelivery(deliveryId: string, userId: string): Promise<DeliveryRequestRow | null> {
+  return run((pool) =>
+    pool.query<DeliveryRequestRow>(
+      `UPDATE delivery_requests SET
+         trusted_by = $2, trusted_at = NOW(), updated_at = NOW()
+       WHERE id = $1 AND status = 'DELIVERED' AND trusted_by IS NULL
+       RETURNING *`,
+      [deliveryId, userId]
+    ).then((r) => r.rows[0] ?? null)
+  );
 }
 
 /* ---------------- messengers_profiles ---------------- */

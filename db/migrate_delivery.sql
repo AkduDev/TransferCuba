@@ -96,6 +96,9 @@ CREATE TABLE IF NOT EXISTS delivery_requests (
   cancel_reason       TEXT,
   cancelled_by        UUID REFERENCES users(id) ON DELETE SET NULL,
 
+  trusted_by          UUID REFERENCES users(id) ON DELETE SET NULL,
+  trusted_at          TIMESTAMPTZ,
+
   requested_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
   responded_at        TIMESTAMPTZ,
   picked_up_at        TIMESTAMPTZ,
@@ -160,3 +163,7 @@ CREATE INDEX IF NOT EXISTS idx_messenger_payments_messenger ON messengers_paymen
 
 INSERT INTO pricing_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 INSERT INTO platform_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+-- columnas de "confianza" (Fase 3) para DBs creadas antes de esta adición
+ALTER TABLE delivery_requests ADD COLUMN IF NOT EXISTS trusted_by UUID REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE delivery_requests ADD COLUMN IF NOT EXISTS trusted_at TIMESTAMPTZ;
