@@ -4,6 +4,7 @@ import {
   createDeliveryRequest,
   getPricingConfig,
   listDeliveriesForRequester,
+  listDeliveriesForMessenger,
   DbUnavailableError,
   type PackageType
 } from '@/lib/db-delivery';
@@ -16,14 +17,18 @@ export const dynamic = 'force-dynamic';
 
 const REQUESTER_ROLES = ['USER', 'BUSINESS', 'ADMIN'] as const;
 
-// GET /api/deliveries — historial del solicitante autenticado.
+// GET /api/deliveries — historial según rol: MESSENGER ve sus asignadas,
+// el resto (USER/BUSINESS/ADMIN) ve sus solicitudes.
 export async function GET(req: NextRequest) {
-  const auth = await requireRole(req, ...REQUESTER_ROLES);
+  const auth = await requireAuth(req);
   if (!auth.ok) {
     return NextResponse.json({ success: false, error: 'Inicia sesión primero' }, { status: auth.status });
   }
   try {
-    const rows = await listDeliveriesForRequester(auth.user.id, 30);
+    const rows =
+      auth.user.role === 'MESSENGER'
+        ? await listDeliveriesForMessenger(auth.user.id, 30)
+        : await listDeliveriesForRequester(auth.user.id, 30);
     return NextResponse.json({
       success: true,
       deliveries: rows.map((r) =>

@@ -243,9 +243,12 @@ persiste para que la vista recurrente no la recalcule.
 
 ## `GET /api/deliveries`
 
-Historial de carreras del solicitante autenticado (últimas 30).
+Historial de carreras **según rol** (últimas 30).
 
-**Rol:** USER | BUSINESS | ADMIN  
+**Rol:** USER | BUSINESS | ADMIN | MESSENGER
+- Solicitante (USER/BUSINESS/ADMIN) → su historial de carreras propias.
+- MESSENGER → carreras que le han sido **asignadas** (todas sus filas), con
+  locations + requester + messenger.
 **Respuesta 200:** `{ success: true, deliveries: [<DeliveryDTO>] }` (completo: locations + requester + messenger).
 
 ---

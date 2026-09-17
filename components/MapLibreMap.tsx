@@ -25,6 +25,9 @@ interface MapLibreMapProps {
   onPinLocationChange?: (coords: { lat: number; lng: number }) => void;
   onMapClick?: (coords: { lat: number; lng: number }) => void;
   onClusterClick?: (info: ClusterInfo) => void;
+  deliveryPickup?: { lat: number; lng: number; address: string } | null;
+  deliveryDropoff?: { lat: number; lng: number; address: string } | null;
+  deliveryPicking?: 'pickup' | 'dropoff' | null;
   routeGeometry?: { type: 'LineString'; coordinates: [number, number][] } | null;
   onViewportChange?: (bbox: [number, number, number, number], zoom: number) => void;
   mapRef?: React.RefObject<maplibregl.Map | null>;
@@ -225,6 +228,9 @@ export default function MapLibreMap({
   onPinLocationChange,
   onMapClick,
   onClusterClick,
+  deliveryPickup,
+  deliveryDropoff,
+  deliveryPicking,
   routeGeometry,
   onViewportChange,
   mapRef,
@@ -234,6 +240,8 @@ export default function MapLibreMap({
   const mapInstanceRef = useRef<maplibregl.Map | null>(null);
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
   const pinMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const pickupMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const dropoffMarkerRef = useRef<maplibregl.Marker | null>(null);
   const lastViewRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null);
   const iconsCacheRef = useRef<Set<string>>(new Set());
   const businessesByIdRef = useRef<Map<string, Business>>(new Map());
@@ -849,6 +857,41 @@ ensureLayer({
     }
   }, [isPinningMode, pinLocation, onPinLocationChange]);
 
+  // Marcadores del flujo de delivery: origen (verde) y destino (rojo).
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+
+    const renderPointMarker = (
+      ref: { current: maplibregl.Marker | null },
+      point: { lat: number; lng: number; address: string } | null | undefined,
+      label: string,
+      color: string
+    ) => {
+      if (ref.current) {
+        ref.current.remove();
+        ref.current = null;
+      }
+      if (!point) return;
+      const el = document.createElement('div');
+      el.className = 'transfercuba-delivery-marker';
+      el.innerHTML = `
+        <div class="flex flex-col items-center pointer-events-none">
+          <div class="px-2 py-0.5 bg-navy text-white text-[11px] font-bold rounded-lg shadow-level-3 border border-navy-hover whitespace-nowrap mb-1">${label}</div>
+          <div class="w-7 h-7 rounded-full ${color} text-white border-2 border-white shadow-level-4 flex items-center justify-center font-bold text-sm">${label === 'Salida' ? 'A' : 'B'}</div>
+          <div class="w-2 h-2 ${color} rotate-45 -mt-1"></div>
+        </div>
+      `;
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([point.lng, point.lat])
+        .addTo(map);
+      ref.current = marker;
+    };
+
+    renderPointMarker(pickupMarkerRef, deliveryPickup, 'Salida', 'bg-emerald-brand');
+    renderPointMarker(dropoffMarkerRef, deliveryDropoff, 'Destino', 'bg-rose-500');
+  }, [deliveryPickup, deliveryDropoff]);
+
   // Render OSRM Route Layer
   useEffect(() => {
     if (!mapInstanceRef.current) return;
@@ -909,12 +952,18 @@ ensureLayer({
   }, [routeGeometry]);
 
   return (
-    <div className="relative w-full h-full bg-canvas overflow-hidden">
+    <div className={`relative w-full h-full bg-canvas overflow-hidden ${deliveryPicking ? 'cursor-crosshair' : ''}`}>
       <div id="maplibre-map-canvas" ref={mapContainerRef} className="w-full h-full z-0" />
 
       {isPinningMode && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-navy/95 text-white backdrop-blur-md px-4 py-2 rounded-lg text-xs sm:text-sm font-medium shadow-level-3 border border-navy-hover flex items-center gap-2 pointer-events-none animate-pulse">
           <span>📍 Haz clic en el mapa o arrastra el marcador verde hasta tu local</span>
+        </div>
+      )}
+
+      {deliveryPicking && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-navy/95 text-white backdrop-blur-md px-4 py-2 rounded-lg text-xs sm:text-sm font-medium shadow-level-3 border border-navy-hover flex items-center gap-2 pointer-events-none animate-pulse">
+          <span>Haz clic en el mapa para marcar el {deliveryPicking === 'pickup' ? 'origen (A)' : 'destino (B)'}</span>
         </div>
       )}
     </div>

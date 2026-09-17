@@ -16,6 +16,8 @@ import RegisterBusinessModal from '@/components/RegisterBusinessModal';
 import AdminDashboardModal from '@/components/AdminDashboardModal';
 import GoogleMapsAuthModal from '@/components/GoogleMapsAuthModal';
 import LocationPickerModal from '@/components/LocationPickerModal';
+import GoogleMapsDeliveryModal from '@/components/GoogleMapsDeliveryModal';
+import GoogleMapsMessengerModal from '@/components/GoogleMapsMessengerModal';
 import MapErrorBoundary from '@/components/MapErrorBoundary';
 import type { Business } from '@/lib/cuba-data';
 import { useToast } from '@/lib/hooks/useToast';
@@ -27,6 +29,7 @@ import { useBusinessesData } from '@/lib/hooks/useBusinessesData';
 import { useBusinessActions } from '@/lib/hooks/useBusinessActions';
 import { useModals } from '@/lib/hooks/useModals';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { useDeliveries } from '@/lib/hooks/useDeliveries';
 
 const MapLibreMap = dynamic(() => import('@/components/MapLibreMap'), {
   ssr: false,
@@ -52,6 +55,7 @@ export default function Home() {
   const actions = useBusinessActions({ setBusinesses: data.setBusinesses, syncMutation: data.syncMutation, applyToStates: data.applyToStates, userLocation: geo.userLocation, setUserLocation: geo.setUserLocation, setUserLocationName: geo.setUserLocationName, centerOn: vp.centerOn, mapRef: vp.mapRef, showToast });
   const ui = useModals();
   const auth = useAuth();
+  const deliveries = useDeliveries({ showToast });
 
   const onSelectBiz = (b: Business) => { actions.handleSelectBusiness(b); ui.setIsDesktopPanelOpen(true); ui.setMobileSheetState('peek'); };
 
@@ -61,7 +65,7 @@ export default function Home() {
 
       <div className="absolute inset-0 w-full h-full z-0">
         <MapErrorBoundary>
-          <MapLibreMap businesses={data.filteredBusinesses} selectedBusiness={actions.selectedBusiness} onSelectBusiness={onSelectBiz} center={vp.mapCenter} zoom={vp.mapZoom} userLocation={geo.userLocation} isPinningMode={ui.isPinningMode} pinLocation={ui.pinLocation} onPinLocationChange={ui.setPinLocation} onMapClick={(c) => { if (ui.isPinningMode) ui.setPinLocation(c); }} onClusterClick={actions.handleClusterClick} onViewportChange={vp.setViewportBbox} routeGeometry={actions.activeRoute?.route.geometry || null} mapRef={vp.mapRef} onMapReady={() => vp.setMapReady(true)} />
+          <MapLibreMap businesses={data.filteredBusinesses} selectedBusiness={actions.selectedBusiness} onSelectBusiness={onSelectBiz} center={vp.mapCenter} zoom={vp.mapZoom} userLocation={geo.userLocation} isPinningMode={ui.isPinningMode} pinLocation={ui.pinLocation} onPinLocationChange={ui.setPinLocation} onMapClick={(c) => { if (deliveries.picking) { deliveries.setPickedPoint(c); } else if (ui.isPinningMode) { ui.setPinLocation(c); } }} onClusterClick={actions.handleClusterClick} onViewportChange={vp.setViewportBbox} routeGeometry={actions.activeRoute?.route.geometry || null} mapRef={vp.mapRef} onMapReady={() => vp.setMapReady(true)} deliveryPickup={deliveries.pickup} deliveryDropoff={deliveries.dropoff} deliveryPicking={deliveries.picking} />
         </MapErrorBoundary>
       </div>
 
@@ -81,7 +85,7 @@ export default function Home() {
 
       {ui.isPinningMode && <GoogleMapsPinningControls onConfirm={() => ui.handleConfirmPinLocation(showToast)} onCancel={() => { ui.setIsPinningMode(false); ui.setIsRegisterModalOpen(true); }} />}
 
-      <GoogleMapsSideDrawer isOpen={ui.isSideDrawerOpen} onClose={() => ui.setIsSideDrawerOpen(false)} selectedProvince={fl.selectedProvince} onProvinceChange={fl.handleProvinceChange} onNearMeClick={geo.handleUseCurrentGps} onRegisterClick={() => ui.setIsRegisterModalOpen(true)} onAdminClick={() => ui.setIsAdminModalOpen(true)} onAccountClick={() => ui.setIsAuthModalOpen(true)} authUser={auth.user} totalBusinesses={data.businesses.length} />
+      <GoogleMapsSideDrawer isOpen={ui.isSideDrawerOpen} onClose={() => ui.setIsSideDrawerOpen(false)} selectedProvince={fl.selectedProvince} onProvinceChange={fl.handleProvinceChange} onNearMeClick={geo.handleUseCurrentGps} onRegisterClick={() => ui.setIsRegisterModalOpen(true)} onAdminClick={() => ui.setIsAdminModalOpen(true)} onAccountClick={() => ui.setIsAuthModalOpen(true)} onDeliveryClick={() => ui.setIsDeliveryModalOpen(true)} onMessengerClick={() => ui.setIsMessengerModalOpen(true)} authUser={auth.user} totalBusinesses={data.businesses.length} />
 
       <GoogleMapsFiltersModal isOpen={ui.isFiltersModalOpen} onClose={() => ui.setIsFiltersModalOpen(false)} selectedProvince={fl.selectedProvince} onProvinceChange={fl.handleProvinceChange} selectedMunicipality={fl.selectedMunicipality} onMunicipalityChange={fl.setSelectedMunicipality} selectedCategory={fl.selectedCategory} onCategoryChange={fl.setSelectedCategory} onlyActiveNow={fl.onlyActiveNow} onToggleOnlyActiveNow={() => fl.setOnlyActiveNow(!fl.onlyActiveNow)} onlyTransfer={fl.onlyTransfer} onToggleOnlyTransfer={() => fl.setOnlyTransfer(!fl.onlyTransfer)} filterQr={fl.filterQr} onToggleFilterQr={() => fl.setFilterQr(!fl.filterQr)} filterOnline={fl.filterOnline} onToggleFilterOnline={() => fl.setFilterOnline(!fl.filterOnline)} filterVerification={fl.filterVerification} onFilterVerificationChange={fl.setFilterVerification} onResetFilters={fl.handleResetFilters} totalResults={data.filteredBusinesses.length} />
 
@@ -92,6 +96,10 @@ export default function Home() {
       <AdminDashboardModal isOpen={ui.isAdminModalOpen} onOpen={data.fetchAdminAll} onClose={() => { data.handleAdminClose(); ui.setIsAdminModalOpen(false); }} businesses={data.businesses} onToggleVerify={actions.handleToggleVerify} onToggleTransferActive={actions.handleToggleTransferActive} onDeleteBusiness={actions.handleDeleteBusiness} onSelectBusiness={actions.handleSelectBusiness} onApproveBusiness={actions.handleApproveBusiness} onRejectBusiness={actions.handleRejectBusiness} />
 
       <GoogleMapsAuthModal isOpen={ui.isAuthModalOpen} onClose={() => ui.setIsAuthModalOpen(false)} auth={auth} />
+
+      <GoogleMapsDeliveryModal isOpen={ui.isDeliveryModalOpen} onClose={() => ui.setIsDeliveryModalOpen(false)} onOpenAuth={() => ui.setIsAuthModalOpen(true)} user={auth.user} userLocation={geo.userLocation} deliveries={deliveries} pickFromUserLocation={() => { if (geo.userLocation) deliveries.setPickupFromCoords(geo.userLocation); }} />
+
+      <GoogleMapsMessengerModal isOpen={ui.isMessengerModalOpen} onClose={() => ui.setIsMessengerModalOpen(false)} onOpenAuth={() => ui.setIsAuthModalOpen(true)} user={auth.user} deliveries={deliveries} />
     </main>
   );
 }

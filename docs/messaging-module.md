@@ -11,8 +11,8 @@ dependencias.
 |---|---|---|---|---|
 | 0 | **Identidad teléfono + PIN** (`users`/`sessions`) | — | — | ✅ completo (Sprint 10) |
 | 1 | **Modelo delivery** (mensajeros, pricing, plataforma, carreras, pagos) | — | — | ✅ completo (Sprint 11) |
-| 2 | Solicitud de carrera: estimate, crear, historial, GET [id] | ✅ backend | ⏳ pendiente | Backend listo |
-| 3 | Matching mensajero: available, accept, steps, cancel, trust | ✅ backend | ⏳ pendiente | Backend listo |
+| 2 | Solicitud de carrera: estimate, crear, historial, GET [id] | ✅ backend | ✅ UI | ✅ completo (Sprint 13) |
+| 3 | Matching mensajero: available, accept, steps, cancel, trust | ✅ backend | ✅ UI | ✅ completo (Sprint 13) |
 | 4 | Tracking en mapa + transición de estados | ⏳ pendiente | ⏳ pendiente | — |
 | 5 | Alta pagada de mensajeros (tarifa + captura WhatsApp) | ⏳ pendiente | ⏳ pendiente | — |
 | 6 | Historial de carreras, valoraciones, polling → SSE | ⏳ pendiente | ⏳ pendiente | — |
@@ -112,7 +112,7 @@ seed: 2 km = 200, 5 km = 300, 10 km = 650, 12 km = 850.
 
 ---
 
-## Fase 2 — Solicitud de carrera (backend ✅, UI ⏳)
+## Fase 2 — Solicitud de carrera (completo, Sprint 13)
 
 ### Endpoints implementados
 
@@ -120,7 +120,7 @@ seed: 2 km = 200, 5 km = 300, 10 km = 650, 12 km = 850.
 |---|---|---|---|
 | `/api/deliveries/estimate` | GET | USER/BUSINESS/ADMIN | Params `fromLat`, `fromLng`, `toLat`, `toLng`; calcula OSRM + `computeFare`; retorna `distanceKm`, `durationMin`, `totalFareCup`, `breakdown`. 502 si OSRM cae. |
 | `/api/deliveries` | POST | USER/BUSINESS/ADMIN | Body: `packageType`, `packageNote?`, `fragile?`, `payableOnDelivery?`, `pickup{lat,lng,address,note?}`, `dropoff{...}`. OSRM una vez (write-time), persiste `distance_km` + `route_geojson` + `total_fare_cup`. Retorna 201 con DTO completo. |
-| `/api/deliveries` | GET | USER/BUSINESS/ADMIN | Historial propio (últimas 30, completo con locations+roles). |
+| `/api/deliveries` | GET | USER/BUSINESS/ADMIN, MESSENGER | **Rol-aware**: el solicitante (USER/BUSINESS/ADMIN) ve su historial; el MESSENGER ve las carreras que le han **asignado** (todas sus filas, últimas 30, con locations+roles). |
 | `/api/deliveries/[id]` | GET | solicitante / admin / mensajero asignado | Filtrado por rol: solicitante+admin ven todo; mensajero asignado todo excepto cuando es PENDING (no debería suceder: PENDING se ve en `/available`). Otros → 403. |
 
 ### Validación (`lib/delivery-validate.ts`)
@@ -148,7 +148,7 @@ seed: 2 km = 200, 5 km = 300, 10 km = 650, 12 km = 850.
 
 ---
 
-## Fase 3 — Matching mensajero (backend ✅, UI ⏳)
+## Fase 3 — Matching mensajero (completo, Sprint 13)
 
 ### Endpoints implementados
 
@@ -199,13 +199,33 @@ Errores HTTP mapeados:
 
 ---
 
+## UI (Sprint 13)
+
+- `lib/delivery-client.ts`: tipos DTO y constantes del cliente (sin importar BD).
+- `lib/hooks/useDeliveries.ts`: estado compartido — vistas form/success/pick/history
+  del solicitante y tablón/carrera activa del mensajero; estimate con debounce,
+  submit POST, historial, refresh/accept/steps.
+- `components/GoogleMapsDeliveryModal.tsx`: solicitud (tipo de paquete, fragilidad,
+  pago al recibir, origen/destino por mapa o GPS, tarjeta de estimación, éxito con
+  código, historial).
+- `components/GoogleMapsMessengerModal.tsx`: tablón de carreras disponibles (sin
+  dirección de entrega ni identidad) + carrera activa con pasos
+  `pick_up → in_transit → deliver`.
+- `components/MapLibreMap.tsx`: marcadores delivery (A verde / B rojo) y banner de
+  picking con `cursor-crosshair`; el clic del mapa se rutea a `useDeliveries` desde
+  `app/page.tsx` cuando `picking` está activo.
+
+---
+
 ## Privacidad por rol
 
 - `GET /api/deliveries/[id]`: solicitante+admin ven todo; mensajero asignado ve
   todo excepto cuando PENDING (se usa `/available` en su lugar).
 - `GET /api/deliveries/available`: sin dirección de entrega, sin identidad del
   solicitante; solo pickup + distancia/tarifa para que el mensajero decida.
-- `GET /api/deliveries` (historial): solo carreras propias del solicitante.
+- `GET /api/deliveries` (historial): role-aware — el solicitante ve sus carreras
+  propias; el MESSENGER ve las que le han sido asignadas (últimas 30, con
+  locations+roles).
 
 ## Pool de BD
 

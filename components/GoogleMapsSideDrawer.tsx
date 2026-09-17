@@ -13,7 +13,9 @@ import {
   ChevronRight,
   Sparkles,
   Info,
-  User
+  User,
+  Package,
+  Bike
 } from 'lucide-react';
 import { CUBAN_PROVINCES } from '@/lib/cuba-data';
 
@@ -26,6 +28,8 @@ interface GoogleMapsSideDrawerProps {
   onRegisterClick: () => void;
   onAdminClick: () => void;
   onAccountClick: () => void;
+  onDeliveryClick: () => void;
+  onMessengerClick: () => void;
   authUser: { name: string; role: string } | null;
   totalBusinesses: number;
 }
@@ -39,6 +43,8 @@ export default function GoogleMapsSideDrawer({
   onRegisterClick,
   onAdminClick,
   onAccountClick,
+  onDeliveryClick,
+  onMessengerClick,
   authUser,
   totalBusinesses
 }: GoogleMapsSideDrawerProps) {
@@ -119,6 +125,49 @@ export default function GoogleMapsSideDrawer({
               </div>
               <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
             </button>
+          </div>
+
+          {/* Mensajería / envíos */}
+          <div className="space-y-2">
+            <button
+              onClick={() => {
+                onClose();
+                onDeliveryClick();
+              }}
+              className="w-full p-3.5 rounded-lg bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200/80 text-emerald-950 flex items-center justify-between group transition-all text-left shadow-level-1"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-brand text-white flex items-center justify-center shadow-level-2">
+                  <Package className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold font-display text-emerald-950">Pedir un envío</p>
+                  <p className="text-[11px] text-emerald-800">Mensajería local con precio estimado</p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-emerald-brand group-hover:translate-x-0.5 transition-transform" />
+            </button>
+
+            {authUser?.role === 'MESSENGER' && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onMessengerClick();
+                }}
+                className="w-full p-3.5 rounded-lg bg-cerulean/5 hover:bg-cerulean/10 border border-cerulean/20 text-slate-800 flex items-center justify-between group transition-all text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-cerulean text-white flex items-center justify-center shadow-level-1">
+                    <Bike className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold font-display text-slate-800">Mensajería</p>
+                    <p className="text-[11px] text-slate-500">Tablón de carreras · Soy mensajero</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-cerulean group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            )}
           </div>
 
           {/* Provinces Selection Section */}

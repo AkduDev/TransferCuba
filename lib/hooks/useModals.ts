@@ -15,6 +15,10 @@ export interface ModalsState {
   setIsAuthModalOpen: (v: boolean) => void;
   isLocationModalOpen: boolean;
   setIsLocationModalOpen: (v: boolean) => void;
+  isDeliveryModalOpen: boolean;
+  setIsDeliveryModalOpen: (v: boolean) => void;
+  isMessengerModalOpen: boolean;
+  setIsMessengerModalOpen: (v: boolean) => void;
   mobileSheetState: 'peek' | 'half' | 'full';
   setMobileSheetState: (s: 'peek' | 'half' | 'full') => void;
   isPinningMode: boolean;
@@ -33,6 +37,8 @@ export function useModals(): ModalsState {
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
+  const [isMessengerModalOpen, setIsMessengerModalOpen] = useState(false);
   const [mobileSheetState, setMobileSheetState] = useState<'peek' | 'half' | 'full'>('peek');
   const [isPinningMode, setIsPinningMode] = useState(false);
   const [pinLocation, setPinLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -61,6 +67,8 @@ export function useModals(): ModalsState {
     isAdminModalOpen, setIsAdminModalOpen,
     isAuthModalOpen, setIsAuthModalOpen,
     isLocationModalOpen, setIsLocationModalOpen,
+    isDeliveryModalOpen, setIsDeliveryModalOpen,
+    isMessengerModalOpen, setIsMessengerModalOpen,
     mobileSheetState, setMobileSheetState,
     isPinningMode, setIsPinningMode, pinLocation, setPinLocation,
     handleStartPinning, handleConfirmPinLocation
