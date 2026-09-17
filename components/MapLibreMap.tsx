@@ -3,8 +3,10 @@
 import React, { useEffect, useRef } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import type { GeoJSONSource, MapMouseEvent } from 'maplibre-gl';
+import type { Feature, FeatureCollection, LineString, Point } from 'geojson';
 import { Protocol, PMTiles } from 'pmtiles';
 import { Business, CATEGORY_EMOJI } from '@/lib/cuba-data';
+import type { AvailableDeliveryDTO, DeliveryStatus } from '@/lib/delivery-client';
 
 export interface ClusterInfo {
   businesses: Business[];
@@ -29,6 +31,13 @@ interface MapLibreMapProps {
   deliveryDropoff?: { lat: number; lng: number; address: string } | null;
   deliveryPicking?: 'pickup' | 'dropoff' | null;
   routeGeometry?: { type: 'LineString'; coordinates: [number, number][] } | null;
+  deliveryRequests?: AvailableDeliveryDTO[];
+  activeDeliveryTrip?: {
+    pickup: { lat: number; lng: number } | null;
+    dropoff: { lat: number; lng: number } | null;
+    status: DeliveryStatus;
+  } | null;
+  onDeliveryRequestClick?: (id: string) => void;
   onViewportChange?: (bbox: [number, number, number, number], zoom: number) => void;
   mapRef?: React.RefObject<maplibregl.Map | null>;
   onMapReady?: () => void;
@@ -74,6 +83,15 @@ const LAYER_UNCLUSTERED_ID = 'unclustered-layer';
 const LAYER_UNCLUSTERED_SEL_ID = 'unclustered-selected-layer';
 const LAYER_CLUSTER_HOVER_ID = 'cluster-hover-halo';
 
+// Delivery layers (Fase 4): solicitudes PENDING del tablón y carrera activa.
+const SOURCE_DELIVERY_REQUESTS_ID = 'deliveries-requests-source';
+const LAYER_DELIVERY_REQUESTS_ID = 'deliveries-requests-layer';
+const SOURCE_DELIVERY_ACTIVE_ID = 'active-delivery-source';
+const LAYER_DELIVERY_ACTIVE_LINE_ID = 'active-delivery-line-layer';
+const LAYER_DELIVERY_ACTIVE_A_ID = 'active-delivery-a-layer';
+const LAYER_DELIVERY_ACTIVE_B_ID = 'active-delivery-b-layer';
+const LAYER_DELIVERY_ACTIVE_LABEL_ID = 'active-delivery-label-layer';
+
 // Pin badge colors (design system)
 const COLOR_VERIFIED = '#10b981';
 const COLOR_REPORTED = '#e11d48';
@@ -92,6 +110,61 @@ function statusColor(biz: Business): string {
   if (biz.reportsCount > 0) return COLOR_REPORTED;
   if (biz.transferVerified) return COLOR_VERIFIED;
   return COLOR_PENDING;
+}
+
+function deliveryRequestsToGeoJSON(list: AvailableDeliveryDTO[] | undefined): FeatureCollection {
+  const features: Feature<Point>[] = (list ?? []).flatMap((d) => {
+    if (!d.pickup) return [];
+    return [
+      {
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: [d.pickup.lng, d.pickup.lat]
+        },
+        properties: {
+          id: d.id,
+          code: d.code,
+          fragile: d.fragile,
+          fare: d.totalFareCup,
+          pkg: d.packageType
+        }
+      }
+    ];
+  });
+  return { type: 'FeatureCollection', features };
+}
+
+function activeTripToGeoJSON(
+  trip: MapLibreMapProps['activeDeliveryTrip']
+): FeatureCollection {
+  const features: Feature<LineString | Point>[] = [];
+  if (trip?.pickup && trip.dropoff) {
+    features.push({
+      type: 'Feature',
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [trip.pickup.lng, trip.pickup.lat],
+          [trip.dropoff.lng, trip.dropoff.lat]
+        ]
+      },
+      properties: {}
+    });
+    features.push(
+      {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [trip.pickup.lng, trip.pickup.lat] },
+        properties: { marker: 'A' }
+      },
+      {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [trip.dropoff.lng, trip.dropoff.lat] },
+        properties: { marker: 'B' }
+      }
+    );
+  }
+  return { type: 'FeatureCollection', features };
 }
 
 // Runtime-canvas pin icon: colored rounded pin with category emoji + status pip.
@@ -232,6 +305,9 @@ export default function MapLibreMap({
   deliveryDropoff,
   deliveryPicking,
   routeGeometry,
+  deliveryRequests,
+  activeDeliveryTrip,
+  onDeliveryRequestClick,
   onViewportChange,
   mapRef,
   onMapReady
@@ -246,6 +322,7 @@ export default function MapLibreMap({
   const iconsCacheRef = useRef<Set<string>>(new Set());
   const businessesByIdRef = useRef<Map<string, Business>>(new Map());
   const mapInteractiveRef = useRef(false);
+  const deliveryInteractionsReadyRef = useRef(false);
   const setupLayersRef = useRef<(() => Promise<void>) | null>(null);
 
   const centerLat = center[0];
@@ -257,7 +334,8 @@ export default function MapLibreMap({
     onMapClick,
     onClusterClick,
     onViewportChange,
-    onMapReady
+    onMapReady,
+    onDeliveryRequestClick
   });
 
   useEffect(() => {
@@ -267,9 +345,10 @@ export default function MapLibreMap({
       onMapClick,
       onClusterClick,
       onViewportChange,
-      onMapReady
+      onMapReady,
+      onDeliveryRequestClick
     };
-  }, [isPinningMode, onPinLocationChange, onMapClick, onClusterClick, onViewportChange, onMapReady]);
+  }, [isPinningMode, onPinLocationChange, onMapClick, onClusterClick, onViewportChange, onMapReady, onDeliveryRequestClick]);
 
   const businessesRef = useRef(businesses);
   const onSelectBusinessRef = useRef(onSelectBusiness);
@@ -891,6 +970,154 @@ ensureLayer({
     renderPointMarker(pickupMarkerRef, deliveryPickup, 'Salida', 'bg-emerald-brand');
     renderPointMarker(dropoffMarkerRef, deliveryDropoff, 'Destino', 'bg-rose-500');
   }, [deliveryPickup, deliveryDropoff]);
+
+  // Fase 4 — Capas de delivery: solicitudes PENDING (tablón) + carrera activa.
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    const update = () => {
+      const ensureLayer = (layer: maplibregl.LayerSpecification) => {
+        if (!map.getLayer(layer.id)) map.addLayer(layer);
+      };
+
+      const requestData = deliveryRequestsToGeoJSON(deliveryRequests);
+      if (!map.getSource(SOURCE_DELIVERY_REQUESTS_ID)) {
+        map.addSource(SOURCE_DELIVERY_REQUESTS_ID, { type: 'geojson', data: requestData });
+      } else {
+        (map.getSource(SOURCE_DELIVERY_REQUESTS_ID) as GeoJSONSource).setData(requestData);
+      }
+      ensureLayer({
+        id: LAYER_DELIVERY_REQUESTS_ID,
+        type: 'circle',
+        source: SOURCE_DELIVERY_REQUESTS_ID,
+        paint: {
+          'circle-radius': 9,
+          'circle-color': COLOR_VERIFIED,
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 2,
+          'circle-opacity': 0.95
+        }
+      });
+
+      const activeData = activeTripToGeoJSON(activeDeliveryTrip);
+      if (!map.getSource(SOURCE_DELIVERY_ACTIVE_ID)) {
+        map.addSource(SOURCE_DELIVERY_ACTIVE_ID, { type: 'geojson', data: activeData });
+      } else {
+        (map.getSource(SOURCE_DELIVERY_ACTIVE_ID) as GeoJSONSource).setData(activeData);
+      }
+      ensureLayer({
+        id: LAYER_DELIVERY_ACTIVE_LINE_ID,
+        type: 'line',
+        source: SOURCE_DELIVERY_ACTIVE_ID,
+        filter: ['==', ['geometry-type'], 'LineString'],
+        paint: {
+          'line-color': '#0284c7',
+          'line-width': 4,
+          'line-opacity': 0.7,
+          'line-dasharray': [2, 2]
+        }
+      });
+      ensureLayer({
+        id: LAYER_DELIVERY_ACTIVE_A_ID,
+        type: 'circle',
+        source: SOURCE_DELIVERY_ACTIVE_ID,
+        filter: ['==', ['get', 'marker'], 'A'],
+        paint: {
+          'circle-radius': 11,
+          'circle-color': COLOR_VERIFIED,
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 2.5
+        }
+      });
+      ensureLayer({
+        id: LAYER_DELIVERY_ACTIVE_B_ID,
+        type: 'circle',
+        source: SOURCE_DELIVERY_ACTIVE_ID,
+        filter: ['==', ['get', 'marker'], 'B'],
+        paint: {
+          'circle-radius': 11,
+          'circle-color': COLOR_REPORTED,
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 2.5
+        }
+      });
+      ensureLayer({
+        id: LAYER_DELIVERY_ACTIVE_LABEL_ID,
+        type: 'symbol',
+        source: SOURCE_DELIVERY_ACTIVE_ID,
+        filter: ['has', 'marker'],
+        layout: {
+          'text-field': ['get', 'marker'],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': 11
+        },
+        paint: {
+          'text-color': '#ffffff'
+        }
+      });
+
+      if (!deliveryInteractionsReadyRef.current) {
+        deliveryInteractionsReadyRef.current = true;
+
+        map.on('click', LAYER_DELIVERY_REQUESTS_ID, (e) => {
+          const id = e.features?.[0]?.properties?.id as string | undefined;
+          if (id) callbacksRef.current.onDeliveryRequestClick?.(id);
+        });
+        map.on('mouseenter', LAYER_DELIVERY_REQUESTS_ID, () => {
+          map.getCanvas().style.cursor = 'pointer';
+        });
+        map.on('mouseleave', LAYER_DELIVERY_REQUESTS_ID, () => {
+          map.getCanvas().style.cursor = '';
+        });
+
+        const popup = new maplibregl.Popup({
+          closeButton: false,
+          closeOnClick: false,
+          offset: 14,
+          anchor: 'bottom'
+        });
+        const onRequestEnter = (e: maplibregl.MapLayerMouseEvent) => {
+          const feature = e.features?.[0];
+          const geometry = feature?.geometry;
+          if (!feature || geometry?.type !== 'Point') return;
+          const p = feature.properties;
+          popup
+            .setLngLat(geometry.coordinates as [number, number])
+            .setHTML(
+              `<div style="font-family:'Plus Jakarta Sans',sans-serif;background:#0f2942;color:#fff;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 8px 16px -4px rgba(15,41,66,0.3)">
+                ${String(p?.code ?? '')}${p?.fare != null ? ` · $${Math.round(Number(p?.fare))} CUP` : ''}
+              </div>`
+            )
+            .addTo(map);
+        };
+        map.on('mouseenter', LAYER_DELIVERY_REQUESTS_ID, onRequestEnter);
+        map.on('mouseleave', LAYER_DELIVERY_REQUESTS_ID, () => popup.remove());
+      }
+    };
+
+    const attempt = async () => {
+      for (let i = 0; i < 3; i++) {
+        try {
+          update();
+          return;
+        } catch {
+          await new Promise((r) => setTimeout(r, 700));
+        }
+      }
+      try {
+        update();
+      } catch (err) {
+        console.error('delivery layers failed:', err);
+      }
+    };
+
+    if (map.isStyleLoaded()) {
+      void attempt();
+    } else {
+      map.once('style.load', () => void attempt());
+    }
+  }, [deliveryRequests, activeDeliveryTrip]);
 
   // Render OSRM Route Layer
   useEffect(() => {

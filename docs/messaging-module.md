@@ -13,7 +13,7 @@ dependencias.
 | 1 | **Modelo delivery** (mensajeros, pricing, plataforma, carreras, pagos) | — | — | ✅ completo (Sprint 11) |
 | 2 | Solicitud de carrera: estimate, crear, historial, GET [id] | ✅ backend | ✅ UI | ✅ completo (Sprint 13) |
 | 3 | Matching mensajero: available, accept, steps, cancel, trust | ✅ backend | ✅ UI | ✅ completo (Sprint 13) |
-| 4 | Tracking en mapa + transición de estados | ⏳ pendiente | ⏳ pendiente | — |
+| 4 | Tracking en mapa + transición de estados | ✅ backend | ✅ UI | ✅ completo (Sprint 14) |
 | 5 | Alta pagada de mensajeros (tarifa + captura WhatsApp) | ⏳ pendiente | ⏳ pendiente | — |
 | 6 | Historial de carreras, valoraciones, polling → SSE | ⏳ pendiente | ⏳ pendiente | — |
 
@@ -185,11 +185,36 @@ Errores HTTP mapeados:
 
 ---
 
+## Fase 4 — Capas de mapa y polling (completo, Sprint 14)
+
+Sin cambios de backend: reutiliza `/api/deliveries` (GET role-aware) y
+`/api/deliveries/available` con polling en el cliente.
+
+### Capas de mapa (`MapLibreMap.tsx`)
+
+- `deliveries-requests-source` → capa `deliveries-requests-layer`: puntos de
+  **origen** de las solicitudes PENDING (solo visible para MESSENGER). Círculo
+  emerald con popup de `code` + tarifa al hover; clic abre el tablón.
+- `active-delivery-source` → capas `active-delivery-line-layer` (línea punteada
+  cielo pickup→dropoff) + `A` (emerald, origen) + `B` (rose, destino) con
+  etiquetas. Se pinta para el solicitante (su carrera activa) y el mensajero
+  (carrera asignada).
+
+### Polling en el cliente (`lib/hooks/useDeliveries.ts`)
+
+- **Solicitante**: tras crear una carrera se guarda `trackingId` y se consulta
+  `GET /api/deliveries` cada **12 s**; al cambiar el estado se lanza toast
+  (`ACCEPTED`, `PICKED_UP`, `IN_TRANSIT`, `DELIVERED`, `CANCELLED`, `EXPIRED`).
+  Al estado terminal se detiene el polling. Al iniciar sesión retoma el tracking
+  de una carrera activa pendiente.
+- **Mensajero**: `refreshMessenger(true)` (silencioso) cada **15 s** — refresca
+  el tablón (`available`) y su carrera activa asignada; solo salta a la pestaña
+  "Mi carrera" cuando aparece una carrera nueva.
+
+---
+
 ## Fases siguientes (resumen)
 
-- **Fase 4**: capas de mapa `deliveries-requests-source` y
-  `active-delivery-source`; polling 10-15 s de carreras activas; SSE/WebSocket
-  en Fase 6.
 - **Fase 5 (alta pagada)**: admin fija costo en CUP (`messenger_fee_cup`) y
   tarjeta destino (`messenger_pay_card`). El mensajero paga y **envía la
   captura de la transferencia por WhatsApp al admin** (comprobante EXTERNO,

@@ -55,7 +55,8 @@ export default function Home() {
   const actions = useBusinessActions({ setBusinesses: data.setBusinesses, syncMutation: data.syncMutation, applyToStates: data.applyToStates, userLocation: geo.userLocation, setUserLocation: geo.setUserLocation, setUserLocationName: geo.setUserLocationName, centerOn: vp.centerOn, mapRef: vp.mapRef, showToast });
   const ui = useModals();
   const auth = useAuth();
-  const deliveries = useDeliveries({ showToast });
+  const deliveries = useDeliveries({ showToast, role: auth.user?.role ?? null });
+  const mapActiveTrip = deliveries.requesterActive ?? deliveries.messengerActive;
 
   const onSelectBiz = (b: Business) => { actions.handleSelectBusiness(b); ui.setIsDesktopPanelOpen(true); ui.setMobileSheetState('peek'); };
 
@@ -65,7 +66,7 @@ export default function Home() {
 
       <div className="absolute inset-0 w-full h-full z-0">
         <MapErrorBoundary>
-          <MapLibreMap businesses={data.filteredBusinesses} selectedBusiness={actions.selectedBusiness} onSelectBusiness={onSelectBiz} center={vp.mapCenter} zoom={vp.mapZoom} userLocation={geo.userLocation} isPinningMode={ui.isPinningMode} pinLocation={ui.pinLocation} onPinLocationChange={ui.setPinLocation} onMapClick={(c) => { if (deliveries.picking) { deliveries.setPickedPoint(c); } else if (ui.isPinningMode) { ui.setPinLocation(c); } }} onClusterClick={actions.handleClusterClick} onViewportChange={vp.setViewportBbox} routeGeometry={actions.activeRoute?.route.geometry || null} mapRef={vp.mapRef} onMapReady={() => vp.setMapReady(true)} deliveryPickup={deliveries.pickup} deliveryDropoff={deliveries.dropoff} deliveryPicking={deliveries.picking} />
+          <MapLibreMap businesses={data.filteredBusinesses} selectedBusiness={actions.selectedBusiness} onSelectBusiness={onSelectBiz} center={vp.mapCenter} zoom={vp.mapZoom} userLocation={geo.userLocation} isPinningMode={ui.isPinningMode} pinLocation={ui.pinLocation} onPinLocationChange={ui.setPinLocation} onMapClick={(c) => { if (deliveries.picking) { deliveries.setPickedPoint(c); } else if (ui.isPinningMode) { ui.setPinLocation(c); } }} onClusterClick={actions.handleClusterClick} onViewportChange={vp.setViewportBbox} routeGeometry={actions.activeRoute?.route.geometry || null} mapRef={vp.mapRef} onMapReady={() => vp.setMapReady(true)} deliveryPickup={deliveries.pickup} deliveryDropoff={deliveries.dropoff} deliveryPicking={deliveries.picking} deliveryRequests={deliveries.isMessenger ? deliveries.messengerAvailable : []} activeDeliveryTrip={mapActiveTrip ? { pickup: mapActiveTrip.pickup, dropoff: mapActiveTrip.dropoff, status: mapActiveTrip.status } : undefined} onDeliveryRequestClick={() => ui.setIsMessengerModalOpen(true)} />
         </MapErrorBoundary>
       </div>
 
