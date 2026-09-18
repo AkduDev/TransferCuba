@@ -1342,6 +1342,127 @@ export async function getMessengerStats(messengerId: string): Promise<MessengerS
   });
 }
 
+/* ---------------- eventos en vivo (Fase 6, SSE) ---------------- */
+
+/**
+ * Cursor del stream: un reloj por fuente. Una sola marca global haría que un
+ * evento de una fuente lenta se perdiera al avanzar por otra más rápida.
+ */
+export interface StreamCursor {
+  /** Último `delivery_status_events.created_at` visto. */
+  e: string;
+  /** Último `delivery_requests.requested_at` visto en el tablón. */
+  a: string;
+  /** Último `delivery_reviews.created_at` visto. */
+  r: string;
+}
+
+export function nuevoStreamCursor(desde = new Date()): StreamCursor {
+  const iso = desde.toISOString();
+  return { e: iso, a: iso, r: iso };
+}
+
+export function encodeStreamCursor(c: StreamCursor): string {
+  return Buffer.from(JSON.stringify(c), 'utf8').toString('base64url');
+}
+
+export function decodeStreamCursor(raw: string | null): StreamCursor | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8')) as Partial<StreamCursor>;
+    if (!parsed.e || !parsed.a || !parsed.r) return null;
+    if ([parsed.e, parsed.a, parsed.r].some((v) => Number.isNaN(Date.parse(v)))) return null;
+    return { e: parsed.e, a: parsed.a, r: parsed.r };
+  } catch {
+    return null;
+  }
+}
+
+export type StreamEventType = 'delivery.updated' | 'delivery.available' | 'delivery.reviewed';
+
+export interface StreamEvent {
+  type: StreamEventType;
+  delivery?: DeliveryRequestRow;
+  review?: DeliveryReviewRow;
+}
+
+export interface StreamBatch {
+  events: StreamEvent[];
+  cursor: StreamCursor;
+}
+
+/**
+ * Novedades posteriores al cursor, filtradas por rol.
+ *
+ * El filtro de propiedad se construye aquí desde el rol y el id de sesión: un
+ * stream que devolviera de más filtraría direcciones e identidades a quien no
+ * le corresponden, que es justo lo que `/available` evita.
+ */
+export async function fetchStreamBatch(
+  userId: string,
+  role: Role,
+  cursor: StreamCursor,
+  incluirTablon: boolean
+): Promise<StreamBatch> {
+  return run(async (pool) => {
+    const events: StreamEvent[] = [];
+    const next: StreamCursor = { ...cursor };
+
+    // 1. Cambios de estado de carreras en las que el usuario es parte.
+    const cambios = await pool.query<DeliveryRequestRow & { event_at: Date }>(
+      `SELECT d.*, ru.name AS requester_name, mu.name AS messenger_name, ev.created_at AS event_at
+         FROM delivery_status_events ev
+         JOIN delivery_requests d ON d.id = ev.delivery_id
+         JOIN users ru ON ru.id = d.requester_id
+         LEFT JOIN users mu ON mu.id = d.messenger_id
+        WHERE ev.created_at > $2::timestamptz
+          AND ($3 = 'ADMIN' OR d.requester_id = $1 OR d.messenger_id = $1)
+        ORDER BY ev.created_at ASC
+        LIMIT 50`,
+      [userId, cursor.e, role]
+    );
+    for (const row of cambios.rows) {
+      events.push({ type: 'delivery.updated', delivery: row });
+      next.e = row.event_at.toISOString();
+    }
+
+    // 2. Carreras nuevas en el tablón. Solo para mensajero con suscripción
+    //    viva; el que no paga no ve direcciones de recogida.
+    if (incluirTablon) {
+      const nuevas = await pool.query<DeliveryRequestRow>(
+        `SELECT d.*, ru.name AS requester_name, NULL::text AS messenger_name
+           FROM delivery_requests d
+           JOIN users ru ON ru.id = d.requester_id
+          WHERE d.status = 'PENDING' AND d.requested_at > $1::timestamptz
+          ORDER BY d.requested_at ASC
+          LIMIT 50`,
+        [cursor.a]
+      );
+      for (const row of nuevas.rows) {
+        events.push({ type: 'delivery.available', delivery: row });
+        next.a = row.requested_at.toISOString();
+      }
+    }
+
+    // 3. Valoraciones de carreras del usuario.
+    const valoraciones = await pool.query<DeliveryReviewRow>(
+      `${REVIEW_COLUMNS}
+        WHERE r.created_at > $2::timestamptz
+          AND r.status = 'active'
+          AND ($3 = 'ADMIN' OR r.requester_id = $1 OR r.messenger_id = $1)
+        ORDER BY r.created_at ASC
+        LIMIT 50`,
+      [userId, cursor.r, role]
+    );
+    for (const row of valoraciones.rows) {
+      events.push({ type: 'delivery.reviewed', review: row });
+      next.r = row.created_at.toISOString();
+    }
+
+    return { events, cursor: next };
+  });
+}
+
 export function mapDeliveryRowBase(r: DeliveryRequestRow) {
   const fareTotal = toNum(r.total_fare_cup);
   return {
