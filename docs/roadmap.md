@@ -410,12 +410,20 @@ arquitectura de arriba está diseñada para que cada pieza sea reemplazable.
 
 ### Próxima tarea — Mensajería Fase 6
 
-- [ ] **Historial paginado**: `GET /api/deliveries/history` role-aware para solicitante,
-      mensajero y administración; mantener `GET /api/deliveries` como alias compatible.
-- [ ] **Valoraciones de entrega**: tabla `delivery_reviews`, creación única por
-      `(delivery_id, requester_id)`, rating 1–5, comentario opcional y moderación admin.
-- [ ] **Agregados de mensajero**: rating promedio, conteo de valoraciones y entregas
-      completadas; `messengers_profiles.rating`/`completed_orders` como caché derivada.
+- [x] **Historial paginado**: `GET /api/deliveries/history` role-aware con cursor
+      opaco `(requested_at, id)`, `limit` 1–50 y filtro por estado;
+      `GET /api/deliveries` se mantiene como alias.
+- [x] **Valoraciones de entrega**: tabla `delivery_reviews`, unicidad por
+      `(delivery_id, requester_id)` impuesta por el índice (409 desde 23505),
+      rating 1–5, comentario opcional de 500 caracteres y moderación admin
+      (`hide`/`restore`/`remove`, este último lógico) en
+      `PATCH /api/admin/deliveries/reviews/[reviewId]`.
+- [x] **Agregados de mensajero**: `GET /api/messengers/[userId]/stats` (propio
+      mensajero o admin). `rating` y `completed_orders` pasan a ser caché
+      derivada y **se escriben por primera vez**: existían desde la Fase 1 y
+      nunca se tocaban. La migración recalcula `completed_orders` desde las
+      carreras ya entregadas y la transición a DELIVERED lo incrementa dentro de
+      la misma transacción. 15 pruebas de Playwright sobre la API; suite 43/43.
 - [ ] **Eventos en vivo**: `GET /api/deliveries/stream` con SSE autenticado, cursores,
       latidos y reconexión; polling actual como fallback.
 - [ ] **UI completa**: historial y valoración en `GoogleMapsDeliveryModal`, historial y

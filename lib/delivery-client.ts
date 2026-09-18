@@ -112,3 +112,32 @@ export const STATUS_LABELS: Record<DeliveryStatus, string> = {
   CANCELLED: 'Cancelado',
   EXPIRED: 'Expirado'
 };
+/* ---------------- valoraciones (Fase 6) ---------------- */
+
+export type ReviewStatus = 'active' | 'hidden' | 'removed';
+
+export interface DeliveryReviewDTO {
+  id: string;
+  deliveryId: string;
+  deliveryCode: string;
+  requester: { id: string; name: string };
+  messenger: { id: string; name: string };
+  rating: number;
+  comment: string | null;
+  status: ReviewStatus;
+  createdAt: string;
+}
+
+export interface MessengerStatsDTO {
+  /** null = todavía sin valoraciones; no es lo mismo que una nota de 0. */
+  rating: number | null;
+  reviewCount: number;
+  completedOrders: number;
+}
+
+export interface DeliveryHistoryPageDTO {
+  deliveries: DeliveryDTO[];
+  nextCursor: string | null;
+}
+
+export const REVIEW_COMMENT_MAX = 500;

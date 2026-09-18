@@ -1,4 +1,4 @@
-import { test as base, expect, type Page } from '@playwright/test';
+import { test as base, expect, type APIRequestContext, type Page } from '@playwright/test';
 import { Client } from 'pg';
 
 /**
@@ -115,9 +115,104 @@ interface FixturesDeCuenta {
    * Se borra sola al terminar la prueba, pase o falle.
    */
   crearCuenta: (opciones?: OpcionesDeCuenta) => Promise<CuentaDePrueba>;
+
+  /**
+   * Como `crearCuenta`, pero con contexto HTTP propio: permite tener varias
+   * sesiones vivas a la vez (solicitante y mensajero en la misma prueba), cosa
+   * que `page.request` no puede porque comparte cookies con el navegador.
+   */
+  crearCuentaApi: (
+    opciones?: OpcionesDeCuenta
+  ) => Promise<{ cuenta: CuentaDePrueba; api: APIRequestContext }>;
+
+  /**
+   * Inserta una carrera PENDING por SQL, saltándose OSRM.
+   *
+   * Crearla por la API exigiría el router público de OSRM, que es una
+   * dependencia externa sin SLA: la prueba dejaría de ser hermética y fallaría
+   * por causas ajenas al código. Los pasos posteriores (aceptar, recoger,
+   * entregar) sí van por la API real, que es lo que se quiere ejercitar.
+   */
+  crearCarreraPendiente: (requesterId: string) => Promise<{ id: string; code: string }>;
 }
 
 export const test = base.extend<FixturesDeCuenta>({
+  crearCuentaApi: async ({ playwright, baseURL }, use) => {
+    const creadas: string[] = [];
+    const contextos: APIRequestContext[] = [];
+
+    const crear = async (opciones: OpcionesDeCuenta = {}) => {
+      const { rol = 'USER', perfilActivo = true, diasDeSuscripcion = 30 } = opciones;
+      const api = await playwright.request.newContext({ baseURL });
+      contextos.push(api);
+
+      const phone = telefonoDePrueba();
+      const name = `E2E ${phone.slice(-4)}`;
+      const res = await api.post('/api/account/register', { data: { phone, pin: PIN, name } });
+      expect(res.status(), `alta de ${phone}: ${await res.text()}`).toBe(201);
+
+      const cuerpo = (await res.json()) as { user?: { id?: string } };
+      const id = cuerpo.user?.id;
+      expect(id, 'la respuesta del alta no trae user.id').toBeTruthy();
+      creadas.push(id!);
+
+      if (rol !== 'USER') await promover(id!, rol, perfilActivo, diasDeSuscripcion);
+
+      return { cuenta: { id: id!, phone, pin: PIN, name, rol }, api };
+    };
+
+    await use(crear);
+
+    for (const api of contextos) await api.dispose();
+    for (const id of creadas) {
+      await borrarCuenta(id).catch((err) => {
+        console.error(`[e2e] no se pudo borrar la cuenta ${id}:`, (err as Error).message);
+      });
+    }
+  },
+
+  crearCarreraPendiente: async ({}, use) => {
+    const creadas: string[] = [];
+
+    const crear = async (requesterId: string) => {
+      const client = await conectar();
+      try {
+        // Coordenadas fijas en La Habana y tarifa cerrada: ni OSRM ni pricing.
+        const res = await client.query<{ id: string; code: string }>(
+          `INSERT INTO delivery_requests (
+             code, status, requester_id, package_type,
+             pickup_lat, pickup_lng, pickup_address,
+             dropoff_lat, dropoff_lng, dropoff_address,
+             distance_km, duration_min, base_fare_cup, total_fare_cup
+           ) VALUES (
+             'TC-' || upper(substr(md5(random()::text), 1, 5)), 'PENDING', $1, 'paquete',
+             23.1136, -82.3666, 'Habana Vieja, La Habana',
+             23.1385, -82.3842, 'Vedado, La Habana',
+             3.2, 12, 200, 300
+           ) RETURNING id, code`,
+          [requesterId]
+        );
+        creadas.push(res.rows[0].id);
+        return res.rows[0];
+      } finally {
+        await client.end();
+      }
+    };
+
+    await use(crear);
+
+    if (creadas.length > 0) {
+      const client = await conectar();
+      try {
+        await client.query('DELETE FROM delivery_requests WHERE id = ANY($1::uuid[])', [creadas]);
+      } catch (err) {
+        console.error('[e2e] no se pudieron borrar las carreras:', (err as Error).message);
+      } finally {
+        await client.end();
+      }
+    }
+  },
+
   crearCuenta: async ({ page }, use) => {
     const creadas: string[] = [];
 

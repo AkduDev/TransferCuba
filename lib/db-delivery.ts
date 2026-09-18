@@ -30,6 +30,7 @@ export type MessengerPaymentKind = 'alta' | 'renovacion';
 
 export const MESSENGER_PAYMENT_METHODS: readonly MessengerPaymentMethod[] = ['efectivo', 'transferencia'];
 export type PaymentStatus = 'PENDING' | 'PAID' | 'CONFIRMED' | 'REJECTED';
+export type ReviewStatus = 'active' | 'hidden' | 'removed';
 
 export interface DeliveryRequestRow {
   id: string;
@@ -106,7 +107,8 @@ export function isDeliveryDbConfigured(): boolean {
 function isDomainError(err: unknown): boolean {
   return err instanceof InvalidTransitionError ||
     err instanceof InvalidPricingError ||
-    err instanceof InvalidMessengerApplicationError;
+    err instanceof InvalidMessengerApplicationError ||
+    err instanceof InvalidReviewError;
 }
 
 async function run<T>(fn: (pool: Pool) => Promise<T>): Promise<T> {
@@ -198,6 +200,23 @@ export class InvalidMessengerApplicationError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'InvalidMessengerApplicationError';
+  }
+}
+
+/**
+ * Valoración imposible. `reason` dice POR QUÉ, y el endpoint lo traduce a
+ * HTTP: el DAO no sabe de códigos de estado.
+ *  - `ownership`: la carrera no es de quien valora  → 403
+ *  - `state`: la carrera no está entregada           → 403
+ *  - `duplicate`: ya existe una valoración suya      → 409
+ *  - `input`: puntuación o comentario inválidos      → 400
+ */
+export type ReviewErrorReason = 'ownership' | 'state' | 'duplicate' | 'input';
+
+export class InvalidReviewError extends Error {
+  constructor(message: string, readonly reason: ReviewErrorReason) {
+    super(message);
+    this.name = 'InvalidReviewError';
   }
 }
 
@@ -488,6 +507,18 @@ export async function transitionDelivery(input: TransitionInput): Promise<Delive
        WHERE id = $2`,
       [input.toStatus, input.id, input.actorId, input.cancelReason ?? null]
     );
+    // Contador de entregas del mensajero. Va dentro de la misma transacción y
+    // solo en la transición real a DELIVERED: como la whitelist impide volver a
+    // entrar en ese estado, no puede contarse dos veces.
+    if (input.toStatus === 'DELIVERED') {
+      await client.query(
+        `UPDATE messengers_profiles
+            SET completed_orders = completed_orders + 1
+          WHERE user_id = (SELECT messenger_id FROM delivery_requests WHERE id = $1)`,
+        [input.id]
+      );
+    }
+
     await client.query(
       `INSERT INTO delivery_status_events (delivery_id, from_status, to_status, actor_id, actor_role, note)
        VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -1036,6 +1067,279 @@ export async function setPaymentStatus(input: {
     )
   );
   return res.rows[0] ?? null;
+}
+
+/* ---------------- historial paginado (Fase 6) ---------------- */
+
+export interface DeliveryHistoryOptions {
+  limit?: number;
+  /** Cursor opaco devuelto por la página anterior. */
+  cursor?: string | null;
+  status?: DeliveryStatus | null;
+}
+
+export interface DeliveryHistoryPage {
+  rows: DeliveryRequestRow[];
+  nextCursor: string | null;
+}
+
+/**
+ * Cursor `(requested_at, id)` en base64. Se usa el par y no solo la fecha
+ * porque dos carreras pueden compartir timestamp al milisegundo y un cursor
+ * por fecha sola se saltaría filas o las repetiría.
+ */
+function encodeCursor(row: DeliveryRequestRow): string {
+  return Buffer.from(`${row.requested_at.toISOString()}|${row.id}`, 'utf8').toString('base64url');
+}
+
+function decodeCursor(cursor: string): { ts: string; id: string } | null {
+  try {
+    const raw = Buffer.from(cursor, 'base64url').toString('utf8');
+    const sep = raw.lastIndexOf('|');
+    if (sep <= 0) return null;
+    const ts = raw.slice(0, sep);
+    const id = raw.slice(sep + 1);
+    if (Number.isNaN(Date.parse(ts)) || !id) return null;
+    return { ts, id };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Historial role-aware y paginado.
+ *  - USER / BUSINESS → las carreras que pidieron.
+ *  - MESSENGER       → las que les asignaron.
+ *  - ADMIN           → todas.
+ * El filtro de propiedad se construye AQUÍ desde el rol y el id de la sesión;
+ * nunca llega del cliente.
+ */
+export async function listDeliveryHistory(
+  userId: string,
+  role: Role,
+  options: DeliveryHistoryOptions = {}
+): Promise<DeliveryHistoryPage> {
+  const limit = Math.min(Math.max(Math.trunc(options.limit ?? 30), 1), 50);
+  const params: unknown[] = [];
+  const where: string[] = [];
+
+  if (role === 'MESSENGER') {
+    params.push(userId);
+    where.push(`d.messenger_id = $${params.length}`);
+  } else if (role !== 'ADMIN') {
+    params.push(userId);
+    where.push(`d.requester_id = $${params.length}`);
+  }
+
+  if (options.status) {
+    params.push(options.status);
+    where.push(`d.status = $${params.length}`);
+  }
+
+  if (options.cursor) {
+    const decoded = decodeCursor(options.cursor);
+    if (!decoded) throw new InvalidReviewError('Cursor inválido', 'input');
+    params.push(decoded.ts, decoded.id);
+    where.push(`(d.requested_at, d.id) < ($${params.length - 1}::timestamptz, $${params.length}::uuid)`);
+  }
+
+  params.push(limit + 1);
+
+  return run(async (pool) => {
+    const res = await pool.query<DeliveryRequestRow>(
+      `SELECT d.*, ru.name AS requester_name, mu.name AS messenger_name
+         FROM delivery_requests d
+         JOIN users ru ON ru.id = d.requester_id
+         LEFT JOIN users mu ON mu.id = d.messenger_id
+        ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+        ORDER BY d.requested_at DESC, d.id DESC
+        LIMIT $${params.length}`,
+      params
+    );
+    // Se pide una fila de más para saber si hay página siguiente sin contar.
+    const hayMas = res.rows.length > limit;
+    const rows = hayMas ? res.rows.slice(0, limit) : res.rows;
+    return { rows, nextCursor: hayMas ? encodeCursor(rows[rows.length - 1]) : null };
+  });
+}
+
+/* ---------------- valoraciones (Fase 6) ---------------- */
+
+export interface DeliveryReviewRow {
+  id: string;
+  delivery_id: string;
+  requester_id: string;
+  messenger_id: string;
+  rating: number;
+  comment: string | null;
+  status: ReviewStatus;
+  created_at: Date;
+  updated_at: Date;
+  delivery_code?: string;
+  requester_name?: string;
+  messenger_name?: string;
+}
+
+const REVIEW_COLUMNS = `
+  SELECT r.*, d.code AS delivery_code, ru.name AS requester_name, mu.name AS messenger_name
+    FROM delivery_reviews r
+    JOIN delivery_requests d ON d.id = r.delivery_id
+    JOIN users ru ON ru.id = r.requester_id
+    JOIN users mu ON mu.id = r.messenger_id
+`;
+
+/**
+ * Recalcula la caché del perfil desde las valoraciones `active`.
+ * Sin valoraciones, el rating vuelve al 5.0 con el que nace el perfil: mejor
+ * eso que un 0 que parecería una nota pésima en vez de "sin datos".
+ */
+async function refreshMessengerRating(
+  client: import('pg').PoolClient,
+  messengerId: string
+): Promise<void> {
+  await client.query(
+    `UPDATE messengers_profiles p
+        SET rating = COALESCE((
+              SELECT ROUND(AVG(r.rating)::numeric, 1)
+                FROM delivery_reviews r
+               WHERE r.messenger_id = $1 AND r.status = 'active'
+            ), 5.0)
+      WHERE p.user_id = $1`,
+    [messengerId]
+  );
+}
+
+export async function createDeliveryReview(input: {
+  deliveryId: string;
+  requesterId: string;
+  rating: number;
+  comment: string | null;
+}): Promise<DeliveryReviewRow | null> {
+  if (!Number.isInteger(input.rating) || input.rating < 1 || input.rating > 5) {
+    throw new InvalidReviewError('La puntuación debe ser un entero de 1 a 5', 'input');
+  }
+
+  return withClient(async (client) => {
+    const deliveryRes = await client.query<DeliveryRequestRow>(
+      'SELECT * FROM delivery_requests WHERE id = $1 FOR UPDATE',
+      [input.deliveryId]
+    );
+    const delivery = deliveryRes.rows[0] ?? null;
+    if (!delivery) return null;
+
+    if (delivery.requester_id !== input.requesterId) {
+      throw new InvalidReviewError('Solo quien pidió la carrera puede valorarla', 'ownership');
+    }
+    if (delivery.status !== 'DELIVERED') {
+      throw new InvalidReviewError('Solo se valora una carrera entregada', 'state');
+    }
+    if (!delivery.messenger_id) {
+      throw new InvalidReviewError('La carrera no tiene mensajero asignado', 'state');
+    }
+
+    // La unicidad la impone el índice, no un SELECT previo: así dos envíos
+    // simultáneos no crean dos filas.
+    const inserted = await client.query<{ id: string }>(
+      `INSERT INTO delivery_reviews (delivery_id, requester_id, messenger_id, rating, comment)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (delivery_id, requester_id) DO NOTHING
+       RETURNING id`,
+      [input.deliveryId, input.requesterId, delivery.messenger_id, input.rating, input.comment]
+    );
+    if (inserted.rows.length === 0) {
+      throw new InvalidReviewError('Ya valoraste esta carrera', 'duplicate');
+    }
+
+    await refreshMessengerRating(client, delivery.messenger_id);
+
+    const res = await client.query<DeliveryReviewRow>(`${REVIEW_COLUMNS} WHERE r.id = $1`, [
+      inserted.rows[0].id
+    ]);
+    return res.rows[0];
+  });
+}
+
+/** Valoraciones de una carrera. `includeHidden` solo para administración. */
+export async function listDeliveryReviews(
+  deliveryId: string,
+  includeHidden = false
+): Promise<DeliveryReviewRow[]> {
+  return run(async (pool) => {
+    const res = await pool.query<DeliveryReviewRow>(
+      `${REVIEW_COLUMNS}
+        WHERE r.delivery_id = $1 ${includeHidden ? '' : `AND r.status = 'active'`}
+        ORDER BY r.created_at DESC`,
+      [deliveryId]
+    );
+    return res.rows;
+  });
+}
+
+export type ReviewModerationAction = 'hide' | 'restore' | 'remove';
+
+const MODERATION_TO_STATUS: Record<ReviewModerationAction, ReviewStatus> = {
+  hide: 'hidden',
+  restore: 'active',
+  remove: 'removed'
+};
+
+/**
+ * Moderación administrativa. `remove` cambia el estado lógico y NO borra la
+ * fila: la auditoría se conserva.
+ */
+export async function updateDeliveryReviewStatus(
+  reviewId: string,
+  action: ReviewModerationAction
+): Promise<DeliveryReviewRow | null> {
+  return withClient(async (client) => {
+    const current = await client.query<DeliveryReviewRow>(
+      'SELECT * FROM delivery_reviews WHERE id = $1 FOR UPDATE',
+      [reviewId]
+    );
+    const review = current.rows[0] ?? null;
+    if (!review) return null;
+
+    await client.query(
+      `UPDATE delivery_reviews SET status = $2, updated_at = NOW() WHERE id = $1`,
+      [reviewId, MODERATION_TO_STATUS[action]]
+    );
+    // Ocultar o restaurar cambia el promedio visible del mensajero.
+    await refreshMessengerRating(client, review.messenger_id);
+
+    const res = await client.query<DeliveryReviewRow>(`${REVIEW_COLUMNS} WHERE r.id = $1`, [reviewId]);
+    return res.rows[0];
+  });
+}
+
+export interface MessengerStats {
+  rating: number | null;
+  reviewCount: number;
+  completedOrders: number;
+}
+
+export async function getMessengerStats(messengerId: string): Promise<MessengerStats> {
+  return run(async (pool) => {
+    const res = await pool.query<{
+      rating: string | number | null;
+      review_count: string;
+      completed_orders: string | number | null;
+    }>(
+      `SELECT
+         (SELECT ROUND(AVG(rating)::numeric, 1) FROM delivery_reviews
+           WHERE messenger_id = $1 AND status = 'active') AS rating,
+         (SELECT COUNT(*) FROM delivery_reviews
+           WHERE messenger_id = $1 AND status = 'active') AS review_count,
+         (SELECT completed_orders FROM messengers_profiles WHERE user_id = $1) AS completed_orders`,
+      [messengerId]
+    );
+    const row = res.rows[0];
+    return {
+      // null y no 5.0: "sin valoraciones" no es lo mismo que "nota máxima".
+      rating: row?.rating === null || row?.rating === undefined ? null : Number(row.rating),
+      reviewCount: Number(row?.review_count ?? 0),
+      completedOrders: Number(row?.completed_orders ?? 0)
+    };
+  });
 }
 
 export function mapDeliveryRowBase(r: DeliveryRequestRow) {

@@ -96,3 +96,46 @@ export function toDeliveryDTO(row: DeliveryRequestRow, opts: DeliveryDTOOptions 
         : null
   };
 }
+/* ---------------- valoraciones (Fase 6) ---------------- */
+
+import type { DeliveryReviewRow, MessengerStats, ReviewStatus } from './db-delivery';
+
+export interface DeliveryReviewDTO {
+  id: string;
+  deliveryId: string;
+  deliveryCode: string;
+  requester: { id: string; name: string };
+  messenger: { id: string; name: string };
+  rating: number;
+  comment: string | null;
+  status: ReviewStatus;
+  createdAt: string;
+}
+
+export interface MessengerStatsDTO {
+  rating: number | null;
+  reviewCount: number;
+  completedOrders: number;
+}
+
+/**
+ * El comentario se guarda como texto y se entrega como texto: nada de HTML.
+ * Quien lo pinta lo hace con `{comment}` en JSX, que escapa por defecto.
+ */
+export function toDeliveryReviewDTO(r: DeliveryReviewRow): DeliveryReviewDTO {
+  return {
+    id: r.id,
+    deliveryId: r.delivery_id,
+    deliveryCode: r.delivery_code ?? '',
+    requester: { id: r.requester_id, name: r.requester_name ?? '' },
+    messenger: { id: r.messenger_id, name: r.messenger_name ?? '' },
+    rating: Number(r.rating),
+    comment: r.comment,
+    status: r.status,
+    createdAt: r.created_at.toISOString()
+  };
+}
+
+export function toMessengerStatsDTO(s: MessengerStats): MessengerStatsDTO {
+  return { rating: s.rating, reviewCount: s.reviewCount, completedOrders: s.completedOrders };
+}

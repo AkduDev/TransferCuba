@@ -251,6 +251,50 @@ por administración (`messenger_fee_cup`, `messenger_period_days`).
   invisible. Cada tarjeta muestra alta/renovación, método, vencimiento actual y
   los días que suma al confirmar.
 
+## Fase 6 — Historial y valoraciones (backend, en curso)
+
+Migración `db/migrate_delivery_phase6.sql` (idempotente) y DAO en
+`lib/db-delivery.ts`. Los agregados `messengers_profiles.rating` y
+`completed_orders` existían desde la Fase 1 pero **nunca se escribían**: ahora
+son caché derivada y la migración recalcula `completed_orders` una vez desde
+las carreras ya entregadas.
+
+### Endpoints
+
+| Endpoint | Método | Rol | Comportamiento |
+|---|---|---|---|
+| `/api/deliveries/history` | GET | cualquiera con sesión | Paginado con cursor opaco `(requested_at, id)`. `limit` 1–50 (30 por defecto), `status` opcional. Role-aware: USER/BUSINESS ven lo que pidieron, MESSENGER lo asignado, ADMIN todo. Respuesta `{ deliveries, nextCursor }`. |
+| `/api/deliveries/[id]/reviews` | GET | quien puede ver la carrera | Valoraciones visibles; `hidden`/`removed` solo para ADMIN. |
+| `/api/deliveries/[id]/reviews` | POST | solicitante | 201 / 400 puntuación o comentario / 403 no es suya o no entregada / 404 / 409 ya valorada / 503. |
+| `/api/admin/deliveries/reviews/[reviewId]` | PATCH | admin | `hide`, `restore`, `remove`. `remove` es lógico: la fila se conserva. |
+| `/api/messengers/[userId]/stats` | GET | el propio mensajero o admin | `{ rating, reviewCount, completedOrders }`. |
+
+### Decisiones
+
+- **La unicidad la impone el índice**, no un SELECT previo: dos envíos
+  simultáneos chocan en `UNIQUE (delivery_id, requester_id)` (23505) y el
+  backend lo traduce a 409. Un `SELECT` antes del `INSERT` dejaría una ventana
+  de carrera.
+- **El cursor es `(requested_at, id)`**, no solo la fecha: dos carreras pueden
+  compartir timestamp y un cursor por fecha sola se saltaría filas o las
+  repetiría. Se pide una fila de más para saber si hay página siguiente sin
+  hacer un `COUNT`.
+- **`rating` es `null` sin valoraciones**, no 0 ni 5: "sin datos" no es una
+  nota. La caché del perfil sí vuelve a 5.0 porque es el valor con el que nace.
+- **`InvalidReviewError` lleva un `reason`** (`ownership`, `state`,
+  `duplicate`, `input`), no un código HTTP: el DAO no sabe de HTTP y el
+  endpoint traduce.
+- **`completed_orders` se incrementa en la transición a `DELIVERED`**, dentro de
+  la misma transacción. La whitelist impide volver a entrar en ese estado, así
+  que no puede contarse dos veces.
+
+### Pendiente de la Fase 6
+
+- Eventos en vivo por SSE (`GET /api/deliveries/stream`), con el polling actual
+  como fallback.
+- UI: historial y valoración en `GoogleMapsDeliveryModal`, historial y
+  estadísticas en `GoogleMapsMessengerModal`.
+
 ## Fases siguientes (resumen)
 
 - **Fase 5 (alta pagada)**: admin fija costo en CUP (`messenger_fee_cup`) y

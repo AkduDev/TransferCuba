@@ -190,6 +190,12 @@ Solo el solicitante de una carrera `DELIVERED` puede crear la valoración. El ba
 verifica ownership, estado terminal y unicidad; administración puede ocultar,
 restaurar o eliminar lógicamente el registro. `messengers_profiles.rating` y
 `completed_orders` son cachés derivadas de `delivery_reviews` y `delivery_requests`.
+La tabla está creada en `db/migrate_delivery_phase6.sql`, junto con los índices
+del historial paginado (`requester_id`/`messenger_id`, `requested_at DESC, id DESC`).
+`UNIQUE (delivery_id, requester_id)` es la barrera real contra el doble envío:
+el segundo INSERT choca con 23505 y el backend responde 409, sin depender de un
+SELECT previo que dejaría una ventana de carrera.
+
 La especificación completa de la Fase 6 se mantiene fuera del repositorio, como
 documento local de trabajo.
 
