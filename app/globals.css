@@ -61,6 +61,15 @@
     font-family: var(--font-jakarta), system-ui, sans-serif;
     letter-spacing: -0.01em;
   }
+
+  /* Foco visible por defecto en todo control interactivo. `:where` deja la
+     especificidad en 0, así que cualquier componente puede sobrescribirlo.
+     Cerulean da 4,09:1 sobre blanco y 3,62:1 sobre navy — pasa el 3:1 que
+     WCAG 1.4.11 exige a un indicador de foco en ambas superficies. */
+  :where(a[href], button, [role="button"], [role="tab"], input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-cerulean);
+    outline-offset: 2px;
+  }
 }
 
 /* Scrollbars finos y discretos */
@@ -114,4 +123,29 @@
 
 .animate-beacon {
   animation: beacon-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Movimiento reducido. No se apaga todo a 0,01ms: eso destruiría la
+   retroalimentación de carga, que aquí es la única señal de que algo ocurre.
+   Se elimina lo que parpadea o se repite sin fin (WCAG 2.2.2) y se conserva
+   lo que informa, a una velocidad que no molesta. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-beacon {
+    animation: none;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.28);
+  }
+
+  .animate-pulse {
+    animation: none;
+    opacity: 1;
+  }
+
+  .animate-spin {
+    animation-duration: 2.4s;
+    animation-timing-function: linear;
+  }
+
+  [class*="animate-in"] {
+    animation-duration: 1ms;
+  }
 }

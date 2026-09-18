@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import ModalShell from '@/components/ModalShell';
 import { 
   X, 
   MapPin, 
@@ -48,15 +49,16 @@ export default function GoogleMapsSideDrawer({
   authUser,
   totalBusinesses
 }: GoogleMapsSideDrawerProps) {
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex transition-opacity animate-in fade-in duration-200">
-      {/* Click outside to close */}
-      <div className="flex-1" onClick={onClose} />
-
-      {/* Drawer content (Google Maps menu drawer style) */}
-      <div className="w-80 sm:w-96 bg-white h-full shadow-level-4 flex flex-col overflow-hidden animate-in slide-in-from-left duration-300 border-r border-border-subtle">
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      labelledBy="side-drawer-title"
+      backdropClassName="bg-slate-950/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
+      overlayClassName="z-50"
+      alignClassName="items-stretch justify-start"
+      panelClassName="w-80 sm:w-96 bg-white h-full shadow-level-4 animate-in slide-in-from-left duration-300 border-r border-border-subtle"
+    >
         {/* Header with DevParadise Brand Banner */}
         <div className="p-5 bg-navy text-white flex items-start justify-between border-b border-slate-800">
           <div className="flex items-center gap-3">
@@ -68,7 +70,7 @@ export default function GoogleMapsSideDrawer({
               </div>
             </div>
             <div>
-              <h2 className="text-base font-extrabold text-white font-display flex items-center gap-1.5">
+              <h2 id="side-drawer-title" className="text-base font-extrabold text-white font-display flex items-center gap-1.5">
                 <span>¿Dónde Pago?</span>
                 <span className="text-emerald-400">Cuba</span>
               </h2>
@@ -78,9 +80,10 @@ export default function GoogleMapsSideDrawer({
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-900 transition-colors"
+            aria-label="Cerrar menú"
+            className="flex h-11 w-11 items-center justify-center rounded-xl text-slate-400 hover:text-white hover:bg-slate-900 transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -289,7 +292,6 @@ export default function GoogleMapsSideDrawer({
           <p className="font-semibold text-slate-600">¿Dónde Pago? Cuba</p>
           <p className="text-[11px] text-slate-400 mt-0.5">Ecosistema DevParadise © 2026</p>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

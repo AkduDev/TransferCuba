@@ -329,3 +329,93 @@ inaccesibles, y el placeholder local siempre es más rápido.
   abren `GoogleMapsTopBar` (botón "Cuenta") y `GoogleMapsSideDrawer`.
 - **Sin BD → 503** (a propósito): no hay fallback in-memory para cuentas.
 - **Mensajería/delivery**: plan completo en `docs/messaging-module.md`.
+
+## Modales accesibles (`ModalShell`)
+
+Los siete modales y el cajón lateral repetían el mismo `div` de capa (`fixed inset-0` + panel
+blanco) copiado a mano, sin semántica de diálogo: ni `role`, ni `aria-modal`,
+ni cierre con `Escape`, ni trampa de foco, ni clic en el fondo. El foco se
+quedaba detrás, sobre el mapa, y quien navega con teclado no tenía salida.
+
+`components/ModalShell.tsx` centraliza esa carcasa. Sin dependencias nuevas
+(regla del proyecto): todo se resuelve con `node`-free DOM APIs y refs.
+
+### Qué aporta
+
+- `role="dialog"`, `aria-modal="true"` y `aria-labelledby` obligatorio: el
+  diálogo se anuncia con su título en vez de leerse como un `div` suelto.
+- Cierre con `Escape` y con clic en el fondo. El clic solo cuenta si el gesto
+  **empieza y termina** sobre la capa, para no cerrar al arrastrar una
+  selección desde dentro del panel hacia fuera.
+- Trampa de foco cíclica con `Tab`/`Shift+Tab`, foco inicial en el panel
+  (`tabIndex={-1}`) para que el lector anuncie el título, y devolución del
+  foco al elemento que abrió el modal cuando se cierra.
+- Bloqueo del scroll de `body` mientras haya algún modal abierto.
+
+### Pila de modales
+
+Dos modales pueden coexistir: el de mensajería y el de envíos abren el de
+cuenta (`onOpenAuth`) **sin cerrarse**. Una pila a nivel de módulo resuelve
+quién manda:
+
+- Solo el diálogo del tope responde a `Escape`, atrapa el foco y acepta el
+  clic en el fondo. Sin la pila, un `Escape` cerraría los dos a la vez
+  (`stopPropagation` no detiene a otros listeners del mismo nodo en la misma
+  fase; haría falta `stopImmediatePropagation`, que sería peor).
+- El `overflow` original de `body` se guarda solo al pasar de 0 a 1 modal y se
+  restaura al volver a 0. Guardarlo por instancia hacía que el segundo modal
+  memorizara `hidden` y lo dejara puesto al cerrarse.
+
+### Cómo se usa
+
+```tsx
+<ModalShell
+  isOpen={isOpen}
+  onClose={onClose}
+  labelledBy="delivery-modal-title"       // id de un elemento real del árbol
+  describedBy="delivery-modal-subtitle"   // opcional
+  backdropClassName="bg-navy-deep/60 backdrop-blur-sm"  // opcional
+  overlayClassName="z-[60] p-3 sm:p-5"    // z-index y padding de la capa
+  panelClassName="bg-white rounded-xl ... max-w-lg max-h-[94dvh]"
+>
+  {/* cabecera + cuerpo del modal */}
+</ModalShell>
+```
+
+`backdropClassName` está separado de `overlayClassName` a propósito: las clases
+de Tailwind resuelven por orden en el CSS, no por orden en el atributo, así que
+`RegisterBusinessModal` no podría sobrescribir el fondo por defecto pasando
+`bg-navy-deep/60` en la misma cadena. El componente ya aporta
+`flex flex-col overflow-hidden` al panel, así que no hay que repetirlos.
+
+### Cajón lateral
+
+`GoogleMapsSideDrawer` es el mismo patrón (scrim + panel) pero anclado a la
+izquierda, así que `alignClassName` desacopla la colocación del panel:
+`items-stretch justify-start` en vez del `items-center justify-center
+overflow-y-auto` por defecto. Su `div` espaciador con `flex-1` y `onClick`
+desaparece — el clic en el fondo ya lo gestiona la carcasa.
+
+### Qué NO envuelve
+
+La vista `pick` de `GoogleMapsDeliveryModal` (banner de "haz clic en el mapa")
+**no** es un diálogo: es una capa `pointer-events-none` en z-40 cuyo propósito
+es dejar pasar el clic al mapa. Envolverla bloquearía justo lo que tiene que
+permitir. Por eso ese componente conserva su `if (!isOpen) return null` y su
+rama temprana.
+
+### Foco visible
+
+El anillo de foco vive en `app/globals.css`, en `@layer base`, con `:where(...)`
+para que la especificidad quede en 0 y cualquier componente pueda
+sobrescribirlo. Usa `--color-cerulean`: 4,09:1 sobre blanco y 3,62:1 sobre
+navy, por encima del 3:1 que WCAG 1.4.11 exige a un indicador de foco en las
+dos superficies del proyecto.
+
+### Deuda restante
+
+- Los modales de la pila inferior no se marcan `inert`, así que un lector de
+  pantalla todavía puede recorrerlos. La trampa de foco cubre el teclado, no la
+  navegación por objetos del lector.
+- El `backdrop-blur` a pantalla completa recompone el canvas de MapLibre
+  mientras el modal está abierto; medible en gama baja Android.

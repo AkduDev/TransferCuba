@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import ModalShell from '@/components/ModalShell';
 import { 
   X, 
   MapPin, 
@@ -58,30 +59,32 @@ export default function GoogleMapsFiltersModal({
   onResetFilters,
   totalResults
 }: GoogleMapsFiltersModalProps) {
-  if (!isOpen) return null;
-
   const currentProvinceData = CUBAN_PROVINCES.find(p => p.name === selectedProvince);
   const municipalities = currentProvinceData ? currentProvinceData.municipalities : [];
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 transition-opacity animate-in fade-in duration-200">
-      <div 
-        className="w-full max-w-lg bg-white rounded-lg sm:rounded-xl shadow-level-4 border border-border-subtle flex flex-col max-h-[90dvh] sm:max-h-[85vh] overflow-hidden animate-in zoom-in-95 duration-200"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      labelledBy="filters-modal-title"
+      backdropClassName="bg-slate-950/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
+      overlayClassName="z-50 p-3 sm:p-4"
+      panelClassName="w-full max-w-lg bg-white rounded-lg sm:rounded-xl shadow-level-4 border border-border-subtle max-h-[90dvh] sm:max-h-[85vh] animate-in zoom-in-95 duration-200"
+    >
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-border-subtle flex items-center justify-between bg-slate-50">
           <div className="flex items-center gap-2">
-            <SlidersHorizontal className="w-5 h-5 text-emerald-brand" />
-            <h3 className="font-extrabold text-text-primary font-display text-sm sm:text-base">
+            <SlidersHorizontal className="w-5 h-5 text-emerald-brand" aria-hidden="true" />
+            <h3 id="filters-modal-title" className="font-extrabold text-text-primary font-display text-sm sm:text-base">
               Filtros de Búsqueda
             </h3>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
+            aria-label="Cerrar filtros"
+            className="flex h-11 w-11 items-center justify-center rounded-xl text-slate-500 hover:text-slate-700 hover:bg-slate-200 transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -258,7 +261,6 @@ export default function GoogleMapsFiltersModal({
             Ver {totalResults} {totalResults === 1 ? 'resultado' : 'resultados'}
           </button>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

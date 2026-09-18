@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import ModalShell from '@/components/ModalShell';
 import { 
   X, 
   ShieldCheck, 
@@ -97,8 +98,6 @@ export default function AdminDashboardModal({
   const activeTransferNow = businesses.filter(b => b.transferActiveNow && b.status === 'active').length;
   const totalReported = businesses.filter(b => b.reportsCount > 0).length;
 
-  if (!isOpen) return null;
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
@@ -148,8 +147,13 @@ export default function AdminDashboardModal({
   });
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-2 sm:p-5 overflow-y-auto">
-      <div className="bg-white rounded-lg sm:rounded-xl shadow-level-4 border border-border-subtle/90 w-full max-w-4xl max-h-[94dvh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      labelledBy="admin-modal-title"
+      overlayClassName="z-50 p-2 sm:p-5"
+      panelClassName="bg-white rounded-lg sm:rounded-xl shadow-level-4 border border-border-subtle/90 w-full max-w-4xl max-h-[94dvh] sm:max-h-[90vh] animate-in fade-in zoom-in-95 duration-200"
+    >
         
         {/* =========================================================================
             VIEW 1: ADMIN LOGIN SCREEN (If not authenticated)
@@ -163,16 +167,16 @@ export default function AdminDashboardModal({
                   <Lock className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
                 <div>
-                  <h2 className="text-base sm:text-lg font-extrabold font-display text-white">Acceso de Administración</h2>
+                  <h2 id="admin-modal-title" className="text-base sm:text-lg font-extrabold font-display text-white">Acceso de Administración</h2>
                   <p className="text-[11px] sm:text-xs text-slate-400">TransferCuba · Moderación y Aprobación</p>
                 </div>
               </div>
               <button
                 onClick={onClose}
-                className="p-1.5 sm:p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-900 transition-colors"
-                title="Cerrar"
+                aria-label="Cerrar"
+                className="flex h-11 w-11 items-center justify-center rounded-xl text-slate-400 hover:text-white hover:bg-slate-900 transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5" aria-hidden="true" />
               </button>
             </div>
 
@@ -284,7 +288,7 @@ export default function AdminDashboardModal({
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                    <h2 className="text-base sm:text-lg font-extrabold font-display text-white">DevParadise Control Center</h2>
+                    <h2 id="admin-modal-title" className="text-base sm:text-lg font-extrabold font-display text-white">DevParadise Control Center</h2>
                     <span className="px-1.5 sm:px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                       Sesión Activa
                     </span>
@@ -791,7 +795,6 @@ export default function AdminDashboardModal({
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </ModalShell>
   );
 }

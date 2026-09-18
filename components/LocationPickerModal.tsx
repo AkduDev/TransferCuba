@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import ModalShell from '@/components/ModalShell';
 import { 
   X, 
   Navigation, 
@@ -60,11 +61,15 @@ export default function LocationPickerModal({
   onUseCurrentGps,
   isLocating
 }: LocationPickerModalProps) {
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-level-4 border border-border-subtle/90 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      labelledBy="location-picker-title"
+      describedBy="location-picker-subtitle"
+      overlayClassName="z-50 p-4"
+      panelClassName="bg-white rounded-xl shadow-level-4 border border-border-subtle/90 w-full max-w-md animate-in fade-in zoom-in-95 duration-200"
+    >
         {/* Header */}
         <div className="px-6 py-5 bg-navy text-white flex items-center justify-between border-b border-slate-800">
           <div className="flex items-center gap-3">
@@ -72,15 +77,16 @@ export default function LocationPickerModal({
               <Navigation className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-extrabold font-display text-white">Negocios Cerca de Mí</h2>
-              <p className="text-xs text-slate-400">Calcula la distancia a comercios con transferencia activa</p>
+              <h2 id="location-picker-title" className="text-base font-extrabold font-display text-white">Negocios Cerca de Mí</h2>
+              <p id="location-picker-subtitle" className="text-xs text-slate-400">Calcula la distancia a comercios con transferencia activa</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-900 transition-colors"
+            aria-label="Cerrar"
+            className="flex h-11 w-11 items-center justify-center rounded-xl text-slate-400 hover:text-white hover:bg-slate-900 transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -143,7 +149,6 @@ export default function LocationPickerModal({
             Cerrar
           </button>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

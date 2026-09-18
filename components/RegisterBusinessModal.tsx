@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import ModalShell from '@/components/ModalShell';
 import { 
   X, 
   Store, 
@@ -306,8 +307,6 @@ export default function RegisterBusinessModal({
                        paymentValidation.isValid && 
                        phoneValidation.isValid;
 
-  if (!isOpen) return null;
-
   const currentProvinceData = CUBAN_PROVINCES.find(p => p.name === province) || CUBAN_PROVINCES[0];
 
   const handleProvinceChange = (newProv: string) => {
@@ -382,26 +381,34 @@ export default function RegisterBusinessModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-navy-deep/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
-      <div className="bg-white rounded-lg shadow-level-4 border border-border-subtle w-full max-w-xl max-h-[94vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      labelledBy="register-modal-title"
+      describedBy="register-modal-subtitle"
+      backdropClassName="bg-navy-deep/60 backdrop-blur-sm"
+      overlayClassName="z-50 p-3 sm:p-5"
+      panelClassName="bg-white rounded-lg shadow-level-4 border border-border-subtle w-full max-w-xl max-h-[94vh] animate-in fade-in zoom-in-95 duration-200"
+    >
         {/* Header */}
         <div className="px-5 py-4 bg-navy text-white flex items-center justify-between flex-shrink-0">
           <div>
             <div className="flex items-center gap-2">
               <span className="p-1.5 rounded-lg bg-emerald-brand text-white text-xs">
-                <Store className="w-4 h-4" />
+                <Store className="w-4 h-4" aria-hidden="true" />
               </span>
-              <h2 className="text-lg font-bold">Registrar Negocio en TransferCuba</h2>
+              <h2 id="register-modal-title" className="text-lg font-bold">Registrar Negocio en TransferCuba</h2>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p id="register-modal-subtitle" className="text-xs text-slate-400 mt-0.5">
               Envía tu negocio para revisión. Un administrador lo aprobará para publicarlo en el mapa.
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            aria-label="Cerrar"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -1109,7 +1116,6 @@ export default function RegisterBusinessModal({
             </div>
           </div>
         </form>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

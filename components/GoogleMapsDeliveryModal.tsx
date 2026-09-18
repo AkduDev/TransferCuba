@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import ModalShell from '@/components/ModalShell';
 import {
   X,
   Package,
@@ -173,25 +174,35 @@ export default function GoogleMapsDeliveryModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-level-4 border border-border-subtle/90 w-full max-w-lg max-h-[94dvh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      labelledBy="delivery-modal-title"
+      describedBy="delivery-modal-subtitle"
+      overlayClassName="z-[60] p-3 sm:p-5"
+      panelClassName="bg-white rounded-xl shadow-level-4 border border-border-subtle/90 w-full max-w-lg max-h-[94dvh] animate-in fade-in zoom-in-95 duration-200"
+    >
         {/* Header */}
         <div className="px-4 sm:px-5 py-4 bg-navy text-white flex items-center justify-between border-b border-slate-800 flex-shrink-0">
           <div className="flex items-center gap-2.5 sm:gap-3">
             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-emerald-brand/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shadow-inner flex-shrink-0">
-              <Package className="w-4 h-4 sm:w-5 sm:h-5" />
+              <Package className="w-4 h-4 sm:w-5 sm:h-5" aria-hidden="true" />
             </div>
             <div>
-              <h2 className="text-base font-extrabold text-white font-display">
+              <h2 id="delivery-modal-title" className="text-base font-extrabold text-white font-display">
                 {view === 'success' ? 'Envío solicitado' : view === 'history' ? 'Mis envíos' : 'Pedir un envío'}
               </h2>
-              <p className="text-[11px] text-slate-400">
+              <p id="delivery-modal-subtitle" className="text-[11px] text-slate-400">
                 {view === 'history' ? `${deliveries.history.length} carreras` : 'Mensajería en Cuba'}
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-900 transition-colors">
-            <X className="w-5 h-5" />
+          <button
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="flex h-11 w-11 items-center justify-center rounded-xl text-slate-400 hover:text-white hover:bg-slate-900 transition-colors"
+          >
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -331,8 +342,7 @@ export default function GoogleMapsDeliveryModal({
             </button>
           </div>
         )}
-      </div>
-    </div>
+    </ModalShell>
   );
 }
 
