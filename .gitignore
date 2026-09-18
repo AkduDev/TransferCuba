@@ -24,3 +24,6 @@ skills-lock.json
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# especificación de la Fase 6: se trabaja en local, fuera del repositorio
+docs/messaging-phase-6.md
