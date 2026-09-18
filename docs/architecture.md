@@ -412,6 +412,43 @@ sobrescribirlo. Usa `--color-cerulean`: 4,09:1 sobre blanco y 3,62:1 sobre
 navy, por encima del 3:1 que WCAG 1.4.11 exige a un indicador de foco en las
 dos superficies del proyecto.
 
+### Pruebas end-to-end
+
+`e2e/modal-accesibilidad.spec.ts` fija el contrato de la carcasa con Playwright
+(`bun run test:e2e`). Se ejercita sobre el modal de filtros y el cajón lateral
+porque son las dos únicas superficies que abren **sin sesión**; el resto exige
+cuenta y dos de ellas además un rol concreto. Lo que se comprueba vive en la
+carcasa compartida, así que cubre a los ocho consumidores:
+
+- semántica (`role="dialog"`, `aria-modal`, nombre accesible vía `labelledBy`);
+- el foco entra al abrir y vuelve al disparador al cerrar con `Escape`;
+- 40 `Tab` y 40 `Shift+Tab` sin que el foco salga del diálogo;
+- anillo de foco real: `solid 2px rgb(2, 132, 199)` sobre el elemento activo;
+- clic en el fondo cierra, pero **arrastrar** desde dentro hasta el fondo no;
+- `body` bloquea el scroll al abrir y lo restaura al cerrar;
+- botón de cerrar ≥ 44×44 px;
+- el cajón queda pegado al borde izquierdo y a toda la altura.
+
+Dos decisiones de configuración que no son cosméticas:
+
+1. **`outputDir` fuera del proyecto** (`os.tmpdir()`). Escribir `test-results/`
+   dentro del árbol despierta al watcher de `next dev`, que recompila a mitad
+   de la suite y deja navegaciones colgadas hasta agotar el timeout. Costó dos
+   pruebas en rojo antes de localizarlo.
+2. **`workers: 1`**. Con el disco NTFS a ~11 MB/s, varios workers contra un
+   único `next dev` compiten por I/O; la ejecución en paralelo tardaba más
+   (3,7 min con 2 workers y 2 fallos) que en serie (1,5 min en verde).
+
+La suite corre contra `next dev`, no contra una build, por el mismo motivo de
+I/O. Las peticiones que no son del mismo origen (teselas, glifos, OSRM,
+Nominatim) se abortan desde el test para que sea hermética y no dependa de la
+red cubana ni de terceros.
+
+Una aserción tuvo que pasar a `expect.poll`: `transition-colors` de Tailwind
+incluye `outline-color`, así que leer el anillo de foco una sola vez justo tras
+el `Tab` cae a veces dentro de la transición de 150 ms y devuelve el
+`currentColor` de partida. El CSS era correcto; la prueba, intermitente.
+
 ### Deuda restante
 
 - Los modales de la pila inferior no se marcan `inert`, así que un lector de

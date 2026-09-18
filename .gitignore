@@ -18,3 +18,9 @@ public/workbox-*.js.map
 # agent skills (locales, no versionadas)
 .claude/
 skills-lock.json
+
+# playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

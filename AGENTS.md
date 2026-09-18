@@ -12,6 +12,7 @@ Gestor de paquetes: **Bun**. Documentación adicional en `docs/`.
 bun run dev      # servidor de desarrollo (localhost:3000)
 bun run build    # build de producción — verificar antes de terminar tareas grandes
 bun run lint     # ESLint — correr tras cambios de código
+bun run test:e2e # Playwright (accesibilidad de modales); levanta next dev solo
 bunx tsc --noEmit  # typecheck rápido
 ```
 
