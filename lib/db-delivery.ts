@@ -98,7 +98,9 @@ export function isDeliveryDbConfigured(): boolean {
 }
 
 function isDomainError(err: unknown): boolean {
-  return err instanceof InvalidTransitionError || err instanceof InvalidPricingError;
+  return err instanceof InvalidTransitionError ||
+    err instanceof InvalidPricingError ||
+    err instanceof InvalidMessengerApplicationError;
 }
 
 async function run<T>(fn: (pool: Pool) => Promise<T>): Promise<T> {
@@ -183,6 +185,13 @@ export class InvalidPricingError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'InvalidPricingError';
+  }
+}
+
+export class InvalidMessengerApplicationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidMessengerApplicationError';
   }
 }
 
@@ -551,6 +560,280 @@ export async function setMessengerProfileStatus(
     )
   );
   return res.rows[0] ?? null;
+}
+
+export interface MessengerApplication {
+  id: string;
+  userId: string;
+  name: string;
+  phone: string;
+  role: Role;
+  userStatus: 'active' | 'blocked';
+  vehicle: string;
+  serviceAreas: string[];
+  profileStatus: MessengerProfileStatus;
+  profileCreatedAt: string;
+  paymentId: string | null;
+  paymentAmountCup: number | null;
+  paymentStatus: PaymentStatus | null;
+  paymentReference: string | null;
+  paymentEvidenceNote: string | null;
+  paymentCreatedAt: string | null;
+}
+
+interface MessengerApplicationRow {
+  id: string;
+  user_id: string;
+  name: string;
+  phone: string;
+  role: Role;
+  user_status: 'active' | 'blocked';
+  vehicle: string;
+  service_areas: string[];
+  profile_status: MessengerProfileStatus;
+  profile_created_at: Date;
+  payment_id: string | null;
+  amount_cup: string | number | null;
+  payment_status: PaymentStatus | null;
+  reference: string | null;
+  evidence_note: string | null;
+  payment_created_at: Date | null;
+}
+
+function mapMessengerApplication(r: MessengerApplicationRow): MessengerApplication {
+  return {
+    id: r.id,
+    userId: r.user_id,
+    name: r.name,
+    phone: r.phone,
+    role: r.role,
+    userStatus: r.user_status,
+    vehicle: r.vehicle,
+    serviceAreas: Array.isArray(r.service_areas) ? r.service_areas.map(String) : [],
+    profileStatus: r.profile_status,
+    profileCreatedAt: r.profile_created_at.toISOString(),
+    paymentId: r.payment_id,
+    paymentAmountCup: toNum(r.amount_cup),
+    paymentStatus: r.payment_status,
+    paymentReference: r.reference,
+    paymentEvidenceNote: r.evidence_note,
+    paymentCreatedAt: r.payment_created_at?.toISOString() ?? null
+  };
+}
+
+const APPLICATION_COLUMNS = `
+  SELECT
+    p.id,
+    p.user_id,
+    u.name,
+    u.phone,
+    u.role,
+    u.status AS user_status,
+    p.vehicle,
+    p.service_areas,
+    p.status AS profile_status,
+    p.created_at AS profile_created_at,
+    pay.id AS payment_id,
+    pay.amount_cup,
+    pay.status AS payment_status,
+    pay.reference,
+    pay.evidence_note,
+    pay.created_at AS payment_created_at
+  FROM messengers_profiles p
+  JOIN users u ON u.id = p.user_id
+  LEFT JOIN LATERAL (
+    SELECT *
+    FROM messengers_payments mp
+    WHERE mp.messenger_id = p.user_id
+    ORDER BY mp.created_at DESC
+    LIMIT 1
+  ) pay ON true
+`;
+
+async function getMessengerApplication(
+  client: import('pg').Pool | import('pg').PoolClient,
+  userId: string
+): Promise<MessengerApplication | null> {
+  const res = await client.query<MessengerApplicationRow>(
+    `${APPLICATION_COLUMNS} WHERE p.user_id = $1`,
+    [userId]
+  );
+  return res.rows[0] ? mapMessengerApplication(res.rows[0]) : null;
+}
+
+export async function getMessengerApplicationById(userId: string): Promise<MessengerApplication | null> {
+  return run((pool) => getMessengerApplication(pool, userId));
+}
+
+export async function listMessengerApplications(status?: MessengerProfileStatus): Promise<MessengerApplication[]> {
+  return run(async (pool) => {
+    const res = await pool.query<MessengerApplicationRow>(
+      `${APPLICATION_COLUMNS} ${status ? 'WHERE p.status = $1' : ''} ORDER BY p.created_at ASC`,
+      status ? [status] : []
+    );
+    return res.rows.map(mapMessengerApplication);
+  });
+}
+
+export async function createMessengerApplication(input: {
+  userId: string;
+  vehicle: string;
+  serviceAreas: string[];
+  reference: string;
+}): Promise<{ profile: MessengerProfileRow; payment: MessengerPaymentRow }> {
+  return withClient(async (client) => {
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [input.userId]);
+
+    const profileRes = await client.query<MessengerProfileRow>(
+      'SELECT * FROM messengers_profiles WHERE user_id = $1 FOR UPDATE',
+      [input.userId]
+    );
+    const profile = profileRes.rows[0] ?? null;
+    if (profile?.status === 'ACTIVE' || profile?.status === 'SUSPENDED') {
+      throw new InvalidMessengerApplicationError('Ya existe un perfil de mensajero en gestión');
+    }
+
+    const paymentRes = await client.query<MessengerPaymentRow>(
+      `SELECT * FROM messengers_payments
+       WHERE messenger_id = $1
+       ORDER BY created_at DESC
+       LIMIT 1
+       FOR UPDATE`,
+      [input.userId]
+    );
+    const latestPayment = paymentRes.rows[0] ?? null;
+    if (latestPayment && ['PENDING', 'PAID', 'CONFIRMED'].includes(latestPayment.status)) {
+      throw new InvalidMessengerApplicationError('Ya hay una solicitud de alta en proceso');
+    }
+
+    const configRes = await client.query<{ messenger_fee_cup: string | number }>(
+      'SELECT messenger_fee_cup FROM platform_config WHERE id = 1'
+    );
+    const fee = Number(configRes.rows[0]?.messenger_fee_cup ?? 0);
+    if (!Number.isFinite(fee) || fee <= 0) {
+      throw new InvalidMessengerApplicationError('La tarifa de alta no está configurada');
+    }
+
+    let nextProfile: MessengerProfileRow;
+    if (profile) {
+      const updated = await client.query<MessengerProfileRow>(
+        `UPDATE messengers_profiles
+         SET vehicle = $2, service_areas = $3
+         WHERE user_id = $1
+         RETURNING *`,
+        [input.userId, input.vehicle, input.serviceAreas]
+      );
+      nextProfile = updated.rows[0];
+    } else {
+      const inserted = await client.query<MessengerProfileRow>(
+        `INSERT INTO messengers_profiles (user_id, vehicle, service_areas)
+         VALUES ($1, $2, $3)
+         RETURNING *`,
+        [input.userId, input.vehicle, input.serviceAreas]
+      );
+      nextProfile = inserted.rows[0];
+    }
+
+    const payment = await client.query<MessengerPaymentRow>(
+      `INSERT INTO messengers_payments (messenger_id, amount_cup, reference)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [input.userId, fee, input.reference]
+    );
+    return { profile: nextProfile, payment: payment.rows[0] };
+  });
+}
+
+export type MessengerReviewAction = 'confirm' | 'reject' | 'suspend' | 'activate';
+
+export async function reviewMessengerApplication(
+  userId: string,
+  action: MessengerReviewAction,
+  confirmedBy: string | null
+): Promise<MessengerApplication | null> {
+  return withClient(async (client) => {
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [userId]);
+    const profileRes = await client.query<MessengerProfileRow>(
+      'SELECT * FROM messengers_profiles WHERE user_id = $1 FOR UPDATE',
+      [userId]
+    );
+    const profile = profileRes.rows[0] ?? null;
+    if (!profile) throw new InvalidMessengerApplicationError('Solicitud de mensajería no encontrada');
+
+    if (action === 'confirm') {
+      if (profile.status !== 'PENDING') {
+        throw new InvalidMessengerApplicationError('La solicitud no está pendiente');
+      }
+      const paymentRes = await client.query<MessengerPaymentRow>(
+        `SELECT * FROM messengers_payments
+         WHERE messenger_id = $1
+         ORDER BY created_at DESC
+         LIMIT 1
+         FOR UPDATE`,
+        [userId]
+      );
+      const payment = paymentRes.rows[0] ?? null;
+      if (!payment || payment.status !== 'PENDING') {
+        throw new InvalidMessengerApplicationError('No hay un pago pendiente por confirmar');
+      }
+      await client.query(
+        `UPDATE messengers_payments
+         SET status = 'CONFIRMED', evidence_note = COALESCE($2, evidence_note),
+             confirmed_by = $3, confirmed_at = NOW()
+         WHERE id = $1`,
+        [payment.id, null, confirmedBy]
+      );
+      await client.query(
+        `UPDATE messengers_profiles
+         SET status = 'ACTIVE', active_since = COALESCE(active_since, NOW())
+         WHERE user_id = $1`,
+        [userId]
+      );
+      await client.query("UPDATE users SET role = 'MESSENGER' WHERE id = $1 AND status = 'active'", [userId]);
+    } else if (action === 'reject') {
+      if (profile.status !== 'PENDING') {
+        throw new InvalidMessengerApplicationError('La solicitud no está pendiente');
+      }
+      const paymentRes = await client.query<MessengerPaymentRow>(
+        `SELECT * FROM messengers_payments
+         WHERE messenger_id = $1
+         ORDER BY created_at DESC
+         LIMIT 1
+         FOR UPDATE`,
+        [userId]
+      );
+      const payment = paymentRes.rows[0] ?? null;
+      if (!payment || payment.status !== 'PENDING') {
+        throw new InvalidMessengerApplicationError('No hay un pago pendiente por rechazar');
+      }
+      await client.query(
+        `UPDATE messengers_payments
+         SET status = 'REJECTED', evidence_note = COALESCE($2, evidence_note),
+             confirmed_by = $3, confirmed_at = NOW()
+         WHERE id = $1`,
+        [payment.id, null, confirmedBy]
+      );
+      await client.query("UPDATE users SET role = CASE WHEN role = 'MESSENGER' THEN 'USER' ELSE role END WHERE id = $1", [userId]);
+    } else if (action === 'suspend') {
+      if (profile.status !== 'ACTIVE') {
+        throw new InvalidMessengerApplicationError('El perfil no está activo');
+      }
+      await client.query("UPDATE messengers_profiles SET status = 'SUSPENDED' WHERE user_id = $1", [userId]);
+    } else if (action === 'activate') {
+      if (profile.status !== 'SUSPENDED') {
+        throw new InvalidMessengerApplicationError('El perfil no está suspendido');
+      }
+      await client.query(
+        `UPDATE messengers_profiles
+         SET status = 'ACTIVE', active_since = COALESCE(active_since, NOW())
+         WHERE user_id = $1`,
+        [userId]
+      );
+      await client.query("UPDATE users SET role = 'MESSENGER' WHERE id = $1 AND status = 'active'", [userId]);
+    }
+
+    return getMessengerApplication(client, userId);
+  });
 }
 
 /* ---------------- messengers_payments ---------------- */

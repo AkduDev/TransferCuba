@@ -30,6 +30,7 @@ import { useBusinessActions } from '@/lib/hooks/useBusinessActions';
 import { useModals } from '@/lib/hooks/useModals';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useDeliveries } from '@/lib/hooks/useDeliveries';
+import { useMessengerApplication } from '@/lib/hooks/useMessengerApplication';
 
 const MapLibreMap = dynamic(() => import('@/components/MapLibreMap'), {
   ssr: false,
@@ -45,6 +46,7 @@ export default function Home() {
   const { toastMessage, showToast } = useToast();
   const vp = useMapViewport(showToast);
   const fl = useFilters(vp.centerOn, showToast);
+  const ui = useModals();
   const geo = useGeolocation(vp.centerOn, () => ui.setIsLocationModalOpen(false), showToast);
   const gc = useGeocoding(fl.searchQuery, fl.selectedProvince, fl.setSearchQuery, vp.centerOn, showToast);
   const data = useBusinessesData({
@@ -53,9 +55,9 @@ export default function Home() {
     userLocation: geo.userLocation
   });
   const actions = useBusinessActions({ setBusinesses: data.setBusinesses, syncMutation: data.syncMutation, applyToStates: data.applyToStates, userLocation: geo.userLocation, setUserLocation: geo.setUserLocation, setUserLocationName: geo.setUserLocationName, centerOn: vp.centerOn, mapRef: vp.mapRef, showToast });
-  const ui = useModals();
   const auth = useAuth();
   const deliveries = useDeliveries({ showToast, role: auth.user?.role ?? null });
+  const messengerApplication = useMessengerApplication({ isOpen: ui.isMessengerModalOpen, user: auth.user, onRoleChange: auth.refresh });
   const mapActiveTrip = deliveries.requesterActive ?? deliveries.messengerActive;
 
   const onSelectBiz = (b: Business) => { actions.handleSelectBusiness(b); ui.setIsDesktopPanelOpen(true); ui.setMobileSheetState('peek'); };
@@ -100,7 +102,7 @@ export default function Home() {
 
       <GoogleMapsDeliveryModal isOpen={ui.isDeliveryModalOpen} onClose={() => ui.setIsDeliveryModalOpen(false)} onOpenAuth={() => ui.setIsAuthModalOpen(true)} user={auth.user} userLocation={geo.userLocation} deliveries={deliveries} pickFromUserLocation={() => { if (geo.userLocation) deliveries.setPickupFromCoords(geo.userLocation); }} />
 
-      <GoogleMapsMessengerModal isOpen={ui.isMessengerModalOpen} onClose={() => ui.setIsMessengerModalOpen(false)} onOpenAuth={() => ui.setIsAuthModalOpen(true)} user={auth.user} deliveries={deliveries} />
+      <GoogleMapsMessengerModal isOpen={ui.isMessengerModalOpen} onClose={() => ui.setIsMessengerModalOpen(false)} onOpenAuth={() => ui.setIsAuthModalOpen(true)} user={auth.user} deliveries={deliveries} application={messengerApplication} />
     </main>
   );
 }

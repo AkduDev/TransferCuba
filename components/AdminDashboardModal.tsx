@@ -19,9 +19,11 @@ import {
   Clock, 
   EyeOff, 
   KeyRound, 
-  XCircle
+  XCircle,
+  Bike
 } from 'lucide-react';
 import { Business, CUBAN_PROVINCES } from '@/lib/cuba-data';
+import MessengerAdminPanel from '@/components/MessengerAdminPanel';
 
 interface AdminDashboardModalProps {
   isOpen: boolean;
@@ -69,7 +71,7 @@ export default function AdminDashboardModal({
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Dashboard state
-  const [filterTab, setFilterTab] = useState<'pending' | 'active' | 'all' | 'verified' | 'reported'>('pending');
+  const [filterTab, setFilterTab] = useState<'pending' | 'active' | 'all' | 'verified' | 'reported' | 'messengers'>('pending');
   const [selectedProvinceFilter, setSelectedProvinceFilter] = useState('all');
 
   // Verifica la sesión real contra el servidor cuando se abre el modal;
@@ -453,25 +455,43 @@ export default function AdminDashboardModal({
                 >
                   Reportes ({totalReported})
                 </button>
+
+                <button
+                  onClick={() => setFilterTab('messengers')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex-shrink-0 inline-flex items-center gap-1.5 ${
+                    filterTab === 'messengers'
+                      ? 'bg-cerulean text-white shadow-level-1'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  <Bike className="w-3.5 h-3.5" />
+                  Mensajeros
+                </button>
               </div>
 
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-xs text-slate-500 font-medium">Provincia:</span>
-                <select
-                  value={selectedProvinceFilter}
-                  onChange={(e) => setSelectedProvinceFilter(e.target.value)}
-                  className="text-xs py-1.5 px-3 rounded-lg border border-border-subtle/90 bg-white font-medium focus:ring-2 focus:ring-slate-900"
-                >
-                  <option value="all">Todas las provincias</option>
-                  {CUBAN_PROVINCES.map(p => (
-                    <option key={p.name} value={p.name}>{p.name}</option>
-                  ))}
-                </select>
-              </div>
+              {filterTab !== 'messengers' && (
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="text-xs text-slate-500 font-medium">Provincia:</span>
+                  <select
+                    value={selectedProvinceFilter}
+                    onChange={(e) => setSelectedProvinceFilter(e.target.value)}
+                    className="text-xs py-1.5 px-3 rounded-lg border border-border-subtle/90 bg-white font-medium focus:ring-2 focus:ring-slate-900"
+                  >
+                    <option value="all">Todas las provincias</option>
+                    {CUBAN_PROVINCES.map(p => (
+                      <option key={p.name} value={p.name}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
-            {/* List of Businesses (Dual responsive view) */}
-            <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-slate-50/50">
+            {filterTab === 'messengers' ? (
+              <MessengerAdminPanel />
+            ) : (
+              <>
+                {/* List of Businesses (Dual responsive view) */}
+                <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-slate-50/50">
               {filteredList.length === 0 ? (
                 <div className="text-center py-16 px-4 bg-white rounded-lg border border-border-subtle space-y-2">
                   <div className="w-12 h-12 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
@@ -751,6 +771,8 @@ export default function AdminDashboardModal({
                 </>
               )}
             </div>
+            </>
+          )}
 
             {/* Footer */}
             <div className="px-6 py-4 bg-slate-50 border-t border-border-subtle/90 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
