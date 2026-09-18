@@ -387,6 +387,21 @@ arquitectura de arriba está diseñada para que cada pieza sea reemplazable.
 - [x] **Payload ligero de mapa — `GET /api/businesses?map=true`**: nuevo `queryBusinessesMap` en `lib/db.ts` (DTO `MapBusiness`: id/name/category/lat/lng/transferActiveNow/transferVerified/featured) que reutiliza `buildBusinessesWhere` (WHERE compartido con la lista completa: filtros + bbox + distancia, sin SQL duplicado). El detalle completo se queda en `GET /api/businesses/[id]` (a petición del usuario no cargar todo el negocio en el viewport). La frontend sigue consumiendo `Business[]`; el cutover del mapa a este payload queda como fase posterior. Verificado: 11 negocios activos, bbox Habana Vieja → 4, `lat/lng` ordena por distancia; tsc 0 errores.
 - [x] **Cierre del plan V2 (docs)**: los 7 checkboxes del Sprint 1 (Fase 0: 0.1-0.7) quedan marcados con referencia al sprint real donde se ejecutaron (10-11: índices canónicos, query fusionada, circuit breaker, SELECT explícito, validación estricta, UUID, fallback solo-dev). Fase 5 Zod resuelta como **no añadir zod** (validación manual ya cubre POST/GET/PATCH; AGENTS.md desaconseja deps no necesarias); los esquemas quedan como referencia en el plan por si la validación crece.
 
+### Próxima tarea — Mensajería Fase 6
+
+- [ ] **Historial paginado**: `GET /api/deliveries/history` role-aware para solicitante,
+      mensajero y administración; mantener `GET /api/deliveries` como alias compatible.
+- [ ] **Valoraciones de entrega**: tabla `delivery_reviews`, creación única por
+      `(delivery_id, requester_id)`, rating 1–5, comentario opcional y moderación admin.
+- [ ] **Agregados de mensajero**: rating promedio, conteo de valoraciones y entregas
+      completadas; `messengers_profiles.rating`/`completed_orders` como caché derivada.
+- [ ] **Eventos en vivo**: `GET /api/deliveries/stream` con SSE autenticado, cursores,
+      latidos y reconexión; polling actual como fallback.
+- [ ] **UI completa**: historial y valoración en `GoogleMapsDeliveryModal`, historial y
+      estadísticas en `GoogleMapsMessengerModal`, actualización del mapa sin recarga.
+- [ ] Especificación técnica, contratos, seguridad y criterios de aceptación en
+      [`docs/messaging-phase-6.md`](messaging-phase-6.md).
+
 ### Deuda técnica vista en Sprint 9 (ordenada por prioridad)
 - [x] **DB caída en dev**: `queryBusinesses` en `lib/db.ts` lanzaba `ECONNRESET`
       y caía siempre al store in-memory. **Diagnóstico (Sprint 10)**: TCP a

@@ -131,6 +131,32 @@ Definido en `db/migrate_delivery.sql`, DAO en `lib/db-delivery.ts`.
 - **`delivery_status_events`**: auditoría de transiciones.
 - **`messengers_payments`**: ledger del alta (`PENDING|PAID|CONFIRMED|REJECTED`).
 
+### Próxima fase — valoraciones de entrega
+
+La Fase 6 añade `delivery_reviews` para valorar al mensajero después de una entrega:
+
+```sql
+CREATE TABLE IF NOT EXISTS delivery_reviews (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  delivery_id UUID NOT NULL REFERENCES delivery_requests(id) ON DELETE CASCADE,
+  requester_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  messenger_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  rating SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  comment TEXT,
+  status TEXT NOT NULL DEFAULT 'active'
+    CHECK (status IN ('active', 'hidden', 'removed')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (delivery_id, requester_id)
+);
+```
+
+Solo el solicitante de una carrera `DELIVERED` puede crear la valoración. El backend
+verifica ownership, estado terminal y unicidad; administración puede ocultar,
+restaurar o eliminar lógicamente el registro. `messengers_profiles.rating` y
+`completed_orders` son cachés derivadas de `delivery_reviews` y `delivery_requests`.
+La especificación completa está en [`docs/messaging-phase-6.md`](messaging-phase-6.md).
+
 Transiciones regidas por `ALLOWED_TRANSITIONS` (PENDING→ACCEPTED/CANCELLED/
 EXPIRED; ACCEPTED→PICKED_UP/CANCELLED; PICKED_UP→IN_TRANSIT;
 IN_TRANSIT→DELIVERED; terminales el resto). Expiración lazy a 15 min.

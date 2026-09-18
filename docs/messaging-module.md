@@ -14,8 +14,8 @@ dependencias.
 | 2 | Solicitud de carrera: estimate, crear, historial, GET [id] | ✅ backend | ✅ UI | ✅ completo (Sprint 13) |
 | 3 | Matching mensajero: available, accept, steps, cancel, trust | ✅ backend | ✅ UI | ✅ completo (Sprint 13) |
 | 4 | Tracking en mapa + transición de estados | ✅ backend | ✅ UI | ✅ completo (Sprint 14) |
-| 5 | Alta pagada de mensajeros (tarifa + captura WhatsApp) | ⏳ pendiente | ⏳ pendiente | — |
-| 6 | Historial de carreras, valoraciones, polling → SSE | ⏳ pendiente | ⏳ pendiente | — |
+| 5 | Alta pagada de mensajeros (tarifa + captura WhatsApp) | ✅ backend | ✅ UI | ✅ completo (commit f73567d) |
+| 6 | Historial de carreras, valoraciones, polling → SSE | ⏳ próxima tarea | ⏳ próxima tarea | [Especificación completa](messaging-phase-6.md) |
 
 ---
 
@@ -213,6 +213,19 @@ Sin cambios de backend: reutiliza `/api/deliveries` (GET role-aware) y
 
 ---
 
+## Fase 5 — Alta pagada de mensajeros (completo, commit f73567d)
+
+- El solicitante consulta la configuración de alta mediante `GET /api/messenger/apply`
+  y envía vehículo, zonas de servicio y referencia de pago mediante `POST`.
+- El backend crea `messengers_profiles` en `PENDING` y un pago
+  `messengers_payments` en `PENDING`; el comprobante se gestiona por WhatsApp.
+- Administración configura tarifa/tarjeta/WhatsApp en `/api/admin/platform`, lista
+  solicitudes en `/api/admin/messengers` y confirma, rechaza, suspende o reactiva
+  en `/api/admin/messengers/[userId]`.
+- Confirmar un pago cambia el perfil a `ACTIVE` y el rol de usuario a `MESSENGER`.
+- UI: `lib/hooks/useMessengerApplication.ts`, `MessengerAdminPanel` y el flujo de
+  alta dentro de `GoogleMapsMessengerModal`.
+
 ## Fases siguientes (resumen)
 
 - **Fase 5 (alta pagada)**: admin fija costo en CUP (`messenger_fee_cup`) y
@@ -220,7 +233,10 @@ Sin cambios de backend: reutiliza `/api/deliveries` (GET role-aware) y
   captura de la transferencia por WhatsApp al admin** (comprobante EXTERNO,
   sin subida de imágenes). El admin confirma → `approved` +
   `users.role='MESSENGER'`. Correo/escalado quedan como paso manual.
-- **Fase 6**: historial + valoraciones; migrar polling a SSE (defer).
+- **Fase 6 (próxima tarea)**: historial paginado para solicitante y mensajero,
+  valoración del mensajero tras una entrega `DELIVERED`, agregados de rendimiento
+  y eventos en vivo por SSE. El polling actual de 12/15 s queda como fallback.
+  Especificación técnica completa en [`docs/messaging-phase-6.md`](messaging-phase-6.md).
 
 ---
 
