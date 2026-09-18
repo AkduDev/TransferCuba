@@ -1,4 +1,5 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
+import { aislarDeLaRed } from './fixtures/red';
 
 /**
  * Contrato de accesibilidad de `components/ModalShell.tsx`.
@@ -12,15 +13,6 @@ import { test, expect, type Locator, type Page } from '@playwright/test';
  */
 
 const CERULEAN = 'rgb(2, 132, 199)'; // --color-cerulean, el anillo de foco
-
-/** Deja fuera lo que no es del mismo origen: teselas, glifos, OSRM, Nominatim. */
-async function aislarDeLaRed(page: Page) {
-  await page.route('**/*', (route) => {
-    const url = new URL(route.request().url());
-    const esLocal = url.hostname === '127.0.0.1' || url.hostname === 'localhost';
-    return esLocal ? route.continue() : route.abort();
-  });
-}
 
 async function abrir(page: Page, nombreDelBoton: string): Promise<{ trigger: Locator; dialog: Locator }> {
   const trigger = page.getByRole('button', { name: nombreDelBoton }).filter({ visible: true }).first();

@@ -43,6 +43,13 @@ export default defineConfig({
     command: `bunx next dev -p ${PORT}`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
-    timeout: 180_000
+    timeout: 180_000,
+
+    // Si hay base de pruebas, el servidor habla con ella y no con la de
+    // `.env.local`. `@next/env` no pisa una variable que ya exista en
+    // process.env, así que esto gana sobre el fichero.
+    env: process.env.E2E_DATABASE_URL
+      ? { DATABASE_URL: process.env.E2E_DATABASE_URL }
+      : {}
   }
 });

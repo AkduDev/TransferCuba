@@ -444,6 +444,49 @@ I/O. Las peticiones que no son del mismo origen (teselas, glifos, OSRM,
 Nominatim) se abortan desde el test para que sea hermética y no dependa de la
 red cubana ni de terceros.
 
+#### Fixture de cuenta de prueba
+
+`e2e/fixtures/cuenta.ts` da de alta una cuenta y deja su sesión puesta en el
+contexto del navegador. Lo usa `e2e/mensajeria.spec.ts`, que necesita rol
+`MESSENGER` con perfil `ACTIVE` para llegar al tablón.
+
+- **El alta va por `POST /api/account/register`**, no por SQL: así se ejercita
+  el endpoint real y la cookie `tc_session` llega sola al navegador, porque
+  `page.request` comparte almacenamiento con el contexto.
+- **La promoción de rol y el borrado sí van por SQL**, porque no hay endpoint
+  público para ninguna de las dos cosas. Para `MESSENGER` se inserta además el
+  perfil en `ACTIVE`; por la vía normal haría falta pago y aprobación de
+  administración.
+- **Se borra sola**, pase o falle la prueba. El orden importa:
+  `delivery_requests.requester_id` es `ON DELETE RESTRICT`, así que las carreras
+  van antes que el usuario; `sessions`, `messengers_profiles` y
+  `messengers_payments` caen por cascada.
+- Los teléfonos llevan el prefijo `5550` para reconocer restos si alguna vez
+  falla el teardown.
+
+**Nunca escribe en la base de la aplicación.** Exige `E2E_DATABASE_URL`, y sin
+ella el fichero entero se salta con un motivo explícito. Como el proyecto vive
+en Neon, lo natural es una **rama** de `neondb` (`neonctl branches create`),
+que nace con el esquema puesto y se tira al terminar:
+
+```bash
+E2E_DATABASE_URL='postgresql://…@ep-…/neondb?sslmode=require' bun run test:e2e
+```
+
+`playwright.config.ts` pasa ese valor como `DATABASE_URL` al `next dev` que
+levanta; `@next/env` no pisa una variable que ya exista en `process.env`, así
+que gana sobre `.env.local`.
+
+Verificado end-to-end contra un PostGIS desechable: 18/18 en verde y la base
+limpia después (`users=0 sessions=0 perfiles=0 carreras=0`).
+
+Aviso al montar una base desde cero: `db/schema.sql` **no se aplica entero** en
+PostgreSQL 16 limpio. El índice parcial de `business_promotions` (líneas
+166-167) usa `NOW()` en el predicado y falla con *«functions in index predicate
+must be marked IMMUTABLE»*. Todo lo anterior sí se crea, y las migraciones de
+auth y delivery se aplican sin problema, así que no afecta a estas pruebas —
+pero el fichero no es reproducible tal cual.
+
 Una aserción tuvo que pasar a `expect.poll`: `transition-colors` de Tailwind
 incluye `outline-color`, así que leer el anillo de foco una sola vez justo tras
 el `Tab` cae a veces dentro de la transición de 150 ms y devuelve el
