@@ -163,8 +163,19 @@ CREATE TABLE IF NOT EXISTS business_promotions (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_business_promotions_business ON business_promotions (business_id);
-CREATE INDEX IF NOT EXISTS idx_business_promotions_active
-    ON business_promotions (business_id) WHERE active = TRUE AND ends_at IS NULL OR ends_at > NOW();
+-- El índice sirve a la subconsulta de `featured` de lib/db.ts:
+--   WHERE business_id = $1 AND type = 'featured'
+--     AND (ends_at IS NULL OR ends_at > NOW())
+--   ORDER BY priority DESC LIMIT 1
+-- Compuesto y sin predicado parcial, por dos motivos:
+--  1. NOW() no es IMMUTABLE y PostgreSQL lo rechaza en el predicado de un
+--     índice ("functions in index predicate must be marked IMMUTABLE"); la
+--     versión anterior hacía fallar db/schema.sql entero en una BD limpia.
+--  2. La consulta no filtra por `active` — lo devuelve como valor —, así que
+--     un índice parcial sobre `active = TRUE` no lo podría usar nunca.
+-- `priority DESC` deja las filas ya ordenadas para el LIMIT 1.
+CREATE INDEX IF NOT EXISTS idx_business_promotions_featured
+    ON business_promotions (business_id, type, priority DESC, ends_at);
 
 /* ===================== MVT — vector tiles (Sprint 5, Fase 4) =====================
    Genera el tile Web Mercator z/x/y como MVT con solo negocios activos.

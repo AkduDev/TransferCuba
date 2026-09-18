@@ -480,12 +480,9 @@ que gana sobre `.env.local`.
 Verificado end-to-end contra un PostGIS desechable: 18/18 en verde y la base
 limpia después (`users=0 sessions=0 perfiles=0 carreras=0`).
 
-Aviso al montar una base desde cero: `db/schema.sql` **no se aplica entero** en
-PostgreSQL 16 limpio. El índice parcial de `business_promotions` (líneas
-166-167) usa `NOW()` en el predicado y falla con *«functions in index predicate
-must be marked IMMUTABLE»*. Todo lo anterior sí se crea, y las migraciones de
-auth y delivery se aplican sin problema, así que no afecta a estas pruebas —
-pero el fichero no es reproducible tal cual.
+Montar la base desde cero destapó que `db/schema.sql` no se aplicaba entero en
+PostgreSQL 16 limpio; está corregido y verificado (ver *Índice de promociones*
+más abajo).
 
 Una aserción tuvo que pasar a `expect.poll`: `transition-colors` de Tailwind
 incluye `outline-color`, así que leer el anillo de foco una sola vez justo tras
@@ -499,3 +496,48 @@ el `Tab` cae a veces dentro de la transición de 150 ms y devuelve el
   navegación por objetos del lector.
 - El `backdrop-blur` a pantalla completa recompone el canvas de MapLibre
   mientras el modal está abierto; medible en gama baja Android.
+
+## Índice de promociones (`business_promotions`)
+
+`db/schema.sql` no se podía aplicar entero sobre un PostgreSQL 16 limpio. La
+definición original era:
+
+```sql
+CREATE INDEX IF NOT EXISTS idx_business_promotions_active
+  ON business_promotions (business_id)
+  WHERE active = TRUE AND ends_at IS NULL OR ends_at > NOW();
+```
+
+Tres problemas, de más grave a menos:
+
+1. **`NOW()` no es `IMMUTABLE`**, y PostgreSQL rechaza funciones no inmutables
+   en el predicado de un índice. La sentencia abortaba el fichero entero, así
+   que **todo lo que viene después nunca se creaba** — incluida la función
+   `get_businesses_mvt`, de la que dependen los vector tiles. Cualquier base
+   levantada desde `schema.sql` se quedaba sin ella.
+2. **Precedencia**: `AND` liga más fuerte que `OR`, así que el predicado se
+   agrupaba como `(active = TRUE AND ends_at IS NULL) OR (ends_at > NOW())`,
+   que incluye promociones **inactivas** con fecha futura. No era la intención.
+3. **No servía a ninguna consulta real**: las dos subconsultas de `featured` en
+   `lib/db.ts` no filtran por `active`, lo devuelven como valor, de modo que un
+   índice parcial sobre `active = TRUE` nunca podría usarse.
+
+La definición actual se deriva de la consulta que tiene que servir:
+
+```sql
+CREATE INDEX IF NOT EXISTS idx_business_promotions_featured
+  ON business_promotions (business_id, type, priority DESC, ends_at);
+```
+
+Sin predicado parcial, y con `priority DESC` en el índice para que el
+`ORDER BY priority DESC LIMIT 1` no necesite ordenar.
+
+`db/migrate_promotions_index.sql` aplica el cambio a bases existentes; es
+idempotente y el `DROP INDEX IF EXISTS` del índice viejo no hace nada cuando
+—lo normal— nunca llegó a crearse.
+
+Verificado sobre PostgreSQL 16 + PostGIS limpio: `schema.sql`, las tres
+migraciones y `seed.sql` se aplican sin error, `get_businesses_mvt` queda
+creada, y el plan de la subconsulta de `featured` usa el índice nuevo sin nodo
+`Sort` (comprobado con `enable_seqscan = off`, porque con 5 filas sembradas el
+planificador prefiere el seq scan por tamaño, no por forma del índice).
