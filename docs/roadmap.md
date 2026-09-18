@@ -387,6 +387,27 @@ arquitectura de arriba está diseñada para que cada pieza sea reemplazable.
 - [x] **Payload ligero de mapa — `GET /api/businesses?map=true`**: nuevo `queryBusinessesMap` en `lib/db.ts` (DTO `MapBusiness`: id/name/category/lat/lng/transferActiveNow/transferVerified/featured) que reutiliza `buildBusinessesWhere` (WHERE compartido con la lista completa: filtros + bbox + distancia, sin SQL duplicado). El detalle completo se queda en `GET /api/businesses/[id]` (a petición del usuario no cargar todo el negocio en el viewport). La frontend sigue consumiendo `Business[]`; el cutover del mapa a este payload queda como fase posterior. Verificado: 11 negocios activos, bbox Habana Vieja → 4, `lat/lng` ordena por distancia; tsc 0 errores.
 - [x] **Cierre del plan V2 (docs)**: los 7 checkboxes del Sprint 1 (Fase 0: 0.1-0.7) quedan marcados con referencia al sprint real donde se ejecutaron (10-11: índices canónicos, query fusionada, circuit breaker, SELECT explícito, validación estricta, UUID, fallback solo-dev). Fase 5 Zod resuelta como **no añadir zod** (validación manual ya cubre POST/GET/PATCH; AGENTS.md desaconseja deps no necesarias); los esquemas quedan como referencia en el plan por si la validación crece.
 
+### Suscripción de mensajero (hecho, previo a la Fase 6)
+
+- [x] **Validez temporal y renovación**: ser mensajero caduca. `platform_config`
+      gana `messenger_period_days` (30 por defecto) junto al importe, que pasa a
+      **300 CUP**; `messengers_profiles.expires_at` guarda el vencimiento y
+      `messengers_payments` gana `method` (efectivo/transferencia), `kind`
+      (alta/renovación) y `covers_days` congelado al crear el pago. Al confirmar,
+      `expires_at = GREATEST(expires_at, now()) + covers_days`: renovar pronto
+      suma los días restantes. Vencer no degrada la cuenta — conserva rol,
+      perfil e historial —, solo cierra el tablón (403 `subscriptionExpired`) y
+      el aceptar carreras; los pasos de una carrera ya aceptada siguen abiertos.
+      El panel de administración pasa a listar por **pago pendiente** en vez de
+      por estado de perfil, porque una renovación la pide un perfil ya ACTIVE y
+      quedaba invisible. Verificado con 10 pruebas de Playwright (incluidas dos
+      de responsive a 360 px) contra PostgreSQL 16 + PostGIS limpio; suite
+      completa 28/28.
+- [x] **Bug colateral corregido**: `useMessengerApplication` llamaba a
+      `res.json()` y después a `readError(res)`, que volvía a leer el mismo
+      cuerpo ya consumido — el mensaje real del servidor nunca llegaba a la UI y
+      siempre se veía el texto genérico.
+
 ### Próxima tarea — Mensajería Fase 6
 
 - [ ] **Historial paginado**: `GET /api/deliveries/history` role-aware para solicitante,

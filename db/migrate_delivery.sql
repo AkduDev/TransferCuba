@@ -167,3 +167,70 @@ INSERT INTO platform_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 -- columnas de "confianza" (Fase 3) para DBs creadas antes de esta adición
 ALTER TABLE delivery_requests ADD COLUMN IF NOT EXISTS trusted_by UUID REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE delivery_requests ADD COLUMN IF NOT EXISTS trusted_at TIMESTAMPTZ;
+-- ============================================================================
+-- Suscripción de mensajero (validez temporal y renovación)
+--
+-- Hasta aquí un alta confirmada valía para siempre. Ahora la condición de
+-- mensajero caduca: se paga un importe por un periodo, y al vencer deja de
+-- poder aceptar carreras hasta renovar. Importe y periodo los fija
+-- administración; el rol y el historial NO se tocan al vencer.
+-- ============================================================================
+
+-- Periodo de validez en días, junto al importe que ya existía.
+ALTER TABLE platform_config
+  ADD COLUMN IF NOT EXISTS messenger_period_days INTEGER NOT NULL DEFAULT 30;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'platform_period_valid'
+  ) THEN
+    ALTER TABLE platform_config
+      ADD CONSTRAINT platform_period_valid CHECK (messenger_period_days BETWEEN 1 AND 365);
+  END IF;
+END $$;
+
+-- Importe por defecto 300 CUP. Solo se toca el valor vivo si sigue siendo el
+-- default anterior (200): si administración ya lo cambió, se respeta.
+ALTER TABLE platform_config ALTER COLUMN messenger_fee_cup SET DEFAULT 300;
+UPDATE platform_config SET messenger_fee_cup = 300 WHERE id = 1 AND messenger_fee_cup = 200;
+
+-- Vencimiento de la suscripción. NULL = nunca activada.
+ALTER TABLE messengers_profiles
+  ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
+
+-- Los perfiles ya ACTIVE de antes de esta migración arrancan con un periodo
+-- completo desde ahora: nadie pierde el acceso por desplegar.
+UPDATE messengers_profiles
+   SET expires_at = NOW() + (
+         SELECT make_interval(days => messenger_period_days) FROM platform_config WHERE id = 1
+       )
+ WHERE status = 'ACTIVE' AND expires_at IS NULL;
+
+-- Barrido y listados de administración por vencimiento.
+CREATE INDEX IF NOT EXISTS idx_messengers_profiles_expires
+  ON messengers_profiles (status, expires_at);
+
+-- Método y naturaleza del pago. 'transferencia' por defecto porque es lo único
+-- que existía antes de esta migración.
+ALTER TABLE messengers_payments
+  ADD COLUMN IF NOT EXISTS method TEXT NOT NULL DEFAULT 'transferencia';
+ALTER TABLE messengers_payments
+  ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'alta';
+ALTER TABLE messengers_payments
+  ADD COLUMN IF NOT EXISTS covers_days INTEGER;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'messengers_payment_method_valid') THEN
+    ALTER TABLE messengers_payments
+      ADD CONSTRAINT messengers_payment_method_valid CHECK (method IN ('efectivo', 'transferencia'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'messengers_payment_kind_valid') THEN
+    ALTER TABLE messengers_payments
+      ADD CONSTRAINT messengers_payment_kind_valid CHECK (kind IN ('alta', 'renovacion'));
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_messengers_payments_pending
+  ON messengers_payments (messenger_id, created_at DESC) WHERE status = 'PENDING';

@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth';
-import { listAvailableDeliveries, DbUnavailableError, type DeliveryRequestRow } from '@/lib/db-delivery';
+import {
+  listAvailableDeliveries,
+  getMessengerProfile,
+  isMessengerSubscriptionActive,
+  DbUnavailableError,
+  type DeliveryRequestRow
+} from '@/lib/db-delivery';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,6 +44,19 @@ export async function GET(req: NextRequest) {
     );
   }
   try {
+    // El tablón muestra direcciones de recogida de clientes reales: no se
+    // sirve a quien tiene la suscripción vencida, aunque conserve el rol.
+    const profile = await getMessengerProfile(auth.user.id);
+    if (!isMessengerSubscriptionActive(profile)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Tu suscripción de mensajero venció. Renuévala para ver las carreras.',
+          subscriptionExpired: true
+        },
+        { status: 403 }
+      );
+    }
     const rows = await listAvailableDeliveries(30);
     return NextResponse.json({ success: true, deliveries: rows.map(toAvailableDTO) });
   } catch (err) {

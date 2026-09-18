@@ -47,12 +47,20 @@ export async function PATCH(req: NextRequest) {
     body.messengerPayCard === undefined ? undefined : String(body.messengerPayCard ?? '').trim();
   const messengerWhatsapp =
     body.messengerWhatsapp === undefined ? undefined : String(body.messengerWhatsapp ?? '').trim();
+  const messengerPeriodDays =
+    body.messengerPeriodDays === undefined ? undefined : Number(body.messengerPeriodDays);
 
   if (
     messengerFeeCup !== undefined &&
     (!Number.isFinite(messengerFeeCup) || messengerFeeCup < 0)
   ) {
     return err('La tarifa de alta debe ser un número positivo', 400);
+  }
+  if (
+    messengerPeriodDays !== undefined &&
+    (!Number.isInteger(messengerPeriodDays) || messengerPeriodDays < 1 || messengerPeriodDays > 365)
+  ) {
+    return err('El periodo de validez debe ser un entero entre 1 y 365 días', 400);
   }
   if (
     (messengerPayCard !== undefined && messengerPayCard.length > 80) ||
@@ -66,7 +74,8 @@ export async function PATCH(req: NextRequest) {
       {
         ...(messengerFeeCup !== undefined ? { messengerFeeCup } : {}),
         ...(messengerPayCard !== undefined ? { messengerPayCard } : {}),
-        ...(messengerWhatsapp !== undefined ? { messengerWhatsapp } : {})
+        ...(messengerWhatsapp !== undefined ? { messengerWhatsapp } : {}),
+        ...(messengerPeriodDays !== undefined ? { messengerPeriodDays } : {})
       },
       null
     );

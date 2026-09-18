@@ -4,6 +4,7 @@ import {
   transitionDelivery,
   getDeliveryRequest,
   getMessengerProfile,
+  isMessengerSubscriptionActive,
   trustDelivery,
   DbUnavailableError,
   InvalidTransitionError,
@@ -104,6 +105,12 @@ async function handleAccept(id: string, user: PublicUser, note: unknown) {
   const profile = await getMessengerProfile(user.id);
   if (!profile || profile.status !== 'ACTIVE') {
     return err('Tu perfil de mensajero está pendiente o suspendido', 403);
+  }
+  // La suscripción solo bloquea ACEPTAR carreras nuevas. Los pasos de una
+  // carrera ya aceptada (pick_up / in_transit / deliver) siguen permitidos:
+  // cortar a mitad dejaría el paquete de un cliente tirado por el camino.
+  if (!isMessengerSubscriptionActive(profile)) {
+    return err('Tu suscripción de mensajero venció. Renuévala para aceptar carreras.', 403);
   }
   const row = await transitionDelivery({
     id,

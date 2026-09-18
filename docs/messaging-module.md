@@ -226,6 +226,31 @@ Sin cambios de backend: reutiliza `/api/deliveries` (GET role-aware) y
 - UI: `lib/hooks/useMessengerApplication.ts`, `MessengerAdminPanel` y el flujo de
   alta dentro de `GoogleMapsMessengerModal`.
 
+### Suscripción con validez y renovación
+
+Ser mensajero caduca. Por defecto **300 CUP cada 30 días**, ambos configurables
+por administración (`messenger_fee_cup`, `messenger_period_days`).
+
+- **Pago en efectivo o por transferencia.** En transferencia se exige referencia
+  y se envía comprobante por WhatsApp; en efectivo se entrega en mano y la nota
+  es opcional. `messengers_payments.method` lo registra.
+- **Renovación**: la pide el propio mensajero desde el tablón, antes o después de
+  vencer. `kind = 'renovacion'`; el perfil **no** baja a `PENDING`, así que
+  mientras le queden días sigue trabajando aunque el pago esté por confirmar.
+- **Al confirmar**: `expires_at = GREATEST(expires_at, now()) + covers_days`, de
+  modo que renovar pronto no penaliza.
+- **Al vencer**: conserva rol, perfil e historial; pierde el tablón
+  (`GET /api/deliveries/available` → 403 `subscriptionExpired`) y la posibilidad
+  de aceptar (`PATCH /[id]` con `accept` → 403). Los pasos de una carrera ya
+  aceptada siguen permitidos.
+- **Avisos**: a 7 días o menos, una franja sobre el tablón con la fecha y los días
+  restantes; al vencer, la pantalla de renovación sustituye al tablón.
+- **Panel de administración**: lista por **pago pendiente**
+  (`GET /api/admin/messengers?pendingPayment=1`), no por estado de perfil — una
+  renovación la pide un perfil ya `ACTIVE` y filtrar por perfil la dejaba
+  invisible. Cada tarjeta muestra alta/renovación, método, vencimiento actual y
+  los días que suma al confirmar.
+
 ## Fases siguientes (resumen)
 
 - **Fase 5 (alta pagada)**: admin fija costo en CUP (`messenger_fee_cup`) y

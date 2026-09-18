@@ -15,10 +15,15 @@ export async function GET(req: NextRequest) {
 
   try {
     const status = req.nextUrl.searchParams.get('status');
+    // `pendingPayment=1` trae todo lo que espera revisión, sea alta (perfil
+    // PENDING) o renovación (perfil ACTIVE). Filtrar solo por estado del perfil
+    // dejaba las renovaciones fuera del panel.
+    const onlyPendingPayment = req.nextUrl.searchParams.get('pendingPayment') === '1';
     const applications = await listMessengerApplications(
       status === 'PENDING' || status === 'ACTIVE' || status === 'SUSPENDED'
         ? status
-        : undefined
+        : undefined,
+      onlyPendingPayment
     );
     return NextResponse.json({ success: true, applications });
   } catch (error) {

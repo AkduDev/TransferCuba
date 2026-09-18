@@ -7,9 +7,13 @@ import type { AuthRole } from '@/lib/hooks/useAuth';
 export type MessengerVehicle = 'pie' | 'bicicleta' | 'moto' | 'auto' | 'otro';
 export type MessengerProfileStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED';
 export type MessengerPaymentStatus = 'PENDING' | 'PAID' | 'CONFIRMED' | 'REJECTED';
+export type MessengerPaymentMethod = 'efectivo' | 'transferencia';
+export type MessengerPaymentKind = 'alta' | 'renovacion';
 
 export interface MessengerPlatformConfig {
   messengerFeeCup: number;
+  /** Días de validez que otorga un pago confirmado. */
+  messengerPeriodDays: number;
   messengerPayCard: string;
   messengerWhatsapp: string;
 }
@@ -21,6 +25,10 @@ export interface MessengerProfile {
   serviceAreas: string[];
   status: MessengerProfileStatus;
   activeSince: string | null;
+  /** Fin de la suscripción; null si nunca se activó. */
+  expiresAt: string | null;
+  daysLeft: number;
+  subscriptionActive: boolean;
   createdAt: string;
 }
 
@@ -28,6 +36,9 @@ export interface MessengerPayment {
   id: string;
   amountCup: number;
   status: MessengerPaymentStatus;
+  method: MessengerPaymentMethod;
+  kind: MessengerPaymentKind;
+  coversDays: number | null;
   reference: string | null;
   evidenceNote: string | null;
   createdAt: string;
@@ -37,7 +48,14 @@ export interface MessengerApplicationData {
   platform: MessengerPlatformConfig;
   profile: MessengerProfile | null;
   payments: MessengerPayment[];
+  /** Puede pedir el alta inicial. */
   applicationOpen: boolean;
+  /** Puede pagar una renovación (perfil ACTIVE y sin pago pendiente). */
+  renewalOpen: boolean;
+  pendingPayment: MessengerPayment | null;
+  subscriptionActive: boolean;
+  daysLeft: number;
+  expiresAt: string | null;
   isMessenger: boolean;
 }
 
@@ -45,6 +63,7 @@ export interface MessengerApplicationInput {
   vehicle: MessengerVehicle;
   serviceAreas: string[];
   reference: string;
+  method: MessengerPaymentMethod;
 }
 
 export interface UseMessengerApplicationOptions {
@@ -62,6 +81,9 @@ export interface UseMessengerApplicationState {
   submit: (input: MessengerApplicationInput) => Promise<boolean>;
 }
 
+/** Aviso cuando quedan pocos días, para que nadie se quede sin servicio de golpe. */
+export const DIAS_AVISO_RENOVACION = 7;
+
 interface ApplicationResponse {
   success?: boolean;
   platform?: MessengerPlatformConfig;
@@ -69,17 +91,23 @@ interface ApplicationResponse {
   payments?: MessengerPayment[];
   payment?: MessengerPayment;
   applicationOpen?: boolean;
+  renewalOpen?: boolean;
+  pendingPayment?: MessengerPayment | null;
+  subscriptionActive?: boolean;
+  daysLeft?: number;
+  expiresAt?: string | null;
+  kind?: MessengerPaymentKind;
   isMessenger?: boolean;
   error?: string;
 }
 
-async function readError(res: Response, fallback: string): Promise<string> {
-  try {
-    const body = (await res.json()) as ApplicationResponse;
-    return body.error ?? fallback;
-  } catch {
-    return fallback;
-  }
+/**
+ * El cuerpo ya viene leído por quien llama: `Response.json()` consume el
+ * stream y una segunda lectura lanza, de modo que el mensaje real del servidor
+ * se perdía y siempre se mostraba el texto genérico.
+ */
+function readError(body: ApplicationResponse | null, fallback: string): string {
+  return body?.error ?? fallback;
 }
 
 export function useMessengerApplication({
@@ -102,15 +130,20 @@ export function useMessengerApplication({
     setError(null);
     try {
       const res = await fetch('/api/messenger/apply', { cache: 'no-store' });
-      const body = (await res.json()) as ApplicationResponse;
-      if (!res.ok || !body.success || !body.platform) {
-        throw new Error(await readError(res, 'No se pudo cargar la solicitud'));
+      const body = (await res.json().catch(() => null)) as ApplicationResponse | null;
+      if (!res.ok || !body?.success || !body.platform) {
+        throw new Error(readError(body, 'No se pudo cargar la solicitud'));
       }
       const nextData: MessengerApplicationData = {
         platform: body.platform,
         profile: body.profile ?? null,
         payments: body.payments ?? [],
         applicationOpen: body.applicationOpen ?? (body.profile?.status !== 'ACTIVE'),
+        renewalOpen: body.renewalOpen ?? false,
+        pendingPayment: body.pendingPayment ?? null,
+        subscriptionActive: body.subscriptionActive ?? false,
+        daysLeft: body.daysLeft ?? 0,
+        expiresAt: body.expiresAt ?? null,
         isMessenger: body.isMessenger ?? user.role === 'MESSENGER'
       };
       setData(nextData);
@@ -146,14 +179,18 @@ export function useMessengerApplication({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(input)
         });
-        const body = (await res.json()) as ApplicationResponse;
-        if (!res.ok || !body.success) {
-          const message = await readError(res, 'No se pudo enviar la solicitud');
+        const body = (await res.json().catch(() => null)) as ApplicationResponse | null;
+        if (!res.ok || !body?.success) {
+          const message = readError(body, 'No se pudo enviar la solicitud');
           setError(message);
           showToast(message);
           return false;
         }
-        showToast('Solicitud enviada. El administrador revisará tu pago.');
+        showToast(
+          body.kind === 'renovacion'
+            ? 'Renovación enviada. El administrador revisará tu pago.'
+            : 'Solicitud enviada. El administrador revisará tu pago.'
+        );
         await refresh();
         return true;
       } catch (err) {

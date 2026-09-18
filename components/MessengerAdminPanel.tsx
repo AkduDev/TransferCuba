@@ -15,6 +15,8 @@ import {
   XCircle
 } from 'lucide-react';
 import type {
+  MessengerPaymentKind,
+  MessengerPaymentMethod,
   MessengerPaymentStatus,
   MessengerPlatformConfig,
   MessengerProfileStatus
@@ -31,9 +33,15 @@ interface MessengerApplicationDTO {
   serviceAreas: string[];
   profileStatus: MessengerProfileStatus;
   profileCreatedAt: string;
+  expiresAt: string | null;
+  daysLeft: number;
+  subscriptionActive: boolean;
   paymentId: string | null;
   paymentAmountCup: number | null;
   paymentStatus: MessengerPaymentStatus | null;
+  paymentMethod: MessengerPaymentMethod | null;
+  paymentKind: MessengerPaymentKind | null;
+  paymentCoversDays: number | null;
   paymentReference: string | null;
   paymentCreatedAt: string | null;
 }
@@ -56,6 +64,24 @@ function statusLabel(status: MessengerProfileStatus | null | undefined): string 
   return 'Pendiente';
 }
 
+function methodLabel(method: MessengerPaymentMethod | null | undefined): string {
+  if (method === 'efectivo') return 'Efectivo';
+  if (method === 'transferencia') return 'Transferencia';
+  return '—';
+}
+
+function kindLabel(kind: MessengerPaymentKind | null | undefined): string {
+  return kind === 'renovacion' ? 'Renovación' : 'Alta';
+}
+
+/** Vencimiento en claro: "vencida", "vence hoy", "quedan N días". */
+function expiryLabel(expiresAt: string | null, daysLeft: number): string {
+  if (!expiresAt) return 'Sin activar';
+  if (daysLeft <= 0) return 'Vencida';
+  if (daysLeft === 1) return 'Vence mañana';
+  return `Quedan ${daysLeft} días`;
+}
+
 function paymentLabel(status: MessengerPaymentStatus | null | undefined): string {
   if (status === 'CONFIRMED') return 'Confirmado';
   if (status === 'REJECTED') return 'Rechazado';
@@ -71,8 +97,14 @@ export default function MessengerAdminPanel() {
   const [actionUserId, setActionUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [form, setForm] = useState<{ messengerFeeCup: string; messengerPayCard: string; messengerWhatsapp: string }>({
+  const [form, setForm] = useState<{
+    messengerFeeCup: string;
+    messengerPeriodDays: string;
+    messengerPayCard: string;
+    messengerWhatsapp: string;
+  }>({
     messengerFeeCup: '',
+    messengerPeriodDays: '',
     messengerPayCard: '',
     messengerWhatsapp: ''
   });
@@ -83,7 +115,7 @@ export default function MessengerAdminPanel() {
     try {
       const [platformRes, applicationsRes] = await Promise.all([
         fetch('/api/admin/platform', { cache: 'no-store' }),
-        fetch('/api/admin/messengers?status=PENDING', { cache: 'no-store' })
+        fetch('/api/admin/messengers?pendingPayment=1', { cache: 'no-store' })
       ]);
       const platformBody = (await platformRes.json()) as { success?: boolean; platform?: MessengerPlatformConfig; error?: string };
       const applicationsBody = (await applicationsRes.json()) as { success?: boolean; applications?: MessengerApplicationDTO[]; error?: string };
@@ -97,6 +129,7 @@ export default function MessengerAdminPanel() {
       setApplications(applicationsBody.applications ?? []);
       setForm({
         messengerFeeCup: String(platformBody.platform.messengerFeeCup),
+        messengerPeriodDays: String(platformBody.platform.messengerPeriodDays),
         messengerPayCard: platformBody.platform.messengerPayCard,
         messengerWhatsapp: platformBody.platform.messengerWhatsapp
       });
@@ -124,6 +157,7 @@ export default function MessengerAdminPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messengerFeeCup: Number(form.messengerFeeCup),
+          messengerPeriodDays: Number(form.messengerPeriodDays),
           messengerPayCard: form.messengerPayCard,
           messengerWhatsapp: form.messengerWhatsapp
         })
@@ -207,16 +241,28 @@ export default function MessengerAdminPanel() {
           <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-600">Configuración de alta</h4>
         </div>
         {platform && (
-          <div className="grid sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <label className="space-y-1">
-              <span className="text-[11px] font-bold text-slate-600">Costo del alta (CUP)</span>
+              <span className="text-[11px] font-bold text-slate-600">Importe (CUP)</span>
               <input
                 type="number"
                 min="0"
                 step="1"
                 value={form.messengerFeeCup}
                 onChange={(e) => setForm({ ...form, messengerFeeCup: e.target.value })}
-                className="w-full rounded-lg border border-border-subtle bg-slate-50 px-3 py-2 text-sm font-semibold focus:ring-2 focus:ring-slate-900"
+                className="w-full min-h-11 rounded-lg border border-border-subtle bg-slate-50 px-3 py-2 text-sm font-semibold"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="text-[11px] font-bold text-slate-600">Validez (días)</span>
+              <input
+                type="number"
+                min="1"
+                max="365"
+                step="1"
+                value={form.messengerPeriodDays}
+                onChange={(e) => setForm({ ...form, messengerPeriodDays: e.target.value })}
+                className="w-full min-h-11 rounded-lg border border-border-subtle bg-slate-50 px-3 py-2 text-sm font-semibold"
               />
             </label>
             <label className="space-y-1">
@@ -224,7 +270,7 @@ export default function MessengerAdminPanel() {
               <input
                 value={form.messengerPayCard}
                 onChange={(e) => setForm({ ...form, messengerPayCard: e.target.value })}
-                className="w-full rounded-lg border border-border-subtle bg-slate-50 px-3 py-2 text-sm font-semibold focus:ring-2 focus:ring-slate-900"
+                className="w-full min-h-11 rounded-lg border border-border-subtle bg-slate-50 px-3 py-2 text-sm font-semibold"
               />
             </label>
             <label className="space-y-1">
@@ -232,7 +278,7 @@ export default function MessengerAdminPanel() {
               <input
                 value={form.messengerWhatsapp}
                 onChange={(e) => setForm({ ...form, messengerWhatsapp: e.target.value })}
-                className="w-full rounded-lg border border-border-subtle bg-slate-50 px-3 py-2 text-sm font-semibold focus:ring-2 focus:ring-slate-900"
+                className="w-full min-h-11 rounded-lg border border-border-subtle bg-slate-50 px-3 py-2 text-sm font-semibold"
               />
             </label>
           </div>
@@ -240,7 +286,7 @@ export default function MessengerAdminPanel() {
         <button
           onClick={() => void savePlatform()}
           disabled={isSaving || !platform}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-navy px-3 py-2 text-xs font-extrabold text-white hover:bg-slate-900 disabled:opacity-50 transition-colors"
+          className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-navy px-3 text-xs font-extrabold text-white hover:bg-slate-900 disabled:opacity-50 transition-colors sm:w-auto"
         >
           {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
           {isSaving ? 'Guardando...' : 'Guardar configuración'}
@@ -251,7 +297,7 @@ export default function MessengerAdminPanel() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-saffron" />
-            <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-600">Solicitudes pendientes</h4>
+            <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-600">Pagos por revisar</h4>
           </div>
           <span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-extrabold text-saffron border border-amber-200">
             {applications.length}
@@ -263,8 +309,8 @@ export default function MessengerAdminPanel() {
             <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
               <CheckCircle2 className="w-5 h-5" />
             </div>
-            <p className="text-sm font-extrabold text-text-primary">No hay solicitudes pendientes</p>
-            <p className="mt-1 text-xs">Las solicitudes de alta aparecerán aquí para revisión.</p>
+            <p className="text-sm font-extrabold text-text-primary">No hay pagos por revisar</p>
+            <p className="mt-1 text-xs">Las altas y las renovaciones aparecerán aquí para su confirmación.</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -278,8 +324,17 @@ export default function MessengerAdminPanel() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h5 className="text-sm font-extrabold text-text-primary truncate">{application.name}</h5>
-                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold text-saffron border border-amber-200">
-                          Pendiente
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold border ${
+                            application.paymentKind === 'renovacion'
+                              ? 'bg-cerulean/10 text-cerulean-dark border-cerulean/30'
+                              : 'bg-amber-100 text-saffron border-amber-200'
+                          }`}
+                        >
+                          {kindLabel(application.paymentKind)}
+                        </span>
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-extrabold text-slate-600 border border-border-subtle">
+                          {methodLabel(application.paymentMethod)}
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-500 mt-0.5 font-mono">{application.phone}</p>
@@ -295,18 +350,34 @@ export default function MessengerAdminPanel() {
                   </div>
                 </div>
 
-                <div className="rounded-lg bg-slate-50 border border-border-subtle p-2.5 grid sm:grid-cols-3 gap-2 text-[11px]">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Referencia</p>
-                    <p className="font-semibold text-slate-700 mt-0.5 break-words">{application.paymentReference ?? 'Sin referencia'}</p>
+                <div className="grid grid-cols-2 gap-2 rounded-lg border border-border-subtle bg-slate-50 p-2.5 text-[11px] sm:grid-cols-4">
+                  <div className="col-span-2 sm:col-span-1">
+                    <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
+                      {application.paymentMethod === 'efectivo' ? 'Nota' : 'Referencia'}
+                    </p>
+                    <p className="font-semibold text-slate-700 mt-0.5 break-words">
+                      {application.paymentReference || 'Sin indicar'}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Perfil</p>
+                    <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Perfil</p>
                     <p className="font-semibold text-slate-700 mt-0.5">{statusLabel(application.profileStatus)}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Pago</p>
-                    <p className="font-semibold text-slate-700 mt-0.5">{paymentLabel(application.paymentStatus)}</p>
+                    <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Suscripción</p>
+                    <p
+                      className={`font-semibold mt-0.5 ${
+                        application.expiresAt && !application.subscriptionActive ? 'text-crimson' : 'text-slate-700'
+                      }`}
+                    >
+                      {expiryLabel(application.expiresAt, application.daysLeft)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Al confirmar</p>
+                    <p className="font-semibold text-slate-700 mt-0.5">
+                      {application.paymentCoversDays ? `+${application.paymentCoversDays} días` : '—'}
+                    </p>
                   </div>
                 </div>
 
@@ -314,15 +385,15 @@ export default function MessengerAdminPanel() {
                   <button
                     onClick={() => void review(application.userId, 'confirm')}
                     disabled={actionUserId !== null}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-brand px-3 py-2 text-xs font-extrabold text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                    className="flex-1 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-emerald-brand px-3 text-xs font-extrabold text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
                   >
                     {actionUserId === application.userId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                    Confirmar alta
+                    {application.paymentKind === 'renovacion' ? 'Confirmar renovación' : 'Confirmar alta'}
                   </button>
                   <button
                     onClick={() => void review(application.userId, 'reject')}
                     disabled={actionUserId !== null}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-ez-border bg-ez-bg/40 px-3 py-2 text-xs font-extrabold text-crimson hover:bg-rose-100 disabled:opacity-50 transition-colors"
+                    className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-extrabold text-crimson hover:bg-rose-100 disabled:opacity-50 transition-colors"
                   >
                     {actionUserId === application.userId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
                     Rechazar
@@ -336,7 +407,10 @@ export default function MessengerAdminPanel() {
 
       <div className="flex items-center gap-2 rounded-lg border border-cerulean/20 bg-cerulean/5 p-3 text-[11px] text-slate-600">
         <MessageCircle className="w-4 h-4 text-cerulean shrink-0" />
-        <span>Los comprobantes se reciben por WhatsApp. Confirma solo después de verificar el pago en la cuenta configurada.</span>
+        <span>
+          Los comprobantes llegan por WhatsApp y el efectivo se entrega en mano. Confirma solo después de
+          verificar el pago; al confirmar se suman los días al periodo que le quede al mensajero.
+        </span>
       </div>
     </div>
   );

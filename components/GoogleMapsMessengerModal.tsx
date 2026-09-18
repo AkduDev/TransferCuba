@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { X, Bike, Loader2, MapPin, Package, Banknote, RefreshCw, User, CheckCircle2, CreditCard, MessageCircle, Send, AlertCircle, ClipboardCheck, Clock, XCircle } from 'lucide-react';
+import { X, Bike, Loader2, MapPin, Package, Banknote, RefreshCw, User, CheckCircle2, CreditCard, MessageCircle, Send, AlertCircle, ClipboardCheck, Clock, XCircle, CalendarClock, Wallet, TimerReset } from 'lucide-react';
 import ModalShell from '@/components/ModalShell';
 import {
   PACKAGE_TYPE_LABELS,
@@ -12,8 +12,11 @@ import {
   type PackageType
 } from '@/lib/delivery-client';
 import type { UseDeliveriesState } from '@/lib/hooks/useDeliveries';
+import { DIAS_AVISO_RENOVACION } from '@/lib/hooks/useMessengerApplication';
 import type {
   MessengerApplicationInput,
+  MessengerPaymentKind,
+  MessengerPaymentMethod,
   MessengerPlatformConfig,
   UseMessengerApplicationState
 } from '@/lib/hooks/useMessengerApplication';
@@ -82,6 +85,23 @@ function Waypoint({
   );
 }
 
+const METHOD_LABELS: Record<MessengerPaymentMethod, string> = {
+  transferencia: 'Transferencia',
+  efectivo: 'Efectivo'
+};
+
+/** "quedan 3 días" / "vence hoy" — el plural y el caso cero se dicen bien. */
+function diasRestantes(n: number): string {
+  if (n <= 0) return 'vencida';
+  if (n === 1) return 'queda 1 día';
+  return `quedan ${n} días`;
+}
+
+function fechaCorta(iso: string | null): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('es-CU', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
 const VEHICLE_LABELS: Record<MessengerApplicationInput['vehicle'], string> = {
   pie: 'A pie',
   bicicleta: 'Bicicleta',
@@ -98,52 +118,119 @@ function whatsappLink(value: string): string {
 function ApplicationForm({
   platform,
   isSubmitting,
+  kind,
+  defaults,
   onSubmit
 }: {
   platform: MessengerPlatformConfig;
   isSubmitting: boolean;
+  /** Cambia solo el texto: el servidor decide si es alta o renovación. */
+  kind: MessengerPaymentKind;
+  defaults?: { vehicle?: MessengerApplicationInput['vehicle']; serviceAreas?: string[] };
   onSubmit: (input: MessengerApplicationInput) => Promise<boolean>;
 }) {
-  const [vehicle, setVehicle] = React.useState<MessengerApplicationInput['vehicle']>('moto');
-  const [serviceAreas, setServiceAreas] = React.useState('');
+  const [vehicle, setVehicle] = React.useState<MessengerApplicationInput['vehicle']>(defaults?.vehicle ?? 'moto');
+  const [serviceAreas, setServiceAreas] = React.useState((defaults?.serviceAreas ?? []).join(', '));
   const [reference, setReference] = React.useState('');
+  const [method, setMethod] = React.useState<MessengerPaymentMethod>('transferencia');
+
+  const esRenovacion = kind === 'renovacion';
+  const esEfectivo = method === 'efectivo';
 
   return (
     <form onSubmit={async (e) => {
       e.preventDefault();
       const areas = serviceAreas.split(/[,\n]/).map((area) => area.trim()).filter(Boolean);
-      await onSubmit({ vehicle, serviceAreas: areas, reference });
+      await onSubmit({ vehicle, serviceAreas: areas, reference, method });
     }} className="space-y-3">
-      <div className="rounded-lg border border-border-subtle bg-slate-50 p-3 space-y-2">
+      <div className="rounded-lg border border-border-subtle bg-slate-50 p-3 space-y-2.5">
         <div className="flex items-center gap-2 text-xs font-extrabold text-slate-700">
-          <CreditCard className="w-4 h-4 text-cerulean" aria-hidden="true" />
-          Requisitos de alta
+          <CreditCard className="w-4 h-4 text-cerulean shrink-0" aria-hidden="true" />
+          {esRenovacion ? 'Renovar suscripción' : 'Requisitos de alta'}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-slate-600">
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-600">
           <div className="rounded-md bg-white border border-border-subtle p-2">
-            <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Costo</p>
-            <p className="font-black text-emerald-brand mt-0.5">{cup(platform.messengerFeeCup)}</p>
+            <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Importe</p>
+            <p className="font-black text-emerald-brand mt-0.5 text-sm">{cup(platform.messengerFeeCup)}</p>
           </div>
           <div className="rounded-md bg-white border border-border-subtle p-2">
-            <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Pago a</p>
-            <p className="font-semibold mt-0.5 break-words">{platform.messengerPayCard || 'No configurado'}</p>
+            <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Validez</p>
+            <p className="font-black text-slate-800 mt-0.5 text-sm">{platform.messengerPeriodDays} días</p>
           </div>
-          <div className="rounded-md bg-white border border-border-subtle p-2">
-            <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Comprobante</p>
+        </div>
+
+        <fieldset className="space-y-1.5">
+          <legend className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Forma de pago</legend>
+          <div className="grid grid-cols-2 gap-2">
+            {(Object.keys(METHOD_LABELS) as MessengerPaymentMethod[]).map((value) => {
+              const activo = method === value;
+              return (
+                <label
+                  key={value}
+                  className={`flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 text-xs font-extrabold transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-cerulean ${
+                    activo
+                      ? 'border-emerald-brand bg-emerald-50 text-emerald-700'
+                      : 'border-border-subtle bg-white text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="metodo-pago"
+                    value={value}
+                    checked={activo}
+                    onChange={() => setMethod(value)}
+                    className="sr-only"
+                  />
+                  {value === 'efectivo'
+                    ? <Wallet className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    : <CreditCard className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />}
+                  {METHOD_LABELS[value]}
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
+
+        {esEfectivo ? (
+          <div className="rounded-md bg-white border border-border-subtle p-2 text-[11px] text-slate-600">
+            <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Dónde pagar</p>
+            <p className="mt-0.5 leading-snug">
+              Entrega el efectivo al administrador y avísale por WhatsApp para que confirme tu pago.
+            </p>
             <a
               href={whatsappLink(platform.messengerWhatsapp)}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex min-h-11 items-center gap-1 font-semibold text-cerulean hover:underline"
+              className="mt-1 inline-flex min-h-11 items-center gap-1.5 font-extrabold text-cerulean hover:underline"
             >
-              <MessageCircle className="w-3 h-3" aria-hidden="true" />
-              WhatsApp
+              <MessageCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              Avisar por WhatsApp
             </a>
           </div>
-        </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-600">
+            <div className="rounded-md bg-white border border-border-subtle p-2">
+              <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Transferir a</p>
+              <p className="font-semibold mt-0.5 break-words">{platform.messengerPayCard || 'No configurado'}</p>
+            </div>
+            <div className="rounded-md bg-white border border-border-subtle p-2">
+              <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Comprobante</p>
+              <a
+                href={whatsappLink(platform.messengerWhatsapp)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-h-11 items-center gap-1.5 font-extrabold text-cerulean hover:underline"
+              >
+                <MessageCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                Enviar por WhatsApp
+              </a>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <label className="space-y-1">
           <span className="text-[11px] font-bold text-slate-600">Medio de transporte</span>
           <select
@@ -157,15 +244,18 @@ function ApplicationForm({
           </select>
         </label>
         <label className="space-y-1">
-          <span className="text-[11px] font-bold text-slate-600">Referencia del pago</span>
+          <span className="text-[11px] font-bold text-slate-600">
+            {esEfectivo ? 'Nota del pago (opcional)' : 'Referencia de la transferencia'}
+          </span>
           <input
             value={reference}
             onChange={(e) => setReference(e.target.value)}
-            placeholder="Ej. alta-mensajero-042"
+            placeholder={esEfectivo ? 'Ej. entregado en mano el 12/09' : 'Ej. alta-mensajero-042'}
             className="w-full min-h-11 rounded-lg border border-border-subtle bg-white px-3 py-2 text-sm font-semibold"
           />
         </label>
       </div>
+
       <label className="space-y-1 block">
         <span className="text-[11px] font-bold text-slate-600">Zonas de servicio</span>
         <textarea
@@ -176,13 +266,18 @@ function ApplicationForm({
           className="w-full rounded-lg border border-border-subtle bg-white px-3 py-2 text-sm font-semibold resize-none"
         />
       </label>
+
       <button
         type="submit"
         disabled={isSubmitting}
         className="w-full inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-emerald-brand px-4 py-2.5 text-xs font-extrabold text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
       >
         {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Send className="w-4 h-4" aria-hidden="true" />}
-        {isSubmitting ? 'Enviando solicitud...' : 'Enviar solicitud de alta'}
+        {isSubmitting
+          ? 'Enviando...'
+          : esRenovacion
+            ? `Renovar por ${platform.messengerPeriodDays} días`
+            : 'Enviar solicitud de alta'}
       </button>
     </form>
   );
@@ -194,41 +289,67 @@ function ApplicationPending({
   onRefresh
 }: {
   platform: MessengerPlatformConfig;
-  payment: { amountCup: number; reference: string | null; createdAt: string } | undefined;
+  payment:
+    | {
+        amountCup: number;
+        reference: string | null;
+        createdAt: string;
+        method?: MessengerPaymentMethod;
+        kind?: MessengerPaymentKind;
+        coversDays?: number | null;
+      }
+    | undefined;
   onRefresh: () => void;
 }) {
+  const esEfectivo = payment?.method === 'efectivo';
+  const esRenovacion = payment?.kind === 'renovacion';
+
   return (
     <div className="space-y-3">
       <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3 text-center">
         <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full bg-amber-100 text-saffron">
           <Clock className="w-4 h-4" aria-hidden="true" />
         </div>
-        <p className="text-sm font-extrabold text-slate-800">Solicitud en revisión</p>
-        <p className="mt-1 text-[11px] text-slate-600">
-          Realiza el pago de {cup(platform.messengerFeeCup)} y envía el comprobante por WhatsApp.
+        <p className="text-sm font-extrabold text-slate-800">
+          {esRenovacion ? 'Renovación en revisión' : 'Solicitud en revisión'}
         </p>
+        <p className="mt-1 text-[11px] leading-snug text-slate-600">
+          {esEfectivo
+            ? `Entrega ${cup(payment?.amountCup ?? platform.messengerFeeCup)} en efectivo al administrador y avísale por WhatsApp.`
+            : `Realiza el pago de ${cup(payment?.amountCup ?? platform.messengerFeeCup)} y envía el comprobante por WhatsApp.`}
+        </p>
+        {payment?.coversDays ? (
+          <p className="mt-1 text-[11px] font-bold text-slate-700">
+            Al confirmarse suma {payment.coversDays} días.
+          </p>
+        ) : null}
       </div>
-      <div className="rounded-lg border border-border-subtle bg-slate-50 p-3 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
+      <div className="rounded-lg border border-border-subtle bg-slate-50 p-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
         <div>
           <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Importe</p>
           <p className="font-black text-emerald-brand mt-0.5">{cup(payment?.amountCup)}</p>
         </div>
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Referencia</p>
-          <p className="font-semibold text-slate-700 mt-0.5 break-words">{payment?.reference ?? 'Sin referencia'}</p>
+          <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Forma de pago</p>
+          <p className="font-semibold text-slate-700 mt-0.5">
+            {payment?.method ? METHOD_LABELS[payment.method] : '—'}
+          </p>
         </div>
-        <div className="flex sm:flex-col justify-between gap-2">
-          <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Comprobante</span>
-          <a
-            href={whatsappLink(platform.messengerWhatsapp)}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex min-h-11 items-center justify-center gap-1 rounded-md bg-white border border-cerulean/30 px-3 text-cerulean text-xs font-extrabold hover:bg-cerulean/5"
-          >
-            <MessageCircle className="w-3.5 h-3.5" aria-hidden="true" />
-            Enviar por WhatsApp
-          </a>
+        <div className="sm:col-span-2">
+          <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
+            {esEfectivo ? 'Nota' : 'Referencia'}
+          </p>
+          <p className="font-semibold text-slate-700 mt-0.5 break-words">{payment?.reference || 'Sin indicar'}</p>
         </div>
+        <a
+          href={whatsappLink(platform.messengerWhatsapp)}
+          target="_blank"
+          rel="noreferrer"
+          className="sm:col-span-2 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md bg-white border border-cerulean/30 px-3 text-cerulean text-xs font-extrabold hover:bg-cerulean/5"
+        >
+          <MessageCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+          {esEfectivo ? 'Avisar por WhatsApp' : 'Enviar comprobante por WhatsApp'}
+        </a>
       </div>
       <button onClick={onRefresh} className="w-full inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-border-subtle bg-white px-3 py-2 text-xs font-extrabold text-slate-600 hover:bg-slate-50 transition-colors">
         <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
@@ -380,12 +501,73 @@ function ActiveCard({ d, isActing, onStep }: { d: DeliveryDTO; isActing: boolean
   );
 }
 
+/** Aviso de vencimiento sobre el tablón. Solo aparece cuando queda poco. */
+function SubscriptionStrip({
+  daysLeft,
+  expiresAt,
+  pendingRenewal,
+  onRenew
+}: {
+  daysLeft: number;
+  expiresAt: string | null;
+  pendingRenewal: boolean;
+  onRenew: () => void;
+}) {
+  if (daysLeft > DIAS_AVISO_RENOVACION) return null;
+  const urgente = daysLeft <= 2;
+
+  return (
+    <div
+      role="status"
+      className={`flex flex-col gap-2 border-b px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 ${
+        urgente ? 'border-amber-200 bg-amber-50' : 'border-border-subtle bg-slate-50'
+      }`}
+    >
+      <p className="flex items-start gap-2 text-[11px] leading-snug text-slate-700">
+        <CalendarClock className={`mt-0.5 h-4 w-4 shrink-0 ${urgente ? 'text-saffron' : 'text-slate-500'}`} aria-hidden="true" />
+        <span>
+          Tu suscripción vence el <strong className="font-extrabold">{fechaCorta(expiresAt)}</strong> —{' '}
+          {diasRestantes(daysLeft)}.
+        </span>
+      </p>
+      {pendingRenewal ? (
+        <span className="shrink-0 rounded-md bg-white px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-slate-600 ring-1 ring-border-subtle">
+          Renovación en revisión
+        </span>
+      ) : (
+        <button
+          onClick={onRenew}
+          className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-1.5 rounded-lg bg-emerald-brand px-3 text-xs font-extrabold text-white transition-colors hover:bg-emerald-700 sm:w-auto"
+        >
+          <TimerReset className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          Renovar
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function GoogleMapsMessengerModal({ isOpen, onClose, onOpenAuth, user, deliveries, application }: GoogleMapsMessengerModalProps) {
   const isMessenger = user?.role === 'MESSENGER';
   const applicationData = application.data;
   const latestPayment = applicationData?.payments[0];
   const profile = applicationData?.profile;
   const tabsRef = React.useRef<HTMLDivElement>(null);
+  const [showRenewal, setShowRenewal] = React.useState(false);
+  const [wasOpen, setWasOpen] = React.useState(isOpen);
+
+  // Ajuste de estado al cambiar una prop, en render y no en un efecto: cerrar
+  // el modal descarta la vista de renovación para no reabrir en ella.
+  if (wasOpen !== isOpen) {
+    setWasOpen(isOpen);
+    if (!isOpen && showRenewal) setShowRenewal(false);
+  }
+
+  // Suscripción: mientras la petición vuelve se asume viva, para no parpadear
+  // la pantalla de renovación a cada apertura del modal.
+  const subscriptionActive = applicationData ? applicationData.subscriptionActive : true;
+  const pendingRenewal = applicationData?.pendingPayment?.kind === 'renovacion';
+  const renewing = isMessenger && (!subscriptionActive || showRenewal);
 
   React.useEffect(() => {
     if (isOpen && isMessenger) {
@@ -526,13 +708,81 @@ export default function GoogleMapsMessengerModal({ isOpen, onClose, onOpenAuth, 
               <ApplicationForm
                 platform={applicationData.platform}
                 isSubmitting={application.isSubmitting}
+                kind="alta"
                 onSubmit={application.submit}
               />
             </div>
           )}
         </div>
+      ) : renewing ? (
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+          <div className="flex items-start gap-3">
+            <div
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                subscriptionActive ? 'bg-cerulean/10 text-cerulean' : 'bg-amber-100 text-saffron'
+              }`}
+            >
+              <TimerReset className="h-4 w-4" aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-extrabold text-slate-800">
+                {subscriptionActive ? 'Renovar suscripción' : 'Tu suscripción venció'}
+              </p>
+              <p className="mt-0.5 text-[11px] leading-snug text-slate-600">
+                {subscriptionActive
+                  ? `Vence el ${fechaCorta(applicationData?.expiresAt ?? null)}. Los días que te queden se suman al periodo nuevo.`
+                  : 'Conservas tu perfil y tu historial, pero no puedes aceptar carreras nuevas hasta renovar.'}
+              </p>
+            </div>
+          </div>
+
+          {application.error && (
+            <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-bold text-crimson">
+              {application.error}
+            </div>
+          )}
+
+          {pendingRenewal ? (
+            <ApplicationPending
+              platform={applicationData!.platform}
+              payment={applicationData!.pendingPayment ?? undefined}
+              onRefresh={() => void application.refresh()}
+            />
+          ) : applicationData ? (
+            <ApplicationForm
+              platform={applicationData.platform}
+              isSubmitting={application.isSubmitting}
+              kind="renovacion"
+              defaults={{
+                vehicle: applicationData.profile?.vehicle,
+                serviceAreas: applicationData.profile?.serviceAreas
+              }}
+              onSubmit={application.submit}
+            />
+          ) : (
+            <div role="status" className="flex items-center justify-center gap-2 py-8 text-xs font-bold text-slate-500">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Cargando datos de pago...
+            </div>
+          )}
+
+          {subscriptionActive && (
+            <button
+              onClick={() => setShowRenewal(false)}
+              className="w-full min-h-11 rounded-lg border border-border-subtle bg-white px-3 text-xs font-extrabold text-slate-600 transition-colors hover:bg-slate-50"
+            >
+              Volver al tablón
+            </button>
+          )}
+        </div>
       ) : (
         <>
+          <SubscriptionStrip
+            daysLeft={applicationData?.daysLeft ?? 999}
+            expiresAt={applicationData?.expiresAt ?? null}
+            pendingRenewal={pendingRenewal}
+            onRenew={() => setShowRenewal(true)}
+          />
+
           {/* Tabs */}
           <div className="flex items-center gap-1 bg-slate-50 border-b border-border-subtle p-1.5 flex-shrink-0">
             <div ref={tabsRef} role="tablist" aria-label="Vistas de mensajería" onKeyDown={onTabsKeyDown} className="flex flex-1 items-center gap-1">

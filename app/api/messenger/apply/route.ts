@@ -5,8 +5,12 @@ import {
   getMessengerProfile,
   getPlatformConfig,
   listMessengerPayments,
+  isMessengerSubscriptionActive,
+  messengerDaysLeft,
   DbUnavailableError,
   InvalidMessengerApplicationError,
+  MESSENGER_PAYMENT_METHODS,
+  type MessengerPaymentMethod,
   type MessengerPaymentRow,
   type MessengerProfileRow
 } from '@/lib/db-delivery';
@@ -28,6 +32,9 @@ function mapProfile(profile: MessengerProfileRow | null) {
     serviceAreas: profile.service_areas,
     status: profile.status,
     activeSince: profile.active_since?.toISOString() ?? null,
+    expiresAt: profile.expires_at?.toISOString() ?? null,
+    daysLeft: messengerDaysLeft(profile),
+    subscriptionActive: isMessengerSubscriptionActive(profile),
     createdAt: profile.created_at.toISOString()
   };
 }
@@ -37,6 +44,9 @@ function mapPayment(payment: MessengerPaymentRow) {
     id: payment.id,
     amountCup: Number(payment.amount_cup),
     status: payment.status,
+    method: payment.method,
+    kind: payment.kind,
+    coversDays: payment.covers_days,
     reference: payment.reference,
     evidenceNote: payment.evidence_note,
     createdAt: payment.created_at.toISOString()
@@ -53,12 +63,23 @@ export async function GET(req: NextRequest) {
       getMessengerProfile(auth.user.id),
       listMessengerPayments(auth.user.id)
     ]);
+    const pendingPayment = payments.find((p) => p.status === 'PENDING') ?? null;
+    const suscripcionViva = isMessengerSubscriptionActive(profile);
+
     return NextResponse.json({
       success: true,
       platform,
       profile: mapProfile(profile),
       payments: payments.map(mapPayment),
-      applicationOpen: !profile || profile.status !== 'ACTIVE',
+      // Se puede pedir el alta si aún no hay perfil activo, y la renovación
+      // en cuanto hay perfil ACTIVE sin pago pendiente — antes o después de
+      // que venza, para que nadie tenga que esperar a quedarse sin servicio.
+      applicationOpen: !profile || (profile.status !== 'ACTIVE' && profile.status !== 'SUSPENDED'),
+      renewalOpen: profile?.status === 'ACTIVE' && !pendingPayment,
+      pendingPayment: pendingPayment ? mapPayment(pendingPayment) : null,
+      subscriptionActive: suscripcionViva,
+      daysLeft: messengerDaysLeft(profile),
+      expiresAt: profile?.expires_at?.toISOString() ?? null,
       isMessenger: auth.user.role === 'MESSENGER'
     });
   } catch (error) {
@@ -73,7 +94,6 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const auth = await requireAuth(req);
   if (!auth.ok) return err('Inicia sesión primero', auth.status);
-  if (auth.user.role === 'MESSENGER') return err('Tu cuenta ya es de mensajero', 409);
 
   let body: Record<string, unknown>;
   try {
@@ -82,6 +102,7 @@ export async function POST(req: NextRequest) {
     return err('JSON inválido', 400);
   }
 
+  const method = typeof body.method === 'string' ? body.method : 'transferencia';
   const vehicle = typeof body.vehicle === 'string' ? body.vehicle : '';
   const rawAreas = body.serviceAreas;
   const reference = typeof body.reference === 'string' ? body.reference.trim() : '';
@@ -95,23 +116,36 @@ export async function POST(req: NextRequest) {
   if (!VEHICLES.includes(vehicle as (typeof VEHICLES)[number])) {
     return err('Medio de transporte inválido', 400);
   }
+  if (!MESSENGER_PAYMENT_METHODS.includes(method as MessengerPaymentMethod)) {
+    return err('Método de pago inválido: efectivo o transferencia', 400);
+  }
   if (serviceAreas.length === 0 || serviceAreas.length > 8 || serviceAreas.some((area) => area.length > 80)) {
     return err('Selecciona entre 1 y 8 zonas de servicio válidas', 400);
   }
-  if (reference.length < 3 || reference.length > 80) {
-    return err('La referencia del pago debe tener entre 3 y 80 caracteres', 400);
+  // En efectivo no hay número de transferencia que dar: la referencia es
+  // opcional (sirve para una nota tipo "pagado en mano el 12/09"). En
+  // transferencia sí se exige, porque es lo que administración va a cotejar.
+  if (method === 'transferencia' && (reference.length < 3 || reference.length > 80)) {
+    return err('La referencia de la transferencia debe tener entre 3 y 80 caracteres', 400);
+  }
+  if (method === 'efectivo' && reference.length > 80) {
+    return err('La nota del pago no puede superar 80 caracteres', 400);
   }
 
   try {
+    // El servidor decide si es alta o renovación mirando el perfil; el cliente
+    // no lo elige. `createMessengerApplication` rechaza los casos imposibles.
     const result = await createMessengerApplication({
       userId: auth.user.id,
       vehicle,
       serviceAreas,
-      reference
+      reference,
+      method: method as MessengerPaymentMethod
     });
     return NextResponse.json(
       {
         success: true,
+        kind: result.kind,
         profile: mapProfile(result.profile),
         payment: mapPayment(result.payment)
       },

@@ -129,7 +129,42 @@ Definido en `db/migrate_delivery.sql`, DAO en `lib/db-delivery.ts`.
   (CHECK), `requester_id` / `messenger_id`, paquete, pickup/dropoff, ruta y
   tarifas cacheadas, timestamps por evento. Índice parcial en `PENDING`.
 - **`delivery_status_events`**: auditoría de transiciones.
-- **`messengers_payments`**: ledger del alta (`PENDING|PAID|CONFIRMED|REJECTED`).
+- **`messengers_payments`**: ledger del alta y las renovaciones
+  (`PENDING|PAID|CONFIRMED|REJECTED`), con `method` (`efectivo|transferencia`),
+  `kind` (`alta|renovacion`) y `covers_days`.
+
+### Suscripción del mensajero
+
+Ser mensajero **caduca**. El importe y el periodo los fija administración en
+`platform_config`; por defecto **300 CUP cada 30 días**.
+
+| Columna | Tabla | Para qué |
+|---|---|---|
+| `messenger_fee_cup` | `platform_config` | Importe del alta y de cada renovación |
+| `messenger_period_days` | `platform_config` | Días que otorga un pago confirmado (1–365) |
+| `expires_at` | `messengers_profiles` | Fin de la suscripción; `NULL` = nunca activada |
+| `method` | `messengers_payments` | `efectivo` o `transferencia` |
+| `kind` | `messengers_payments` | `alta` la primera vez, `renovacion` después |
+| `covers_days` | `messengers_payments` | Periodo congelado al crear el pago |
+
+Reglas:
+
+- **Operar exige dos condiciones independientes**: perfil `ACTIVE` (decisión de
+  administración) **y** `expires_at > now()` (el reloj). `SUSPENDED` no se
+  arregla pagando, y pagar no levanta una suspensión.
+- **Al confirmar un pago**, `expires_at = GREATEST(expires_at, now()) + covers_days`.
+  Quien renueva antes de vencer **suma** los días que le quedaban; quien renueva
+  tarde arranca desde hoy.
+- **El importe y el periodo se congelan** en la fila del pago al crearlo: si
+  administración cambia la tarifa entre que el mensajero paga y que se confirma,
+  vale lo que había cuando pagó.
+- **Vencer no degrada la cuenta**: conserva el rol `MESSENGER`, el perfil y el
+  historial. Solo pierde el tablón y la posibilidad de aceptar carreras nuevas.
+  Una carrera **ya aceptada** se puede terminar: cortarla dejaría el paquete de
+  un cliente a medio camino.
+- **Rechazar una renovación** no toca el rol ni el perfil; el mensajero sigue con
+  los días que ya tenía. Rechazar un **alta** sí devuelve la cuenta a `USER`.
+- El `kind` lo decide el **servidor** mirando el perfil, nunca el cliente.
 
 ### Próxima fase — valoraciones de entrega
 

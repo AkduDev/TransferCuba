@@ -25,6 +25,10 @@ export type DeliveryStatus =
 
 export type PackageType = 'documento' | 'comida' | 'medicina' | 'paquete' | 'generic';
 export type MessengerProfileStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED';
+export type MessengerPaymentMethod = 'efectivo' | 'transferencia';
+export type MessengerPaymentKind = 'alta' | 'renovacion';
+
+export const MESSENGER_PAYMENT_METHODS: readonly MessengerPaymentMethod[] = ['efectivo', 'transferencia'];
 export type PaymentStatus = 'PENDING' | 'PAID' | 'CONFIRMED' | 'REJECTED';
 
 export interface DeliveryRequestRow {
@@ -66,6 +70,8 @@ export interface DeliveryRequestRow {
 
 export interface PlatformConfig {
   messengerFeeCup: number;
+  /** Días que dura la suscripción de mensajero tras confirmar un pago. */
+  messengerPeriodDays: number;
   messengerPayCard: string;
   messengerWhatsapp: string;
 }
@@ -233,6 +239,7 @@ export async function updatePricingConfig(
 function mapPlatformRow(r: Record<string, unknown>): PlatformConfig {
   return {
     messengerFeeCup: Number(r.messenger_fee_cup),
+    messengerPeriodDays: Number(r.messenger_period_days ?? 30),
     messengerPayCard: String(r.messenger_pay_card ?? ''),
     messengerWhatsapp: String(r.messenger_whatsapp ?? '')
   };
@@ -257,13 +264,26 @@ export async function updatePlatformConfig(
   if (!Number.isFinite(next.messengerFeeCup) || next.messengerFeeCup < 0) {
     throw new InvalidPricingError('Tarifa de alta inválida');
   }
+  if (
+    !Number.isInteger(next.messengerPeriodDays) ||
+    next.messengerPeriodDays < 1 ||
+    next.messengerPeriodDays > 365
+  ) {
+    throw new InvalidPricingError('El periodo de validez debe ser un entero entre 1 y 365 días');
+  }
   return run(async (pool) => {
     const res = await pool.query(
       `UPDATE platform_config SET
          messenger_fee_cup = $1, messenger_pay_card = $2, messenger_whatsapp = $3,
-         updated_by = $4, updated_at = NOW()
+         messenger_period_days = $5, updated_by = $4, updated_at = NOW()
        WHERE id = 1 RETURNING *`,
-      [next.messengerFeeCup, next.messengerPayCard, next.messengerWhatsapp, updatedBy]
+      [
+        next.messengerFeeCup,
+        next.messengerPayCard,
+        next.messengerWhatsapp,
+        updatedBy,
+        next.messengerPeriodDays
+      ]
     );
     return mapPlatformRow(res.rows[0]);
   });
@@ -516,7 +536,27 @@ export interface MessengerProfileRow {
   rating: string | number;
   completed_orders: number;
   active_since: Date | null;
+  /** Fin de la suscripción. NULL = nunca se activó. */
+  expires_at: Date | null;
   created_at: Date;
+}
+
+/**
+ * Un mensajero puede operar solo si administración lo tiene ACTIVE **y** su
+ * suscripción no ha vencido. Las dos condiciones son independientes: SUSPENDED
+ * es una decisión de administración, el vencimiento es el reloj.
+ */
+export function isMessengerSubscriptionActive(profile: MessengerProfileRow | null): boolean {
+  if (!profile || profile.status !== 'ACTIVE') return false;
+  if (!profile.expires_at) return false;
+  return profile.expires_at.getTime() > Date.now();
+}
+
+/** Días completos que quedan de suscripción; 0 si ya venció o nunca se activó. */
+export function messengerDaysLeft(profile: MessengerProfileRow | null): number {
+  if (!profile?.expires_at) return 0;
+  const ms = profile.expires_at.getTime() - Date.now();
+  return ms <= 0 ? 0 : Math.ceil(ms / 86_400_000);
 }
 
 export async function getMessengerProfile(userId: string): Promise<MessengerProfileRow | null> {
@@ -573,9 +613,15 @@ export interface MessengerApplication {
   serviceAreas: string[];
   profileStatus: MessengerProfileStatus;
   profileCreatedAt: string;
+  expiresAt: string | null;
+  daysLeft: number;
+  subscriptionActive: boolean;
   paymentId: string | null;
   paymentAmountCup: number | null;
   paymentStatus: PaymentStatus | null;
+  paymentMethod: MessengerPaymentMethod | null;
+  paymentKind: MessengerPaymentKind | null;
+  paymentCoversDays: number | null;
   paymentReference: string | null;
   paymentEvidenceNote: string | null;
   paymentCreatedAt: string | null;
@@ -592,12 +638,22 @@ interface MessengerApplicationRow {
   service_areas: string[];
   profile_status: MessengerProfileStatus;
   profile_created_at: Date;
+  expires_at: Date | null;
   payment_id: string | null;
   amount_cup: string | number | null;
   payment_status: PaymentStatus | null;
+  method: MessengerPaymentMethod | null;
+  kind: MessengerPaymentKind | null;
+  covers_days: number | null;
   reference: string | null;
   evidence_note: string | null;
   payment_created_at: Date | null;
+}
+
+function daysLeftFrom(expiresAt: Date | null): number {
+  if (!expiresAt) return 0;
+  const ms = expiresAt.getTime() - Date.now();
+  return ms <= 0 ? 0 : Math.ceil(ms / 86_400_000);
 }
 
 function mapMessengerApplication(r: MessengerApplicationRow): MessengerApplication {
@@ -612,9 +668,16 @@ function mapMessengerApplication(r: MessengerApplicationRow): MessengerApplicati
     serviceAreas: Array.isArray(r.service_areas) ? r.service_areas.map(String) : [],
     profileStatus: r.profile_status,
     profileCreatedAt: r.profile_created_at.toISOString(),
+    expiresAt: r.expires_at?.toISOString() ?? null,
+    daysLeft: daysLeftFrom(r.expires_at),
+    subscriptionActive:
+      r.profile_status === 'ACTIVE' && r.expires_at !== null && r.expires_at.getTime() > Date.now(),
     paymentId: r.payment_id,
     paymentAmountCup: toNum(r.amount_cup),
     paymentStatus: r.payment_status,
+    paymentMethod: r.method,
+    paymentKind: r.kind,
+    paymentCoversDays: r.covers_days,
     paymentReference: r.reference,
     paymentEvidenceNote: r.evidence_note,
     paymentCreatedAt: r.payment_created_at?.toISOString() ?? null
@@ -633,9 +696,13 @@ const APPLICATION_COLUMNS = `
     p.service_areas,
     p.status AS profile_status,
     p.created_at AS profile_created_at,
+    p.expires_at,
     pay.id AS payment_id,
     pay.amount_cup,
     pay.status AS payment_status,
+    pay.method,
+    pay.kind,
+    pay.covers_days,
     pay.reference,
     pay.evidence_note,
     pay.created_at AS payment_created_at
@@ -665,22 +732,57 @@ export async function getMessengerApplicationById(userId: string): Promise<Messe
   return run((pool) => getMessengerApplication(pool, userId));
 }
 
-export async function listMessengerApplications(status?: MessengerProfileStatus): Promise<MessengerApplication[]> {
+/**
+ * Listado para administración.
+ *
+ * `status` filtra por estado del PERFIL. `onlyPendingPayment` filtra por pago
+ * pendiente, que es lo que administración tiene que revisar: una renovación la
+ * pide un perfil ya ACTIVE, así que filtrar solo por perfil PENDING la dejaría
+ * invisible y el mensajero se quedaría esperando sin que nadie lo vea.
+ */
+export async function listMessengerApplications(
+  status?: MessengerProfileStatus,
+  onlyPendingPayment = false
+): Promise<MessengerApplication[]> {
   return run(async (pool) => {
+    const where: string[] = [];
+    const params: unknown[] = [];
+    if (status) {
+      params.push(status);
+      where.push(`p.status = $${params.length}`);
+    }
+    if (onlyPendingPayment) where.push(`pay.status = 'PENDING'`);
+
     const res = await pool.query<MessengerApplicationRow>(
-      `${APPLICATION_COLUMNS} ${status ? 'WHERE p.status = $1' : ''} ORDER BY p.created_at ASC`,
-      status ? [status] : []
+      `${APPLICATION_COLUMNS}
+       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+       ORDER BY pay.created_at ASC NULLS LAST, p.created_at ASC`,
+      params
     );
     return res.rows.map(mapMessengerApplication);
   });
 }
 
+/**
+ * Crea la solicitud de pago del mensajero: alta la primera vez, renovación
+ * cuando ya tiene perfil activo. El `kind` lo decide el servidor mirando el
+ * perfil, nunca el cliente.
+ *
+ * El importe y el periodo se congelan en la fila del pago (`amount_cup`,
+ * `covers_days`): si administración cambia la tarifa entre que el mensajero
+ * paga y que se confirma, vale lo que había cuando pagó.
+ */
 export async function createMessengerApplication(input: {
   userId: string;
   vehicle: string;
   serviceAreas: string[];
   reference: string;
-}): Promise<{ profile: MessengerProfileRow; payment: MessengerPaymentRow }> {
+  method: MessengerPaymentMethod;
+}): Promise<{
+  profile: MessengerProfileRow;
+  payment: MessengerPaymentRow;
+  kind: MessengerPaymentKind;
+}> {
   return withClient(async (client) => {
     await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [input.userId]);
 
@@ -689,9 +791,14 @@ export async function createMessengerApplication(input: {
       [input.userId]
     );
     const profile = profileRes.rows[0] ?? null;
-    if (profile?.status === 'ACTIVE' || profile?.status === 'SUSPENDED') {
-      throw new InvalidMessengerApplicationError('Ya existe un perfil de mensajero en gestión');
+
+    if (profile?.status === 'SUSPENDED') {
+      throw new InvalidMessengerApplicationError(
+        'Tu perfil está suspendido. Contacta con administración antes de pagar.'
+      );
     }
+
+    const kind: MessengerPaymentKind = profile?.status === 'ACTIVE' ? 'renovacion' : 'alta';
 
     const paymentRes = await client.query<MessengerPaymentRow>(
       `SELECT * FROM messengers_payments
@@ -702,20 +809,34 @@ export async function createMessengerApplication(input: {
       [input.userId]
     );
     const latestPayment = paymentRes.rows[0] ?? null;
-    if (latestPayment && ['PENDING', 'PAID', 'CONFIRMED'].includes(latestPayment.status)) {
-      throw new InvalidMessengerApplicationError('Ya hay una solicitud de alta en proceso');
+    if (latestPayment?.status === 'PENDING' || latestPayment?.status === 'PAID') {
+      throw new InvalidMessengerApplicationError(
+        kind === 'alta'
+          ? 'Ya hay una solicitud de alta en proceso'
+          : 'Ya hay una renovación pendiente de confirmar'
+      );
+    }
+    if (kind === 'alta' && latestPayment?.status === 'CONFIRMED') {
+      throw new InvalidMessengerApplicationError('Ya existe un perfil de mensajero en gestión');
     }
 
-    const configRes = await client.query<{ messenger_fee_cup: string | number }>(
-      'SELECT messenger_fee_cup FROM platform_config WHERE id = 1'
-    );
+    const configRes = await client.query<{
+      messenger_fee_cup: string | number;
+      messenger_period_days: number;
+    }>('SELECT messenger_fee_cup, messenger_period_days FROM platform_config WHERE id = 1');
     const fee = Number(configRes.rows[0]?.messenger_fee_cup ?? 0);
+    const periodDays = Number(configRes.rows[0]?.messenger_period_days ?? 0);
     if (!Number.isFinite(fee) || fee <= 0) {
       throw new InvalidMessengerApplicationError('La tarifa de alta no está configurada');
+    }
+    if (!Number.isInteger(periodDays) || periodDays <= 0) {
+      throw new InvalidMessengerApplicationError('El periodo de validez no está configurado');
     }
 
     let nextProfile: MessengerProfileRow;
     if (profile) {
+      // Una renovación NO baja el perfil a PENDING: mientras le queden días,
+      // el mensajero sigue trabajando aunque el pago esté por confirmar.
       const updated = await client.query<MessengerProfileRow>(
         `UPDATE messengers_profiles
          SET vehicle = $2, service_areas = $3
@@ -735,12 +856,12 @@ export async function createMessengerApplication(input: {
     }
 
     const payment = await client.query<MessengerPaymentRow>(
-      `INSERT INTO messengers_payments (messenger_id, amount_cup, reference)
-       VALUES ($1, $2, $3)
+      `INSERT INTO messengers_payments (messenger_id, amount_cup, reference, method, kind, covers_days)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [input.userId, fee, input.reference]
+      [input.userId, fee, input.reference, input.method, kind, periodDays]
     );
-    return { profile: nextProfile, payment: payment.rows[0] };
+    return { profile: nextProfile, payment: payment.rows[0], kind };
   });
 }
 
@@ -761,8 +882,10 @@ export async function reviewMessengerApplication(
     if (!profile) throw new InvalidMessengerApplicationError('Solicitud de mensajería no encontrada');
 
     if (action === 'confirm') {
-      if (profile.status !== 'PENDING') {
-        throw new InvalidMessengerApplicationError('La solicitud no está pendiente');
+      // Vale para un alta (perfil PENDING) y para una renovación (perfil ya
+      // ACTIVE, con o sin días restantes). SUSPENDED se levanta con 'activate'.
+      if (profile.status === 'SUSPENDED') {
+        throw new InvalidMessengerApplicationError('El perfil está suspendido');
       }
       const paymentRes = await client.query<MessengerPaymentRow>(
         `SELECT * FROM messengers_payments
@@ -783,16 +906,22 @@ export async function reviewMessengerApplication(
          WHERE id = $1`,
         [payment.id, null, confirmedBy]
       );
+      // GREATEST(expires_at, NOW()) implementa la regla acordada: quien renueva
+      // antes de vencer suma los días que le quedaban; quien renueva tarde
+      // arranca desde hoy. El periodo sale del pago, congelado al crearlo.
       await client.query(
         `UPDATE messengers_profiles
-         SET status = 'ACTIVE', active_since = COALESCE(active_since, NOW())
+         SET status = 'ACTIVE',
+             active_since = COALESCE(active_since, NOW()),
+             expires_at = GREATEST(COALESCE(expires_at, NOW()), NOW())
+                          + make_interval(days => $2::int)
          WHERE user_id = $1`,
-        [userId]
+        [userId, payment.covers_days ?? 30]
       );
       await client.query("UPDATE users SET role = 'MESSENGER' WHERE id = $1 AND status = 'active'", [userId]);
     } else if (action === 'reject') {
-      if (profile.status !== 'PENDING') {
-        throw new InvalidMessengerApplicationError('La solicitud no está pendiente');
+      if (profile.status === 'SUSPENDED') {
+        throw new InvalidMessengerApplicationError('El perfil está suspendido');
       }
       const paymentRes = await client.query<MessengerPaymentRow>(
         `SELECT * FROM messengers_payments
@@ -813,7 +942,15 @@ export async function reviewMessengerApplication(
          WHERE id = $1`,
         [payment.id, null, confirmedBy]
       );
-      await client.query("UPDATE users SET role = CASE WHEN role = 'MESSENGER' THEN 'USER' ELSE role END WHERE id = $1", [userId]);
+      // Rechazar un alta devuelve la cuenta a USER. Rechazar una RENOVACIÓN no
+      // toca el rol ni el perfil: el mensajero sigue con los días que ya pagó
+      // y simplemente no se le suma el periodo nuevo.
+      if (payment.kind !== 'renovacion') {
+        await client.query(
+          "UPDATE users SET role = CASE WHEN role = 'MESSENGER' THEN 'USER' ELSE role END WHERE id = $1",
+          [userId]
+        );
+      }
     } else if (action === 'suspend') {
       if (profile.status !== 'ACTIVE') {
         throw new InvalidMessengerApplicationError('El perfil no está activo');
@@ -823,6 +960,8 @@ export async function reviewMessengerApplication(
       if (profile.status !== 'SUSPENDED') {
         throw new InvalidMessengerApplicationError('El perfil no está suspendido');
       }
+      // Levantar la suspensión no regala periodo: si venció mientras estaba
+      // suspendido, vuelve a ACTIVE pero tendrá que renovar para aceptar.
       await client.query(
         `UPDATE messengers_profiles
          SET status = 'ACTIVE', active_since = COALESCE(active_since, NOW())
@@ -843,6 +982,10 @@ export interface MessengerPaymentRow {
   messenger_id: string;
   amount_cup: string | number;
   status: PaymentStatus;
+  method: MessengerPaymentMethod;
+  kind: MessengerPaymentKind;
+  /** Periodo que cubría este pago, congelado al crearlo. */
+  covers_days: number | null;
   reference: string | null;
   evidence_note: string | null;
   confirmed_by: string | null;

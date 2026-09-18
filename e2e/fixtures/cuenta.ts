@@ -46,6 +46,12 @@ export interface OpcionesDeCuenta {
   rol?: Rol;
   /** Para MESSENGER, deja además el perfil operativo en ACTIVE. */
   perfilActivo?: boolean;
+  /**
+   * Días de suscripción que le quedan al mensajero. Negativo o 0 la deja
+   * vencida, que es el caso que hay que poder montar para probar la
+   * renovación. Por defecto, 30.
+   */
+  diasDeSuscripcion?: number;
 }
 
 export const urlDeLaBaseDePruebas = process.env.E2E_DATABASE_URL ?? '';
@@ -78,16 +84,24 @@ async function borrarCuenta(id: string): Promise<void> {
   }
 }
 
-async function promover(id: string, rol: Rol, perfilActivo: boolean): Promise<void> {
+async function promover(
+  id: string,
+  rol: Rol,
+  perfilActivo: boolean,
+  diasDeSuscripcion: number
+): Promise<void> {
   const client = await conectar();
   try {
     await client.query('UPDATE users SET role = $1 WHERE id = $2', [rol, id]);
     if (rol === 'MESSENGER' && perfilActivo) {
       await client.query(
-        `INSERT INTO messengers_profiles (user_id, vehicle, service_areas, status, active_since)
-         VALUES ($1, 'moto', ARRAY['La Habana'], 'ACTIVE', now())
-         ON CONFLICT (user_id) DO UPDATE SET status = 'ACTIVE', active_since = now()`,
-        [id]
+        `INSERT INTO messengers_profiles (user_id, vehicle, service_areas, status, active_since, expires_at)
+         VALUES ($1, 'moto', ARRAY['La Habana'], 'ACTIVE', now(), now() + make_interval(days => $2::int))
+         ON CONFLICT (user_id) DO UPDATE SET
+           status = 'ACTIVE',
+           active_since = now(),
+           expires_at = now() + make_interval(days => $2::int)`,
+        [id, diasDeSuscripcion]
       );
     }
   } finally {
@@ -108,7 +122,7 @@ export const test = base.extend<FixturesDeCuenta>({
     const creadas: string[] = [];
 
     const crear = async (opciones: OpcionesDeCuenta = {}): Promise<CuentaDePrueba> => {
-      const { rol = 'USER', perfilActivo = true } = opciones;
+      const { rol = 'USER', perfilActivo = true, diasDeSuscripcion = 30 } = opciones;
       const phone = telefonoDePrueba();
       const name = `E2E ${phone.slice(-4)}`;
 
@@ -132,7 +146,7 @@ export const test = base.extend<FixturesDeCuenta>({
       creadas.push(id!);
 
       if (rol !== 'USER') {
-        await promover(id!, rol, perfilActivo);
+        await promover(id!, rol, perfilActivo, diasDeSuscripcion);
         // El rol vive en la fila, no en la cookie: `useAuth` lo rehidrata con
         // `GET /api/account/me` en la siguiente carga.
         await page.request.get('/api/account/me');
