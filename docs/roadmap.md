@@ -399,8 +399,8 @@ arquitectura de arriba está diseñada para que cada pieza sea reemplazable.
       latidos y reconexión; polling actual como fallback.
 - [ ] **UI completa**: historial y valoración en `GoogleMapsDeliveryModal`, historial y
       estadísticas en `GoogleMapsMessengerModal`, actualización del mapa sin recarga.
-- [ ] Especificación técnica, contratos, seguridad y criterios de aceptación en
-      [`docs/messaging-phase-6.md`](messaging-phase-6.md).
+- [ ] Especificación técnica, contratos, seguridad y criterios de aceptación: se
+      mantienen fuera del repositorio, como documento local de trabajo.
 
 ### Deuda técnica vista en Sprint 9 (ordenada por prioridad)
 - [x] **DB caída en dev**: `queryBusinesses` en `lib/db.ts` lanzaba `ECONNRESET`

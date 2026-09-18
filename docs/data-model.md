@@ -155,7 +155,8 @@ Solo el solicitante de una carrera `DELIVERED` puede crear la valoración. El ba
 verifica ownership, estado terminal y unicidad; administración puede ocultar,
 restaurar o eliminar lógicamente el registro. `messengers_profiles.rating` y
 `completed_orders` son cachés derivadas de `delivery_reviews` y `delivery_requests`.
-La especificación completa está en [`docs/messaging-phase-6.md`](messaging-phase-6.md).
+La especificación completa de la Fase 6 se mantiene fuera del repositorio, como
+documento local de trabajo.
 
 Transiciones regidas por `ALLOWED_TRANSITIONS` (PENDING→ACCEPTED/CANCELLED/
 EXPIRED; ACCEPTED→PICKED_UP/CANCELLED; PICKED_UP→IN_TRANSIT;
