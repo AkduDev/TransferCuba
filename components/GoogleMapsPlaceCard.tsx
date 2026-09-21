@@ -118,7 +118,7 @@ export default function GoogleMapsPlaceCard({
               business.transferActiveNow ? 'bg-emerald-brand animate-pulse' : 'bg-saffron'
             }`}
           />
-          {business.transferActiveNow ? 'Transferencia activa' : 'Sin transfer'}
+          {business.transferActiveNow ? '🟢 Activa' : '⚠ Sin transferencia'}
         </span>
 
         {business.transferDetails?.transfermovil && <PaymentBadge kind="tm" />}

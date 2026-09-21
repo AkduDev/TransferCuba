@@ -262,23 +262,23 @@ export const CUBAN_PROVINCES: ProvinceData[] = [
 ];
 
 export const CATEGORIES = [
-  { id: 'all', label: 'Todas las categorías', icon: 'Store' },
-  { id: 'comida', label: 'Comida & Restaurantes', icon: 'Utensils' },
-  { id: 'tiendas', label: 'Tiendas & Mercados', icon: 'ShoppingBag' },
-  { id: 'farmacias', label: 'Farmacias & Salud', icon: 'Pill' },
-  { id: 'cafeterias', label: 'Cafeterías & Panaderías', icon: 'Coffee' },
-  { id: 'servicios', label: 'Servicios & Celulares', icon: 'Smartphone' },
-  { id: 'ferreteria', label: 'Ferretería & Hogar', icon: 'Wrench' },
-  { id: 'ropa', label: 'Ropa & Calzado', icon: 'Shirt' }
+  { id: 'all', label: 'Todas', icon: 'Store' },
+  { id: 'comida', label: 'Comer', icon: 'Utensils' },
+  { id: 'tiendas', label: 'Comprar', icon: 'ShoppingBag' },
+  { id: 'farmacias', label: 'Salud', icon: 'Pill' },
+  { id: 'cafeterias', label: 'Cafeterías', icon: 'Coffee' },
+  { id: 'servicios', label: 'Servicios', icon: 'Smartphone' },
+  { id: 'ferreteria', label: 'Hogar', icon: 'Wrench' },
+  { id: 'ropa', label: 'Vestir', icon: 'Shirt' }
 ];
 
 export const CATEGORY_EMOJI: Record<string, string> = {
-  comida: '🍽️',
-  tiendas: '🛍️',
+  comida: '🍔',
+  tiendas: '🛒',
   farmacias: '💊',
   cafeterias: '☕',
-  servicios: '📱',
-  ferreteria: '🔧',
+  servicios: '🔧',
+  ferreteria: '🏠',
   ropa: '👕'
 };
 

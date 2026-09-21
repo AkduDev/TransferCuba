@@ -197,7 +197,7 @@ export default function GoogleMapsMobileBottomSheet({
                   selectedBusiness.transferActiveNow ? 'text-emerald-brand' : 'text-saffron'
                 }`}>
                   <span className={`w-2 h-2 rounded-full ${selectedBusiness.transferActiveNow ? 'bg-emerald-brand animate-beacon' : 'bg-saffron'}`} />
-                  <span className="truncate">{selectedBusiness.transferActiveNow ? 'Transferencia activa hoy' : 'Sin transferencia'}</span>
+                  <span className="truncate">{selectedBusiness.transferActiveNow ? '🟢 Transferencia activa' : '⚠ Sin transferencia'}</span>
                 </span>
                 {selectedBusiness.distanceMeters !== undefined && (
                   <span className="text-cerulean-dark font-bold bg-tm-bg px-1.5 py-0.5 rounded border border-tm-border flex-shrink-0">

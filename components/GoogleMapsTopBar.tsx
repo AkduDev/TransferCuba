@@ -131,7 +131,7 @@ export default function GoogleMapsTopBar({
                   e.currentTarget.blur();
                 }
               }}
-              placeholder="Buscar negocios, direcciones…"
+              placeholder="¿Qué estás buscando?"
               className="flex-1 min-w-0 text-sm bg-transparent text-text-primary font-medium placeholder:text-slate-400 focus:outline-none"
             />
             {searchQuery && (
@@ -241,7 +241,7 @@ export default function GoogleMapsTopBar({
                   })
                 ) : searchQuery.trim().length >= 3 ? (
                   <div className="px-3 py-3 text-sm text-slate-500">
-                    Sin resultados para «{searchQuery.trim()}».
+                    No encontramos «{searchQuery.trim()}» cerca. Prueba otra búsqueda.
                   </div>
                 ) : (
                   <div className="px-3 py-3 text-xs text-slate-500">

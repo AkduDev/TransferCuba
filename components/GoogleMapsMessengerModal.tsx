@@ -407,7 +407,7 @@ function AvailableCard({
         disabled={isActing}
         className="w-full min-h-11 rounded-lg bg-emerald-brand hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-extrabold transition-colors"
       >
-        {isActing ? <Loader2 className="w-3.5 h-3.5 animate-spin mx-auto" aria-label="Aceptando carrera" /> : `Aceptar carrera ${d.code}`}
+        {isActing ? <Loader2 className="w-3.5 h-3.5 animate-spin mx-auto" aria-label="Aceptando entrega" /> : `Aceptar entrega ${d.code}`}
       </button>
     </div>
   );
@@ -457,7 +457,7 @@ function ActiveCard({ d, isActing, onStep }: { d: DeliveryDTO; isActing: boolean
       {/* Timeline */}
       <div className="rounded-xl border border-border-subtle p-3 bg-white">
         <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 mb-2" id="messenger-progress-label">
-          Avance de la carrera
+          Avance de la entrega
         </p>
         <ol className="relative pl-5" aria-labelledby="messenger-progress-label">
           {STEP_FLOW.map((s, i) => {
@@ -496,7 +496,7 @@ function ActiveCard({ d, isActing, onStep }: { d: DeliveryDTO; isActing: boolean
       )}
       {d.status === 'DELIVERED' && (
         <p className="flex items-center justify-center gap-1.5 text-xs font-bold text-emerald-700 py-1">
-          <CheckCircle2 className="w-4 h-4" aria-hidden="true" /> Carrera completada
+          <CheckCircle2 className="w-4 h-4" aria-hidden="true" /> Entrega completada
         </p>
       )}
     </div>
@@ -573,8 +573,8 @@ function MessengerHistoryPanel({
   if (!isLoading && history.length === 0) {
     return (
       <div className="py-10 text-center">
-        <p className="text-sm font-bold text-slate-600">Sin carreras aún</p>
-        <p className="text-xs text-slate-500 mt-1">Tus carreras completadas aparecerán aquí.</p>
+        <p className="text-sm font-bold text-slate-600">Sin entregas aún</p>
+        <p className="text-xs text-slate-500 mt-1">Tus entregas completadas aparecerán aquí.</p>
       </div>
     );
   }
@@ -727,7 +727,7 @@ export default function GoogleMapsMessengerModal({ isOpen, onClose, onOpenAuth, 
           </div>
           <div>
             <h2 id="messenger-modal-title" className="text-base font-extrabold text-white font-display">Mensajería</h2>
-            <p id="messenger-modal-subtitle" className="text-[11px] text-slate-400">Tablón de carreras para mensajeros</p>
+            <p id="messenger-modal-subtitle" className="text-[11px] text-slate-400">Solicitudes de entrega disponibles</p>
           </div>
         </div>
         <button
@@ -791,7 +791,7 @@ export default function GoogleMapsMessengerModal({ isOpen, onClose, onOpenAuth, 
                 <CheckCircle2 className="w-6 h-6" aria-hidden="true" />
               </div>
               <p className="text-sm font-extrabold text-slate-800">Alta aprobada</p>
-              <p className="text-xs text-slate-500">Actualiza tu sesión para entrar al tablón de carreras.</p>
+              <p className="text-xs text-slate-500">Actualiza tu sesión para ver solicitudes disponibles.</p>
               <button
                 onClick={() => void application.refresh()}
                 className="min-h-11 px-4 rounded-lg bg-emerald-brand text-white text-xs font-extrabold hover:bg-emerald-700"
@@ -849,7 +849,7 @@ export default function GoogleMapsMessengerModal({ isOpen, onClose, onOpenAuth, 
               <p className="mt-0.5 text-[11px] leading-snug text-slate-600">
                 {subscriptionActive
                   ? `Vence el ${fechaCorta(applicationData?.expiresAt ?? null)}. Los días que te queden se suman al periodo nuevo.`
-                  : 'Conservas tu perfil y tu historial, pero no puedes aceptar carreras nuevas hasta renovar.'}
+                  : 'Conservas tu perfil y tu historial, pero no puedes aceptar entregas nuevas hasta renovar.'}
               </p>
             </div>
           </div>
@@ -914,7 +914,7 @@ export default function GoogleMapsMessengerModal({ isOpen, onClose, onOpenAuth, 
                 onClick={() => deliveries.setMessengerTab('available')}
                 className={tabClass('available')}
               >
-                Carreras {!deliveries.isFetchingAvailable && deliveries.messengerAvailable.length > 0 && `(${deliveries.messengerAvailable.length})`}
+                Solicitudes {!deliveries.isFetchingAvailable && deliveries.messengerAvailable.length > 0 && `(${deliveries.messengerAvailable.length})`}
               </button>
               <button
                 id="messenger-tab-active"
@@ -926,11 +926,11 @@ export default function GoogleMapsMessengerModal({ isOpen, onClose, onOpenAuth, 
                 onClick={() => deliveries.setMessengerTab('active')}
                 className={tabClass('active')}
               >
-                Mi carrera
+                Mi entrega
                 {deliveries.messengerActive && (
                   <>
                     <span aria-hidden="true" className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-brand align-middle" />
-                    <span className="sr-only"> (tienes una carrera en curso)</span>
+                    <span className="sr-only"> (tienes una entrega en curso)</span>
                   </>
                 )}
               </button>
@@ -961,14 +961,14 @@ export default function GoogleMapsMessengerModal({ isOpen, onClose, onOpenAuth, 
                 className={tabClass('stats')}
               >
                 <BarChart3 className="w-3.5 h-3.5 inline-block mr-1" />
-                Stats
+                Resumen
               </button>
             </div>
             <button
               type="button"
               onClick={() => void deliveries.refreshMessenger()}
               className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 hover:text-cerulean hover:bg-slate-100 transition-colors"
-              aria-label="Actualizar carreras"
+              aria-label="Actualizar solicitudes"
             >
               <RefreshCw className={`w-4 h-4 ${deliveries.isFetchingAvailable ? 'animate-spin' : ''}`} aria-hidden="true" />
             </button>
@@ -984,12 +984,12 @@ export default function GoogleMapsMessengerModal({ isOpen, onClose, onOpenAuth, 
             {deliveries.messengerTab === 'available' ? (
               deliveries.isFetchingAvailable && deliveries.messengerAvailable.length === 0 ? (
                 <div role="status" className="flex items-center gap-2 text-xs text-slate-500 py-6 justify-center">
-                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> Buscando carreras...
+                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> Buscando solicitudes...
                 </div>
               ) : deliveries.messengerAvailable.length === 0 ? (
                 <div className="py-10 text-center">
-                  <p className="text-sm font-bold text-slate-600">No hay carreras pendientes</p>
-                  <p className="text-xs text-slate-500 mt-1">Nuevas solicitudes aparecerán aquí al instante.</p>
+                  <p className="text-sm font-bold text-slate-600">No hay solicitudes disponibles ahora</p>
+                  <p className="text-xs text-slate-500 mt-1">Las nuevas solicitudes aparecerán aquí automáticamente.</p>
                 </div>
               ) : (
                 deliveries.messengerAvailable.map((d) => (
@@ -1001,13 +1001,13 @@ export default function GoogleMapsMessengerModal({ isOpen, onClose, onOpenAuth, 
                 <ActiveCard d={deliveries.messengerActive} isActing={deliveries.isActing} onStep={(a) => void deliveries.messengerStep(a)} />
               ) : (
                 <div className="py-10 text-center">
-                  <p className="text-sm font-bold text-slate-600">No tienes una carrera activa</p>
-                  <p className="text-xs text-slate-500 mt-1">Acepta una del tablón para empezar.</p>
+                  <p className="text-sm font-bold text-slate-600">No tienes una entrega activa</p>
+                  <p className="text-xs text-slate-500 mt-1">Acepta una solicitud del tablón para empezar.</p>
                   <button
                     onClick={() => deliveries.setMessengerTab('available')}
                     className="mt-3 min-h-11 px-4 rounded-lg bg-emerald-brand hover:bg-emerald-700 text-white text-xs font-extrabold transition-colors"
                   >
-                    Ver carreras disponibles
+                    Ver solicitudes disponibles
                   </button>
                 </div>
               )

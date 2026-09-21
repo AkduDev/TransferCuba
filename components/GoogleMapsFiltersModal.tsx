@@ -76,7 +76,7 @@ export default function GoogleMapsFiltersModal({
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="w-5 h-5 text-emerald-brand" aria-hidden="true" />
             <h3 id="filters-modal-title" className="font-extrabold text-text-primary font-display text-sm sm:text-base">
-              Filtros de Búsqueda
+              Filtros
             </h3>
           </div>
           <button

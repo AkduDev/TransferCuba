@@ -143,7 +143,7 @@ export default function GoogleMapsDesktopPanel({
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>Resultados</span>
+                <span>← Volver a resultados</span>
               </button>
               <div className="flex items-center gap-1">
                 <button
@@ -213,8 +213,8 @@ export default function GoogleMapsDesktopPanel({
                         }`}
                       >
                         {selectedBusiness.transferActiveNow
-                          ? 'Transferencia disponible'
-                          : 'Sin transferencia ahora'}
+                          ? '🟢 TRANSFERENCIA ACTIVA'
+                          : '⚠ Sin transferencia ahora'}
                       </p>
                       <p className="text-[11px] text-text-muted mt-0.5">
                         {selectedBusiness.lastStatusUpdate}
@@ -443,10 +443,9 @@ export default function GoogleMapsDesktopPanel({
                   <div className="w-14 h-14 rounded-full bg-slate-100 border border-border-subtle flex items-center justify-center mx-auto text-slate-400">
                     <Store className="w-7 h-7" />
                   </div>
-                  <p className="text-sm font-bold text-text-primary">No hay resultados en esta zona</p>
+                  <p className="text-sm font-bold text-text-primary">No encontramos negocios cerca</p>
                   <p className="text-xs text-text-muted max-w-xs mx-auto leading-relaxed">
-                    Prueba cambiando la provincia o buscando otro término como farmacia, cafetería o
-                    taller.
+                    Prueba cambiando la categoría, ampliando el área de búsqueda o buscando otro término como farmacia o cafetería.
                   </p>
                 </div>
               ) : (

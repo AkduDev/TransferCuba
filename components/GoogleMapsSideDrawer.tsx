@@ -74,10 +74,10 @@ export default function GoogleMapsSideDrawer({
             </div>
             <div>
               <h2 id="side-drawer-title" className="text-base font-extrabold text-white font-display flex items-center gap-1.5">
-                <span>¿Dónde Pago?</span>
+                <span>Transfer</span>
                 <span className="text-emerald-400">Cuba</span>
               </h2>
-              <p className="text-xs text-slate-400">Por DevParadise</p>
+              <p className="text-xs text-slate-400">Encuentra dónde pagar</p>
             </div>
           </div>
 
@@ -106,8 +106,8 @@ export default function GoogleMapsSideDrawer({
                   <Navigation className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold font-display text-emerald-950">Negocios cerca de mí</p>
-                  <p className="text-[11px] text-emerald-800">Calcular distancia por GPS</p>
+                  <p className="text-xs font-bold font-display text-emerald-950">Explorar cerca de ti</p>
+                  <p className="text-[11px] text-emerald-800">Negocios por GPS</p>
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 text-emerald-brand group-hover:translate-x-0.5 transition-transform" />
@@ -125,7 +125,7 @@ export default function GoogleMapsSideDrawer({
                   <PlusCircle className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold font-display text-white">+ Registrar mi negocio</p>
+                  <p className="text-xs font-bold font-display text-white">+ Agregar mi negocio</p>
                   <p className="text-[11px] text-slate-300">Publicación gratuita en el mapa</p>
                 </div>
               </div>
@@ -147,7 +147,7 @@ export default function GoogleMapsSideDrawer({
                   <Package className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold font-display text-emerald-950">Pedir un envío</p>
+                  <p className="text-xs font-bold font-display text-emerald-950">Solicitar delivery</p>
                   <p className="text-[11px] text-emerald-800">Mensajería local con precio estimado</p>
                 </div>
               </div>
@@ -167,8 +167,8 @@ export default function GoogleMapsSideDrawer({
                     <Bike className="w-4 h-4" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold font-display text-slate-800">Mensajería</p>
-                    <p className="text-[11px] text-slate-500">Tablón de carreras · Soy mensajero</p>
+                    <p className="text-xs font-bold font-display text-slate-800">Mis entregas</p>
+                    <p className="text-[11px] text-slate-500">Gestiona tus carreras</p>
                   </div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-cerulean group-hover:translate-x-0.5 transition-transform" />
@@ -281,8 +281,8 @@ export default function GoogleMapsSideDrawer({
                   <ShieldCheck className="w-4 h-4" />
                 </div>
                 <div className="text-left">
-                  <p className="font-extrabold text-white font-display">Administración & Aprobación</p>
-                  <p className="text-[10px] text-slate-400 font-normal">Acceso restringido con clave</p>
+                  <p className="font-extrabold text-white font-display">Administración</p>
+                  <p className="text-[10px] text-slate-400 font-normal">Acceso restringido</p>
                 </div>
               </div>
               <span className="text-[10px] font-mono uppercase tracking-wider bg-tm-bg0/20 text-blue-300 border border-blue-400/30 px-2 py-0.5 rounded-md flex items-center gap-1">
@@ -296,18 +296,18 @@ export default function GoogleMapsSideDrawer({
           <div className="p-3.5 rounded-lg bg-slate-50 border border-border-subtle/90 text-[11px] text-slate-600 space-y-2">
             <div className="flex items-center gap-1.5 font-bold text-slate-600 font-display">
               <Info className="w-3.5 h-3.5 text-emerald-brand" />
-              <span>Sobre los pagos digitales en Cuba</span>
+              <span>¿Por qué TransferCuba?</span>
             </div>
             <p className="leading-relaxed">
-              Esta plataforma monitorea en tiempo real qué negocios aceptan Transfermóvil, EnZona y código QR, actualizados por la comunidad y el equipo DevParadise.
+              Esta plataforma monitorea en tiempo real qué negocios aceptan pagos digitales en Cuba, actualizados por la comunidad.
             </p>
           </div>
         </div>
 
         {/* Footer */}
         <div className="p-4 bg-slate-50 border-t border-border-subtle/90 text-center text-xs text-slate-500">
-          <p className="font-semibold text-slate-600">¿Dónde Pago? Cuba</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">Ecosistema DevParadise © 2026</p>
+          <p className="font-semibold text-slate-600">TransferCuba</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Encuentra. Compra. Recibe. © 2026</p>
         </div>
     </ModalShell>
   );

@@ -194,10 +194,10 @@ export default function GoogleMapsDeliveryModal({
             </div>
             <div>
               <h2 id="delivery-modal-title" className="text-base font-extrabold text-white font-display">
-                {view === 'success' ? 'Envío solicitado' : view === 'history' ? 'Mis envíos' : 'Pedir un envío'}
+                {view === 'success' ? 'Envío solicitado' : view === 'history' ? 'Mis deliveries' : 'Solicitar delivery'}
               </h2>
               <p id="delivery-modal-subtitle" className="text-[11px] text-slate-400">
-                {view === 'history' ? `${deliveries.history.length} carreras` : 'Mensajería en Cuba'}
+                {view === 'history' ? `${deliveries.history.length} deliveries` : 'Delivery en Cuba'}
               </p>
             </div>
           </div>
@@ -453,8 +453,8 @@ function HistoryView({
       )}
       {!isLoading && history.length === 0 && (
         <div className="py-8 text-center">
-          <p className="text-sm font-bold text-slate-600">Aún no tienes envíos</p>
-          <p className="text-xs text-slate-400 mt-1">Solicita tu primera carrera para verla aquí.</p>
+          <p className="text-sm font-bold text-slate-600">Aún no has solicitado deliveries</p>
+          <p className="text-xs text-slate-400 mt-1">Solicita tu primer delivery desde un negocio cercano.</p>
         </div>
       )}
       {history.map((d) => {
