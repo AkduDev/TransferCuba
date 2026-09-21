@@ -361,10 +361,10 @@ curl -b jar-mensajero.txt -X PATCH http://localhost:3000/api/deliveries/UUID \
 
 ---
 
-## Próxima tarea — Fase 6: historial, valoraciones y eventos en vivo
+## Fase 6: historial, valoraciones y eventos en vivo
 
-> Endpoints pendientes de integración en la UI. Backend implementado en commits
-> `94c1d2a` y `c5f2eca`.
+> Backend implementado en commits `94c1d2a` y `c5f2eca`. UI integrada en commit
+> `b8dcc54`.
 
 | Endpoint | Método | Rol | Comportamiento |
 |---|---|---|---|

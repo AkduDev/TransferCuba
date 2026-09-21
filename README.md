@@ -115,7 +115,7 @@ lib/
 ├── delivery-dto.ts         # Mapeo server→DTO con privacidad por rol
 ├── pricing.ts              # Cálculo de tarifas por distancia
 ├── hooks/
-│   ├── useDeliveries.ts    # Estado de delivery (polling + SSE futuro)
+│   ├── useDeliveries.ts    # Estado de delivery (polling + SSE)
 │   └── useMessengerApplication.ts  # Flujo de solicitud de mensajero
 └── utils.ts                # Utilidades (cn)
 docs/

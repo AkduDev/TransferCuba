@@ -426,8 +426,9 @@ arquitectura de arriba está diseñada para que cada pieza sea reemplazable.
       la misma transacción. 15 pruebas de Playwright sobre la API; suite 43/43.
 - [x] **Eventos en vivo**: `GET /api/deliveries/stream` con SSE autenticado, cursores,
       latidos y reconexión; polling actual como fallback (commit `c5f2eca`).
-- [ ] **UI completa**: historial y valoración en `GoogleMapsDeliveryModal`, historial y
-      estadísticas en `GoogleMapsMessengerModal`, actualización del mapa sin recarga.
+- [x] **UI completa**: historial y valoración en `GoogleMapsDeliveryModal`, historial y
+      estadísticas en `GoogleMapsMessengerModal`, actualización del mapa sin recarga
+      (commit `b8dcc54`).
 
 ### Deuda técnica vista en Sprint 9 (ordenada por prioridad)
 - [x] **DB caída en dev**: `queryBusinesses` en `lib/db.ts` lanzaba `ECONNRESET`
