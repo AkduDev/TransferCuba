@@ -8,11 +8,12 @@ import {
   DbUnavailableError
 } from '@/lib/db-auth';
 import { authCookie, hashPin, isValidName, isValidPin } from '@/lib/auth';
+import { createMessengerApplication } from '@/lib/db-delivery';
 
 export const dynamic = 'force-dynamic';
 
-// POST /api/account/register — alta de usuario (USER) con teléfono + PIN.
-// No es el alta de mensajero: eso se gestiona aparte (Fase 1, alta pagada).
+// POST /api/account/register — alta de usuario con teléfono + PIN.
+// Si wantsToBeMessenger es true, también crea perfil de mensajero y pago pendiente.
 // Emite sesión en cookie HttpOnly al completar el registro.
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown>;
@@ -25,6 +26,7 @@ export async function POST(req: NextRequest) {
   const phone = normalizePhone(typeof body.phone === 'string' ? body.phone : '');
   const name = typeof body.name === 'string' ? body.name.trim() : '';
   const pin = typeof body.pin === 'string' ? body.pin : '';
+  const wantsToBeMessenger = body.wantsToBeMessenger === true;
 
   if (!phone) {
     return NextResponse.json(
@@ -55,17 +57,31 @@ export async function POST(req: NextRequest) {
     }
 
     const user = await createUser({ phone, name, pinHash: hashPin(pin) });
+
+    if (wantsToBeMessenger) {
+      try {
+        await createMessengerApplication({
+          userId: user.id,
+          vehicle: '',
+          serviceAreas: [],
+          reference: '',
+          method: 'transferencia'
+        });
+      } catch {
+        console.error('[api/register] No se pudo crear perfil de mensajero pendiente');
+      }
+    }
+
     const session = await createSession(user.id);
     const cookie = authCookie(session.id);
 
     const res = NextResponse.json(
-      { success: true, user: toPublicUser(user) },
+      { success: true, user: toPublicUser(user), wantsToBeMessenger },
       { status: 201 }
     );
     res.cookies.set(cookie.name, cookie.value, cookie.options);
     return res;
   } catch (err) {
-    // Carrera con otro registro del mismo teléfono → UNIQUE 23505.
     if ((err as { code?: string }).code === '23505') {
       return NextResponse.json(
         { success: false, error: 'Ese teléfono ya está registrado' },

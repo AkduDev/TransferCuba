@@ -12,7 +12,9 @@ import {
   Eye,
   EyeOff,
   AlertTriangle,
-  Loader2
+  Loader2,
+  Bike,
+  MessageCircle
 } from 'lucide-react';
 import type { AuthRole, AuthState } from '@/lib/hooks/useAuth';
 
@@ -39,6 +41,8 @@ export default function GoogleMapsAuthModal({ isOpen, onClose, auth }: GoogleMap
   const [showPin, setShowPin] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localError, setLocalError] = useState('');
+  const [wantsToBeMessenger, setWantsToBeMessenger] = useState(false);
+  const [showMessengerSuccess, setShowMessengerSuccess] = useState(false);
 
   // Reset del formulario al cerrar/abrir para no arrastrar credenciales.
   useEffect(() => {
@@ -49,6 +53,8 @@ export default function GoogleMapsAuthModal({ isOpen, onClose, auth }: GoogleMap
       setShowPin(false);
       setMode('login');
       setLocalError('');
+      setWantsToBeMessenger(false);
+      setShowMessengerSuccess(false);
     }
   }, [isOpen]);
 
@@ -63,12 +69,16 @@ export default function GoogleMapsAuthModal({ isOpen, onClose, auth }: GoogleMap
       const ok =
         mode === 'login'
           ? await auth.login(phone, pin)
-          : await auth.register(name, phone, pin);
+          : await auth.register(name, phone, pin, wantsToBeMessenger);
       if (ok) {
-        setPhone('');
-        setPin('');
-        setName('');
-        onClose();
+        if (mode === 'register' && wantsToBeMessenger) {
+          setShowMessengerSuccess(true);
+        } else {
+          setPhone('');
+          setPin('');
+          setName('');
+          onClose();
+        }
       }
     } finally {
       setIsSubmitting(false);
@@ -110,8 +120,51 @@ export default function GoogleMapsAuthModal({ isOpen, onClose, auth }: GoogleMap
           </button>
         </div>
 
-        {/* Autenticado: perfil */}
-        {auth.isAuthenticated && auth.user ? (
+        {/* Registro exitoso como mensajero: pantalla de confirmación WhatsApp */}
+        {showMessengerSuccess && auth.user ? (
+          <div className="p-6 sm:p-8 bg-slate-50/60 flex-1 flex items-center justify-center">
+            <div className="w-full bg-white rounded-lg p-6 border border-border-subtle shadow-level-3 space-y-4 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-100 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto">
+                <Bike className="w-7 h-7" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-800 font-display">¡Cuenta creada!</h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Tu perfil de mensajero está pendiente de confirmación de pago.
+                </p>
+              </div>
+              <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-left space-y-1.5">
+                <p className="text-xs font-bold text-amber-800">Siguiente paso:</p>
+                <p className="text-[11px] text-amber-700">
+                  Realiza una transferencia de <strong>300 CUP</strong> al número indicado y confirma por WhatsApp.
+                </p>
+              </div>
+              <a
+                href="https://wa.me/5355819421?text=Hola%2C%20acabo%20de%20registrarme%20como%20mensajero%20y%20quiero%20confirmar%20mi%20pago."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl transition-colors inline-flex items-center justify-center gap-2"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Confirmar pago por WhatsApp
+              </a>
+              <button
+                onClick={() => {
+                  setPhone('');
+                  setPin('');
+                  setName('');
+                  setShowMessengerSuccess(false);
+                  onClose();
+                }}
+                className="w-full py-2 text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+
+        ) : /* Autenticado: perfil */
+        auth.isAuthenticated && auth.user ? (
           <div className="p-6 sm:p-8 bg-slate-50/60 flex-1 space-y-5">
             <div className="w-full bg-white rounded-lg p-6 border border-border-subtle shadow-level-3 space-y-4">
               <div className="flex items-center gap-3">
@@ -250,6 +303,26 @@ export default function GoogleMapsAuthModal({ isOpen, onClose, auth }: GoogleMap
                     </button>
                   </div>
                 </div>
+
+                {isRegister && (
+                  <label className="flex items-start gap-3 p-3 rounded-lg border border-border-subtle bg-slate-50/50 cursor-pointer hover:bg-slate-50 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={wantsToBeMessenger}
+                      onChange={(e) => { setWantsToBeMessenger(e.target.checked); setLocalError(''); }}
+                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-brand focus:ring-emerald-brand/40"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <Bike className="w-3.5 h-3.5 text-emerald-brand" />
+                        <span className="text-xs font-bold text-slate-700">Quiero ser mensajero</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Al activar, tu cuenta queda pendiente de confirmación de pago (300 CUP).
+                      </p>
+                    </div>
+                  </label>
+                )}
 
                 <button
                   type="submit"
