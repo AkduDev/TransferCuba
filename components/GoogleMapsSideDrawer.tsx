@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import ModalShell from '@/components/ModalShell';
 import { 
   X, 
@@ -12,6 +12,7 @@ import {
   QrCode, 
   ExternalLink,
   ChevronRight,
+  ChevronDown,
   Sparkles,
   Info,
   User,
@@ -49,6 +50,8 @@ export default function GoogleMapsSideDrawer({
   authUser,
   totalBusinesses
 }: GoogleMapsSideDrawerProps) {
+  const [showProvinces, setShowProvinces] = useState(false);
+
   return (
     <ModalShell
       isOpen={isOpen}
@@ -201,7 +204,21 @@ export default function GoogleMapsSideDrawer({
                 {selectedProvince === 'all' && <span className="text-xs">✓</span>}
               </button>
 
-              {CUBAN_PROVINCES.map((prov) => (
+              {/* Toggle provincias */}
+              <button
+                onClick={() => setShowProvinces(!showProvinces)}
+                className="w-full p-2.5 rounded-xl text-xs font-bold flex items-center justify-between text-slate-600 hover:bg-white transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-3.5 h-3.5 opacity-60" />
+                  <span>Provincias ({CUBAN_PROVINCES.length})</span>
+                </div>
+                <ChevronDown
+                  className={`w-4 h-4 text-slate-400 transition-transform ${showProvinces ? 'rotate-180' : ''}`}
+                />
+              </button>
+
+              {showProvinces && CUBAN_PROVINCES.map((prov) => (
                 <button
                   key={prov.name}
                   onClick={() => {

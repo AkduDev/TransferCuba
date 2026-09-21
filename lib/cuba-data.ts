@@ -249,6 +249,15 @@ export const CUBAN_PROVINCES: ProvinceData[] = [
       'Nueva Paz',
       'San Nicolás de Bari'
     ]
+  },
+  {
+    name: 'Isla de la Juventud',
+    slug: 'isla-de-la-juventud',
+    center: [21.7333, -82.8456],
+    zoom: 12,
+    municipalities: [
+      'Isla de la Juventud'
+    ]
   }
 ];
 
