@@ -56,7 +56,7 @@ export async function deleteAsset(publicId: string): Promise<void> {
   const params = { public_id: publicId, timestamp };
   const signature = signApiRequest(params, cfg.apiSecret);
 
-  const formData = new URLSearchParams();
+  const formData = new FormData();
   formData.append('public_id', publicId);
   formData.append('timestamp', timestamp);
   formData.append('api_key', cfg.apiKey);

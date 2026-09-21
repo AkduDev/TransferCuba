@@ -598,6 +598,20 @@ async function insertV2Details(
      ON CONFLICT (business_id, day_of_week) DO NOTHING`,
     [b.id]
   );
+
+  // Fotos subidas a Cloudinary → business_images
+  if (b.photos.length > 0) {
+    for (let i = 0; i < b.photos.length; i++) {
+      const url = b.photos[i];
+      if (typeof url !== 'string' || !url) continue;
+      await client.query(
+        `INSERT INTO business_images (id, business_id, url, alt, sort_order, is_cover)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5)
+         ON CONFLICT DO NOTHING`,
+        [b.id, url, null, i, i === 0]
+      );
+    }
+  }
 }
 
 export type PatchAction =

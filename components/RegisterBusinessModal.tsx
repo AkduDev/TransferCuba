@@ -242,6 +242,7 @@ export default function RegisterBusinessModal({
   // Photos upload state
   const [uploadedPhotos, setUploadedPhotos] = useState<{ url: string; alt: string; publicId: string }[]>([]);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Helper to mark a field as touched on blur or change
@@ -256,12 +257,19 @@ export default function RegisterBusinessModal({
 
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
     const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-    if (!cloudName || !uploadPreset) return;
+    if (!cloudName || !uploadPreset) {
+      setPhotoError('Fotos no configuradas. Contacta al administrador.');
+      return;
+    }
 
+    setPhotoError(null);
     setIsUploadingPhoto(true);
     try {
       for (const file of Array.from(files)) {
-        if (file.size > 5 * 1024 * 1024) continue;
+        if (file.size > 5 * 1024 * 1024) {
+          setPhotoError(`${file.name} excede 5MB — omitido.`);
+          continue;
+        }
 
         const formData = new FormData();
         formData.append('file', file);
@@ -281,8 +289,12 @@ export default function RegisterBusinessModal({
 
         if (res.ok && body?.secure_url && body?.public_id) {
           setUploadedPhotos(prev => [...prev, { url: body.secure_url!, alt: file.name, publicId: body.public_id! }]);
+        } else {
+          setPhotoError(body?.error?.message ?? `Error subiendo ${file.name}`);
         }
       }
+    } catch {
+      setPhotoError('Error de red al subir imagen.');
     } finally {
       setIsUploadingPhoto(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -1132,6 +1144,11 @@ export default function RegisterBusinessModal({
                 {isUploadingPhoto ? 'Subiendo...' : 'Agregar fotos (opcional, máx. 5MB c/u)'}
               </span>
             </label>
+            {photoError && (
+              <p className="text-[11px] text-red-500 bg-red-50 border border-red-200 rounded-lg px-2 py-1.5">
+                {photoError}
+              </p>
+            )}
             <p className="text-[11px] text-slate-400">
               Las fotos ayudan a los clientes a identificar tu negocio. Si no agregas ninguna, se usará el icono de tu categoría.
             </p>
