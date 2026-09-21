@@ -59,8 +59,36 @@ app/
 ├── page.tsx               # Página principal (orchestrador de estado de la app)
 ├── globals.css            # Tailwind 4 + estilos globales (scrollbars, beacons)
 └── api/
-    └── businesses/
-        └── route.ts       # API REST: GET / POST / PATCH de negocios
+    ├── businesses/
+    │   └── route.ts       # API REST: GET / POST / PATCH de negocios
+    ├── deliveries/
+    │   ├── route.ts        # GET historial / POST crear carrera
+    │   ├── available/
+    │   │   └── route.ts    # GET carreras PENDING (mensajero)
+    │   ├── estimate/
+    │   │   └── route.ts    # GET estimación de tarifa
+    │   └── [id]/
+    │       ├── route.ts    # GET detalle / PATCH lifecycle
+    │       └── reviews/
+    │           └── route.ts  # GET/POST valoraciones (Fase 6)
+    ├── messenger/
+    │   ├── apply/
+    │   │   └── route.ts    # GET/POST solicitud de mensajero
+    │   └── platform/
+    │       └── route.ts    # re-export config plataforma
+    ├── admin/
+    │   ├── platform/
+    │   │   └── route.ts    # GET/PATCH config plataforma
+    │   └── messengers/
+    │       ├── route.ts    # GET listar solicitudes
+    │       ├── [userId]/
+    │       │   └── route.ts  # PATCH confirmar/rechazar/suspender
+    │       └── pending/
+    │           └── route.ts  # re-export solicitudes pendientes
+    ├── auth/
+    │   └── ...             # login / logout
+    └── account/
+        └── ...             # registro / sesión
 components/
 ├── MapLibreMap.tsx         # Mapa MapLibre GL JS (marcadores, pins, rutas)
 ├── MapErrorBoundary.tsx    # Error boundary del mapa
@@ -73,17 +101,28 @@ components/
 ├── GoogleMapsFiltersModal.tsx  # Modal de filtros avanzados
 ├── RegisterBusinessModal.tsx   # Modal de registro de negocio (pin + Nominatim)
 ├── LocationPickerModal.tsx    # Modal de selección de ubicación (GPS/presets)
-├── AdminDashboardModal.tsx     # Dashboard de administración
+├── AdminDashboardModal.tsx     # Dashboard de administración (incluye tab Mensajeros)
+├── GoogleMapsMessengerModal.tsx # Modal de mensajería (solicitud, tablón, renovación)
+├── GoogleMapsDeliveryModal.tsx  # Modal de delivery (crear carrera, tracking)
+├── MessengerAdminPanel.tsx     # Panel admin para revisar solicitudes de mensajeros
 └── RouteInfoBar.tsx            # Pill superior con info de ruta activa
 lib/
 ├── cuba-data.ts            # Modelo Business, provincias/municipios, seed, Haversine
 ├── nominatim.ts            # Cliente Nominatim (geocode + reverse)
 ├── osrm.ts                 # Cliente OSRM (rutas de conducción)
+├── db-delivery.ts          # DAO de delivery y mensajería (PostgreSQL)
+├── delivery-client.ts      # Tipos DTO del cliente para delivery
+├── delivery-dto.ts         # Mapeo server→DTO con privacidad por rol
+├── pricing.ts              # Cálculo de tarifas por distancia
+├── hooks/
+│   ├── useDeliveries.ts    # Estado de delivery (polling + SSE futuro)
+│   └── useMessengerApplication.ts  # Flujo de solicitud de mensajero
 └── utils.ts                # Utilidades (cn)
 docs/
 ├── architecture.md         # Arquitectura y flujo de datos
 ├── api.md                  # Referencia de la API REST
-└── data-model.md           # Modelo de datos y ciclo de vida de un negocio
+├── data-model.md           # Modelo de datos y ciclo de vida
+├── messaging-module.md     # Módulo de mensajería (estado y decisiones)
 ```
 
 ## 📖 Documentación
@@ -91,8 +130,11 @@ docs/
 - [Arquitectura](docs/architecture.md) — cómo está construida la app y flujo de datos
 - [API REST](docs/api.md) — endpoints, parámetros y ejemplos
 - [Modelo de datos](docs/data-model.md) — tipos, provincias y ciclo de aprobación
+- [Módulo de mensajería](docs/messaging-module.md) — delivery y mensajeros: estado, decisiones, fases
 
-## 🔄 Ciclo de vida de un negocio
+## 🔄 Ciclo de vida
+
+### Negocio
 
 ```
 Usuario registra negocio ──▶ status: pending (🟡 oculto del mapa)
@@ -104,10 +146,31 @@ Comunidad ──▶ Votos 👍 (confirmaciones) / 👎 (reportes)
           ──▶ Toggle "transferencia activa ahora"
 ```
 
-> **Nota:** la persistencia actual es `localStorage` (frontend) + store in-memory
-> (API route). El diseño está preparado para migrar a PostgreSQL/PostGIS
-> (filtros `ST_DWithin`/`ST_DDistance` ya simulados). Ver
-> [docs/architecture.md](docs/architecture.md#futuro-postgis).
+### Delivery
+
+```
+Solicitante crea carrera ──▶ PENDING (🔔 toast, polling cada 12s)
+        │
+Mensajero acepta ──▶ ACCEPTED ──▶ PICKED_UP ──▶ IN_TRANSIT ──▶ DELIVERED
+        │                                                         │
+        └──▶ CANCELLED (solicitante antes de aceptar, admin任何时候)    Solicitante valora (1-5)
+                                                                   ──▶ review en DB
+```
+
+### Mensajero (Fase 5)
+
+```
+Solicitante paga alta ──▶ PENDING ──▶ Admin confirma ──▶ ACTIVE + rol MESSENGER
+                                       │
+                                       └──▶ Rechazar ──▶ vuelve a USER
+                                       
+Renovación ──▶ PENDING (mientras trabaja) ──▶ Admin confirma ──▶ expires_at extendido
+```
+
+> **Persistencia:** Negocios en PostgreSQL/PostGIS via `lib/db.ts`.
+> Delivery y mensajería en PostgreSQL via `lib/db-delivery.ts`.
+> Caché offline del frontend en `localStorage` (`transfercuba_businesses_v2`).
+> Ver [docs/architecture.md](docs/architecture.md).
 
 ## 📜 Scripts
 

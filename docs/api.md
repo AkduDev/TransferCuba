@@ -358,3 +358,19 @@ curl -b jar-mensajero.txt http://localhost:3000/api/deliveries/available
 curl -b jar-mensajero.txt -X PATCH http://localhost:3000/api/deliveries/UUID \
   -H 'Content-Type: application/json' -d '{"action":"accept"}'
 ```
+
+---
+
+## Próxima tarea — Fase 6: historial, valoraciones y eventos en vivo
+
+> Endpoints pendientes de integración en la UI. Backend implementado en commits
+> `94c1d2a` y `c5f2eca`.
+
+| Endpoint | Método | Rol | Comportamiento |
+|---|---|---|---|
+| `/api/deliveries/history` | GET | USER/BUSINESS/ADMIN, MESSENGER | Paginado con cursor opaco `(requested_at, id)`. `limit` 1–50 (30 por defecto), `status` opcional. Role-aware: USER/BUSINESS ven lo que pidieron, MESSENGER lo asignado, ADMIN todo. Respuesta `{ deliveries, nextCursor }`. |
+| `/api/deliveries/[id]/reviews` | GET | quien puede ver la carrera | Valoraciones visibles; `hidden`/`removed` solo para ADMIN. |
+| `/api/deliveries/[id]/reviews` | POST | solicitante | 201 / 400 puntuación o comentario / 403 no es suya o no entregada / 404 / 409 ya valorada / 503. |
+| `/api/admin/deliveries/reviews/[reviewId]` | PATCH | admin | `hide`, `restore`, `remove`. `remove` es lógico: la fila se conserva. |
+| `/api/messengers/[userId]/stats` | GET | el propio mensajero o admin | `{ rating, reviewCount, completedOrders }`. |
+| `/api/deliveries/stream` | GET | USER/BUSINESS/ADMIN, MESSENGER | SSE autenticado. Heartbeat cada 15 s, eventos `delivery.status` con `Last-Event-ID`. Fallback a polling si SSE no soportado. |

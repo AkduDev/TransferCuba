@@ -424,12 +424,10 @@ arquitectura de arriba está diseñada para que cada pieza sea reemplazable.
       nunca se tocaban. La migración recalcula `completed_orders` desde las
       carreras ya entregadas y la transición a DELIVERED lo incrementa dentro de
       la misma transacción. 15 pruebas de Playwright sobre la API; suite 43/43.
-- [ ] **Eventos en vivo**: `GET /api/deliveries/stream` con SSE autenticado, cursores,
-      latidos y reconexión; polling actual como fallback.
+- [x] **Eventos en vivo**: `GET /api/deliveries/stream` con SSE autenticado, cursores,
+      latidos y reconexión; polling actual como fallback (commit `c5f2eca`).
 - [ ] **UI completa**: historial y valoración en `GoogleMapsDeliveryModal`, historial y
       estadísticas en `GoogleMapsMessengerModal`, actualización del mapa sin recarga.
-- [ ] Especificación técnica, contratos, seguridad y criterios de aceptación: se
-      mantienen fuera del repositorio, como documento local de trabajo.
 
 ### Deuda técnica vista en Sprint 9 (ordenada por prioridad)
 - [x] **DB caída en dev**: `queryBusinesses` en `lib/db.ts` lanzaba `ECONNRESET`

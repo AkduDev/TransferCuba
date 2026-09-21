@@ -15,7 +15,7 @@ dependencias.
 | 3 | Matching mensajero: available, accept, steps, cancel, trust | ✅ backend | ✅ UI | ✅ completo (Sprint 13) |
 | 4 | Tracking en mapa + transición de estados | ✅ backend | ✅ UI | ✅ completo (Sprint 14) |
 | 5 | Alta pagada de mensajeros (tarifa + captura WhatsApp) | ✅ backend | ✅ UI | ✅ completo (commit f73567d) |
-| 6 | Historial de carreras, valoraciones, polling → SSE | ⏳ próxima tarea | ⏳ próxima tarea | ⏳ próxima tarea |
+| 6 | Historial de carreras, valoraciones, polling → SSE | ✅ backend + SSE | ⏳ UI pendiente | ✅ backend completo |
 
 ---
 
@@ -302,11 +302,10 @@ las carreras ya entregadas.
   captura de la transferencia por WhatsApp al admin** (comprobante EXTERNO,
   sin subida de imágenes). El admin confirma → `approved` +
   `users.role='MESSENGER'`. Correo/escalado quedan como paso manual.
-- **Fase 6 (próxima tarea)**: historial paginado para solicitante y mensajero,
+- **Fase 6**: historial paginado para solicitante y mensajero,
   valoración del mensajero tras una entrega `DELIVERED`, agregados de rendimiento
   y eventos en vivo por SSE. El polling actual de 12/15 s queda como fallback.
-  La especificación técnica completa se mantiene fuera del repositorio, como
-  documento local de trabajo.
+  Backend y SSE completos (commits `94c1d2a`, `c5f2eca`); pendiente la UI.
 
 ---
 

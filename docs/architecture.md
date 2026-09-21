@@ -330,6 +330,39 @@ inaccesibles, y el placeholder local siempre es más rápido.
 - **Sin BD → 503** (a propósito): no hay fallback in-memory para cuentas.
 - **Mensajería/delivery**: plan completo en `docs/messaging-module.md`.
 
+## Eventos en vivo — SSE (Fase 6, commits `94c1d2a` + `c5f2eca`)
+
+El módulo de delivery actualiza el cliente mediante polling (12 s solicitante,
+15 s mensajero). La Fase 6 añadió Server-Sent Events para cambios de estado
+en tiempo real, con el polling como fallback obligatorio (Vercel serverless no
+permite conexiones persistentes largas).
+
+### Flujo
+
+```
+Browser ──GET /api/deliveries/stream (Last-Event-ID: n)──▶ Next.js API Route
+         ◀──event: delivery.status {id, status, code, updatedAt}────
+         ◀──:heartbeat (cada 15 s)──────────────────────────────────
+         ◀──retry: 5000─────────────────────────────────────────────
+```
+
+- **Autenticación**: misma cookie `tc_session` que el resto de la API.
+- **Eventos**: `delivery.status` se emite en cada transición de estado de una
+  carrera que involucre al usuario conectado (solicitante o mensajero asignado).
+- **`Last-Event-ID`**: el servidor reconecta desde el cursor almacenado en
+  `delivery_status_events.id`. Si no se puede reconectar, responde 200 vacío y
+  el cliente recae en polling.
+- **Heartbeat**: línea `:heartbeat` cada 15 s para mantener viva la conexión.
+  Si el cliente no recibe nada en 30 s, reconecta con backoff exponencial.
+- **Privacidad**: el evento contiene solo `{id, status, code, updatedAt}`.
+  No se filtra la identidad del solicitante ni del mensajero.
+
+### Fallback en el cliente
+
+`useDeliveries` intenta abrir un `EventSource`. Si falla (navegador sin soporte,
+error de conexión, timeout), cae al polling periódico actual sin cambio de
+comportamiento visible para el usuario.
+
 ## Modales accesibles (`ModalShell`)
 
 Los siete modales y el cajón lateral repetían el mismo `div` de capa (`fixed inset-0` + panel

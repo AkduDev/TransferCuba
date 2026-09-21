@@ -8,8 +8,10 @@ import {
   type CreateDeliveryInput,
   type DeliveryDTO,
   type DeliveryPoint,
+  type DeliveryReviewDTO,
   type DeliveryStatus,
   type EstimateResult,
+  type MessengerStatsDTO,
   type PackageType
 } from '@/lib/delivery-client';
 import type { AuthRole } from '@/lib/hooks/useAuth';
@@ -73,12 +75,39 @@ export interface UseDeliveriesState {
   requesterActive: DeliveryDTO | null;
   isMessenger: boolean;
   isTracking: boolean;
+
+  /* --- Fase 6 --- */
+  /** Estado del canal en vivo. `fallback` = SSE descartado, manda el polling. */
+  streamState: StreamState;
+  historyCursor: string | null;
+  isLoadingMoreHistory: boolean;
+  loadMoreHistory: () => Promise<void>;
+  reviewsByDelivery: Record<string, DeliveryReviewDTO>;
+  isSubmittingReview: boolean;
+  submitReview: (deliveryId: string, rating: number, comment: string) => Promise<boolean>;
+  messengerStats: MessengerStatsDTO | null;
+  refreshMessengerStats: () => Promise<void>;
 }
+
+export type StreamState = 'disconnected' | 'connecting' | 'connected' | 'fallback';
+
+/** Fallos seguidos del stream antes de rendirse y dejar el polling al mando. */
+const MAX_FALLOS_STREAM = 3;
 
 interface ApiErrorBody {
   error?: string;
 }
 
+/**
+ * Lee el mensaje de error de una respuesta ya parseada. `Response.json()`
+ * consume el stream, así que releerlo lanza y el texto real del servidor se
+ * perdía: quien llama pasa el cuerpo que ya tiene.
+ */
+function errorDe(body: ApiErrorBody | null, fallback: string): string {
+  return body?.error ?? fallback;
+}
+
+/** Para respuestas cuyo cuerpo aún no se ha leído. */
 async function readError(res: Response, fallback: string): Promise<string> {
   try {
     const body = (await res.json()) as ApiErrorBody;
@@ -114,6 +143,14 @@ export function useDeliveries(opts: { showToast: (msg: string) => void; role: Au
 
   const [requesterActive, setRequesterActive] = useState<DeliveryDTO | null>(null);
   const [trackingId, setTrackingId] = useState<string | null>(null);
+
+  /* --- Fase 6 --- */
+  const [streamState, setStreamState] = useState<StreamState>('disconnected');
+  const [historyCursor, setHistoryCursor] = useState<string | null>(null);
+  const [isLoadingMoreHistory, setIsLoadingMoreHistory] = useState(false);
+  const [reviewsByDelivery, setReviewsByDelivery] = useState<Record<string, DeliveryReviewDTO>>({});
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [messengerStats, setMessengerStats] = useState<MessengerStatsDTO | null>(null);
 
   const estimateTokenRef = useRef(0);
   const requesterActiveRef = useRef<DeliveryDTO | null>(null);
@@ -265,9 +302,11 @@ export function useDeliveries(opts: { showToast: (msg: string) => void; role: Au
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input)
       });
-      const body = (await res.json()) as { success?: boolean; delivery?: DeliveryDTO };
-      if (!res.ok || !body.success || !body.delivery) {
-        showToast(await readError(res, 'No se pudo crear la carrera'));
+      const body = (await res.json().catch(() => null)) as
+        | ({ success?: boolean; delivery?: DeliveryDTO } & ApiErrorBody)
+        | null;
+      if (!res.ok || !body?.success || !body.delivery) {
+        showToast(errorDe(body, 'No se pudo crear la carrera'));
         return;
       }
       openSuccess(body.delivery);
@@ -332,9 +371,11 @@ export function useDeliveries(opts: { showToast: (msg: string) => void; role: Au
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'accept' })
         });
-        const body = (await res.json()) as { success?: boolean; delivery?: DeliveryDTO };
-        if (!res.ok || !body.success || !body.delivery) {
-          showToast(await readError(res, 'No se pudo aceptar la carrera'));
+        const body = (await res.json().catch(() => null)) as
+          | ({ success?: boolean; delivery?: DeliveryDTO } & ApiErrorBody)
+          | null;
+        if (!res.ok || !body?.success || !body.delivery) {
+          showToast(errorDe(body, 'No se pudo aceptar la carrera'));
           return;
         }
         setMessengerActive(body.delivery);
@@ -359,9 +400,11 @@ export function useDeliveries(opts: { showToast: (msg: string) => void; role: Au
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action })
         });
-        const body = (await res.json()) as { success?: boolean; delivery?: DeliveryDTO };
-        if (!res.ok || !body.success || !body.delivery) {
-          showToast(await readError(res, 'No se pudo actualizar la carrera'));
+        const body = (await res.json().catch(() => null)) as
+          | ({ success?: boolean; delivery?: DeliveryDTO } & ApiErrorBody)
+          | null;
+        if (!res.ok || !body?.success || !body.delivery) {
+          showToast(errorDe(body, 'No se pudo actualizar la carrera'));
           return;
         }
         setMessengerActive(body.delivery);
@@ -370,6 +413,83 @@ export function useDeliveries(opts: { showToast: (msg: string) => void; role: Au
       }
     },
     [messengerActive, showToast]
+  );
+
+  /* ------------------ Fase 6: historial, valoraciones y stats ------------------ */
+
+  const refreshMessengerStats = useCallback(async () => {
+    try {
+      const me = await fetch('/api/account/me', { cache: 'no-store' });
+      if (!me.ok) return;
+      const { user } = (await me.json()) as { user?: { id?: string } };
+      if (!user?.id) return;
+      const res = await fetch(`/api/messengers/${user.id}/stats`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const body = (await res.json()) as { stats?: MessengerStatsDTO };
+      if (body.stats) setMessengerStats(body.stats);
+    } catch {
+      // sin red: se reintenta al reabrir el panel
+    }
+  }, []);
+
+  /** Trae una página más del historial y la añade al final. */
+  const loadMoreHistory = useCallback(async () => {
+    if (!historyCursor || isLoadingMoreHistory) return;
+    setIsLoadingMoreHistory(true);
+    try {
+      const res = await fetch(
+        `/api/deliveries/history?limit=20&cursor=${encodeURIComponent(historyCursor)}`,
+        { cache: 'no-store' }
+      );
+      const body = (await res.json().catch(() => null)) as
+        | ({ deliveries?: DeliveryDTO[]; nextCursor?: string | null } & ApiErrorBody)
+        | null;
+      if (!res.ok || !body) {
+        showToast(errorDe(body, 'No se pudo cargar más historial'));
+        return;
+      }
+      const nuevas = body.deliveries ?? [];
+      // Se filtra por id: si llega una repetida por una carrera en el límite de
+      // página, no se duplica en pantalla.
+      setHistory((prev) => {
+        const vistos = new Set(prev.map((d) => d.id));
+        return [...prev, ...nuevas.filter((d) => !vistos.has(d.id))];
+      });
+      setMessengerHistory((prev) => {
+        const vistos = new Set(prev.map((d) => d.id));
+        return [...prev, ...nuevas.filter((d) => !vistos.has(d.id))];
+      });
+      setHistoryCursor(body.nextCursor ?? null);
+    } finally {
+      setIsLoadingMoreHistory(false);
+    }
+  }, [historyCursor, isLoadingMoreHistory, showToast]);
+
+  const submitReview = useCallback(
+    async (deliveryId: string, rating: number, comment: string) => {
+      if (isSubmittingReview) return false;
+      setIsSubmittingReview(true);
+      try {
+        const res = await fetch(`/api/deliveries/${deliveryId}/reviews`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rating, comment: comment.trim() })
+        });
+        const body = (await res.json().catch(() => null)) as
+          | ({ success?: boolean; review?: DeliveryReviewDTO } & ApiErrorBody)
+          | null;
+        if (!res.ok || !body?.success || !body.review) {
+          showToast(errorDe(body, 'No se pudo enviar la valoración'));
+          return false;
+        }
+        setReviewsByDelivery((prev) => ({ ...prev, [deliveryId]: body.review! }));
+        showToast('\u{2713} Valoración enviada');
+        return true;
+      } finally {
+        setIsSubmittingReview(false);
+      }
+    },
+    [isSubmittingReview, showToast]
   );
 
   /* ------------------ Fase 4: seguimiento en vivo ------------------ */
@@ -469,6 +589,15 @@ export function useDeliveries(opts: { showToast: (msg: string) => void; role: Au
     messengerStep,
     requesterActive,
     isMessenger: role === 'MESSENGER',
-    isTracking: trackingId !== null
+    isTracking: trackingId !== null,
+    streamState,
+    historyCursor,
+    isLoadingMoreHistory,
+    loadMoreHistory,
+    reviewsByDelivery,
+    isSubmittingReview,
+    submitReview,
+    messengerStats,
+    refreshMessengerStats
   };
 }
