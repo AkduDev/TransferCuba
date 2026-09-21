@@ -195,6 +195,9 @@ AS $$
       id, name, category, category_icon,
       province, municipality, accepts_transfer, transfer_active_now,
       transfer_verified, rating,
+      CASE WHEN reports_count > 0 THEN 'reported'
+           WHEN transfer_verified THEN 'verified'
+           ELSE 'pending' END AS status,
       ST_AsMVTGeom(
         ST_Transform(geom::geometry, 3857),
         ST_TileEnvelope(z, x, y),

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import ModalShell from '@/components/ModalShell';
 import { 
   X, 
@@ -19,7 +19,9 @@ import {
   ExternalLink,
   Search as SearchIcon,
   Compass,
-  Loader2
+  Loader2,
+  ImagePlus,
+  Trash2
 } from 'lucide-react';
 import { Business, CUBAN_PROVINCES, CATEGORIES } from '@/lib/cuba-data';
 import { searchNominatimAddress, NominatimResult } from '@/lib/nominatim';
@@ -237,9 +239,58 @@ export default function RegisterBusinessModal({
   const [showAllErrors, setShowAllErrors] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Photos upload state
+  const [uploadedPhotos, setUploadedPhotos] = useState<{ url: string; alt: string }[]>([]);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Helper to mark a field as touched on blur or change
   const markTouched = (field: string) => {
     setTouched(prev => ({ ...prev, [field]: true }));
+  };
+
+  // Photo upload handler
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploadingPhoto(true);
+    try {
+      for (const file of Array.from(files)) {
+        if (file.size > 5 * 1024 * 1024) continue; // skip >5MB
+
+        const res = await fetch('/api/businesses/new/images', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileName: file.name,
+            contentType: file.type,
+            fileSize: file.size
+          })
+        });
+
+        const body = await res.json() as { success?: boolean; uploadUrl?: string; publicUrl?: string; error?: string };
+        if (!res.ok || !body.success || !body.uploadUrl || !body.publicUrl) continue;
+
+        // Upload directly to R2
+        const putRes = await fetch(body.uploadUrl, {
+          method: 'PUT',
+          body: file,
+          headers: { 'Content-Type': file.type }
+        });
+
+        if (putRes.ok) {
+          setUploadedPhotos(prev => [...prev, { url: body.publicUrl!, alt: file.name }]);
+        }
+      }
+    } finally {
+      setIsUploadingPhoto(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const removePhoto = (index: number) => {
+    setUploadedPhotos(prev => prev.filter((_, i) => i !== index));
   };
 
   // Real-time WhatsApp validation calculation
@@ -371,7 +422,7 @@ export default function RegisterBusinessModal({
         hours: hours.trim() || '09:00 — 18:00',
         whatsapp: waValidation.formatted || whatsapp.trim(),
         phone: phone.trim() || '+53 7830 1234',
-        photos: [],
+        photos: uploadedPhotos.map(p => p.url),
         featured: false
       });
     } finally {
@@ -1030,15 +1081,59 @@ export default function RegisterBusinessModal({
             </div>
           </div>
 
-          {/* Photo info — placeholder automático por categoría */}
+          {/* Photo upload */}
           <div className="space-y-2 pt-3 border-t border-slate-100">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              5. Foto de Portada
+              5. Fotos del Negocio
             </h3>
-            <p className="text-xs text-slate-500">
-              Se usará automáticamente el icono y color de tu categoría como
-              portada. Las fotos reales llegarán con la subida de imágenes
-              (próximamente) — sin dependencias externas.
+
+            {/* Uploaded photos grid */}
+            {uploadedPhotos.length > 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                {uploadedPhotos.map((photo, i) => (
+                  <div key={i} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 group">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={photo.url} alt={photo.alt} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removePhoto(i)}
+                      className="absolute top-1 right-1 p-1 rounded-full bg-red-500/80 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Upload button */}
+            <label
+              className={`flex items-center justify-center gap-2 p-4 rounded-lg border-2 border-dashed transition-colors cursor-pointer
+                ${isUploadingPhoto
+                  ? 'border-cerulean/40 bg-cerulean/5'
+                  : 'border-slate-200 hover:border-cerulean/40 hover:bg-slate-50'
+                }`}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                multiple
+                onChange={handlePhotoUpload}
+                className="sr-only"
+                disabled={isUploadingPhoto}
+              />
+              {isUploadingPhoto ? (
+                <Loader2 className="w-5 h-5 text-cerulean animate-spin" />
+              ) : (
+                <ImagePlus className="w-5 h-5 text-slate-400" />
+              )}
+              <span className="text-xs text-slate-500">
+                {isUploadingPhoto ? 'Subiendo...' : 'Agregar fotos (opcional, máx. 5MB c/u)'}
+              </span>
+            </label>
+            <p className="text-[11px] text-slate-400">
+              Las fotos ayudan a los clientes a identificar tu negocio. Si no agregas ninguna, se usará el icono de tu categoría.
             </p>
           </div>
 

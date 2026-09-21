@@ -5,7 +5,7 @@ import * as maplibregl from 'maplibre-gl';
 import type { GeoJSONSource, MapMouseEvent } from 'maplibre-gl';
 import type { Feature, FeatureCollection, LineString, Point } from 'geojson';
 import { Protocol, PMTiles } from 'pmtiles';
-import { Business, CATEGORY_EMOJI } from '@/lib/cuba-data';
+import { Business } from '@/lib/cuba-data';
 import type { AvailableDeliveryDTO, DeliveryStatus } from '@/lib/delivery-client';
 
 export interface ClusterInfo {
@@ -74,10 +74,9 @@ function ensureWorkerUrl(): void {
   }
 }
 
-const SOURCE_ID = 'businesses-source';
+const MVT_SOURCE_ID = 'businesses-mvt';
+const SOURCE_SELECTION_ID = 'selected-business-source';
 const SOURCE_CLUSTER_HOVER_ID = 'cluster-hover-source';
-const LAYER_CLUSTER_ID = 'clusters-layer';
-const LAYER_CLUSTER_COUNT_ID = 'cluster-count-layer';
 const LAYER_SELECTED_HALO_ID = 'selected-business-halo';
 const LAYER_UNCLUSTERED_ID = 'unclustered-layer';
 const LAYER_UNCLUSTERED_SEL_ID = 'unclustered-selected-layer';
@@ -97,20 +96,6 @@ const COLOR_VERIFIED = '#10b981';
 const COLOR_REPORTED = '#e11d48';
 const COLOR_PENDING = '#f59e0b';
 const COLOR_SELECTED = '#0f2942';
-
-// Radio del cluster según point_count (debe coincidir con el 'circle-radius'
-// step de LAYER_CLUSTER_ID). El halo de hover lo reusa para agrandar.
-function clusterRadius(count: number): number {
-  if (count >= 25) return 24;
-  if (count >= 10) return 20;
-  return 16;
-}
-
-function statusColor(biz: Business): string {
-  if (biz.reportsCount > 0) return COLOR_REPORTED;
-  if (biz.transferVerified) return COLOR_VERIFIED;
-  return COLOR_PENDING;
-}
 
 function deliveryRequestsToGeoJSON(list: AvailableDeliveryDTO[] | undefined): FeatureCollection {
   const features: Feature<Point>[] = (list ?? []).flatMap((d) => {
@@ -167,127 +152,7 @@ function activeTripToGeoJSON(
   return { type: 'FeatureCollection', features };
 }
 
-// Runtime-canvas pin icon: colored rounded pin with category emoji + status pip.
-// Avoids shipping dozens of PNG assets; rendered once per (category,state) pair.
-function makePinIcon(
-  emoji: string,
-  color: string,
-  opts: { selected?: boolean; activeNow?: boolean } = {}
-): HTMLCanvasElement {
-  const scale = 2; // retina
-  const size = 36 * scale;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size * 1.25;
-  const ctx = canvas.getContext('2d')!;
-
-  const cx = size / 2;
-  const headR = 15 * scale;
-  const headCy = headR + 2 * scale;
-  const tailY = headCy + headR + 6 * scale;
-
-  // Pin head (rounded square)
-  const headSize = headR * 2;
-  const headX = cx - headR;
-  ctx.save();
-  ctx.shadowColor = 'rgba(15, 41, 66, 0.30)';
-  ctx.shadowBlur = 6 * scale;
-  ctx.shadowOffsetY = 2 * scale;
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.roundRect(headX, headCy - headR, headSize, headSize, 9 * scale);
-  ctx.fill();
-  ctx.restore();
-
-  // White border
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 2 * scale;
-  ctx.beginPath();
-  ctx.roundRect(headX, headCy - headR, headSize, headSize, 9 * scale);
-  ctx.stroke();
-
-  // Tail triangle
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.moveTo(cx - 5 * scale, headCy + headR - 1 * scale);
-  ctx.lineTo(cx + 5 * scale, headCy + headR - 1 * scale);
-  ctx.lineTo(cx, tailY);
-  ctx.closePath();
-  ctx.fill();
-
-  // Category emoji
-  ctx.font = `${14 * scale}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(emoji, cx, headCy);
-
-  // Status / selection pip
-  const pipColor = opts.selected ? '#ffffff' : color;
-  const pipBg = opts.selected ? COLOR_SELECTED : '#ffffff';
-  ctx.beginPath();
-  ctx.arc(cx + headR - 2 * scale, headCy - headR + 2 * scale, 5.5 * scale, 0, Math.PI * 2);
-  ctx.fillStyle = pipBg;
-  ctx.fill();
-  ctx.lineWidth = 1.5 * scale;
-  ctx.strokeStyle = '#ffffff';
-  ctx.stroke();
-
-  if (opts.selected) {
-    ctx.font = `bold ${7 * scale}px sans-serif`;
-    ctx.fillStyle = COLOR_SELECTED;
-    ctx.fillText('✓', cx + headR - 2 * scale, headCy - headR + 2.5 * scale);
-  } else {
-    ctx.beginPath();
-    ctx.arc(cx + headR - 2 * scale, headCy - headR + 2 * scale, 2 * scale, 0, Math.PI * 2);
-    ctx.fillStyle = pipColor;
-    ctx.fill();
-  }
-
-  // "Active now" beacon dot (top-left)
-  if (opts.activeNow) {
-    ctx.beginPath();
-    ctx.arc(cx - headR + 2 * scale, headCy - headR + 2 * scale, 4 * scale, 0, Math.PI * 2);
-    ctx.fillStyle = COLOR_VERIFIED;
-    ctx.fill();
-    ctx.lineWidth = 1.5 * scale;
-    ctx.strokeStyle = '#ffffff';
-    ctx.stroke();
-  }
-
-  return canvas;
-}
-
-function iconIdFor(biz: Business, selected: boolean): string {
-  const state = selected ? 'sel' : statusColor(biz) === COLOR_VERIFIED ? 'v' : statusColor(biz) === COLOR_REPORTED ? 'r' : 'p';
-  return `pin-${biz.categoryIcon}-${state}-${biz.transferActiveNow ? 'on' : 'off'}`;
-}
-
-function businessesToGeoJSON(
-  businesses: Business[],
-  selectedId: string | null
-): GeoJSON.FeatureCollection {
-  return {
-    type: 'FeatureCollection',
-    features: businesses.map((biz) => ({
-      type: 'Feature' as const,
-      id: biz.id,
-      properties: {
-        id: biz.id,
-        name: biz.name,
-        categoryIcon: biz.categoryIcon,
-        status: biz.reportsCount > 0 ? 'reported' : biz.transferVerified ? 'verified' : 'pending',
-        activeNow: biz.transferActiveNow,
-        selected: biz.id === selectedId,
-        icon: iconIdFor(biz, false),
-        iconSel: iconIdFor(biz, true)
-      },
-      geometry: {
-        type: 'Point' as const,
-        coordinates: [biz.lng, biz.lat]
-      }
-    }))
-  };
-}
+// --- Layer IDs ---
 
 export default function MapLibreMap({
   businesses,
@@ -520,7 +385,7 @@ export default function MapLibreMap({
     });
   }, [centerLat, centerLng, zoom]);
 
-  // Businesses GeoJSON layer — cluster + symbol pins (GPU rendered)
+  // Businesses MVT layer — vector tiles from server (no client clustering)
   useEffect(() => {
 const map = mapInstanceRef.current;
       businessesByIdRef.current = new Map(businesses.map((b) => [b.id, b]));
@@ -529,61 +394,14 @@ const map = mapInstanceRef.current;
         const map = mapInstanceRef.current;
         if (!map) return;
 
-        // Register any new runtime icons for this batch of businesses.
-        // addImage exige un HTMLImageElement CARGADO (o ImageBitmap): un string
-        // dataURL o una Image sin decodificar produce width 0 y un
-        // IndexSizeError que tumba el mapa (MapErrorBoundary).
-        const pending: Promise<void>[] = [];
-        businessesRef.current.forEach((biz) => {
-          [false, true].forEach((sel) => {
-            const id = iconIdFor(biz, sel);
-            if (!map.hasImage(id) && !iconsCacheRef.current.has(id)) {
-              iconsCacheRef.current.add(id);
-              const iconCanvas = makePinIcon(CATEGORY_EMOJI[biz.category] ?? '📍', statusColor(biz), {
-                selected: sel,
-                activeNow: biz.transferActiveNow
-              });
-              pending.push(
-                createImageBitmap(iconCanvas)
-                  .then((bitmap) => {
-                    if (mapInstanceRef.current && !mapInstanceRef.current.hasImage(id)) {
-                      mapInstanceRef.current.addImage(id, bitmap, { pixelRatio: 2 });
-                    }
-                  })
-                  .catch(() => {
-                    // fallback: elemento <img> con decode()
-                    const el = new Image();
-                    el.src = iconCanvas.toDataURL('image/png');
-                    pending.push(
-                      el
-                        .decode()
-                        .then(() => {
-                          if (mapInstanceRef.current && !mapInstanceRef.current.hasImage(id)) {
-                            mapInstanceRef.current.addImage(id, el, { pixelRatio: 2 });
-                          }
-                        })
-                        .catch(() => {
-                          iconsCacheRef.current.delete(id);
-                        })
-                    );
-                  })
-              );
-            }
-          });
-        });
-      await Promise.all(pending);
-
       try {
-        if (!map.getSource(SOURCE_ID)) {
-          map.addSource(SOURCE_ID, {
-            type: 'geojson',
-            data: businessesToGeoJSON(businessesRef.current, selectedBusinessRef.current?.id ?? null),
-            cluster: true,
-            clusterRadius: 55,
-            clusterMaxZoom: 14,
-            clusterProperties: {
-              active: ['+', ['case', ['get', 'activeNow'], 1, 0]]
-            }
+        // ── MVT vector tile source (server-side rendering) ──
+        if (!map.getSource(MVT_SOURCE_ID)) {
+          map.addSource(MVT_SOURCE_ID, {
+            type: 'vector',
+            tiles: [`${typeof window !== 'undefined' ? window.location.origin : ''}/api/tiles/{z}/{x}/{y}`],
+            minzoom: 0,
+            maxzoom: 14
           });
         }
 
@@ -591,46 +409,68 @@ const map = mapInstanceRef.current;
           if (!map.getLayer(layer.id)) map.addLayer(layer);
         };
 
-        // Clusters: single layer, color driven by `active` count from
-        // clusterProperties. Green = at least one transfer-active business;
-        // navy = none active. (Sprint 9)
+        // Business pins from MVT: circle colored by status
         ensureLayer({
-          id: LAYER_CLUSTER_ID,
+          id: LAYER_UNCLUSTERED_ID,
           type: 'circle',
-          source: SOURCE_ID,
-          filter: ['has', 'point_count'],
+          source: MVT_SOURCE_ID,
+          'source-layer': 'businesses',
           paint: {
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 5, 16, 9],
             'circle-color': [
               'case',
-              ['>', ['get', 'active'], 0],
-              COLOR_VERIFIED,
-              COLOR_SELECTED
+              ['==', ['get', 'status'], 'verified'], COLOR_VERIFIED,
+              ['==', ['get', 'status'], 'reported'], COLOR_REPORTED,
+              COLOR_PENDING
             ],
-            'circle-radius': ['step', ['get', 'point_count'], 16, 10, 20, 25, 24],
-            'circle-opacity': 0.92,
-            'circle-stroke-width': 3,
-            'circle-stroke-color': '#ffffff'
+            'circle-stroke-color': '#ffffff',
+            'circle-stroke-width': 1.5,
+            'circle-opacity': 0.92
           }
         });
 
+        // Category label on top of each pin
         ensureLayer({
-          id: LAYER_CLUSTER_COUNT_ID,
+          id: LAYER_UNCLUSTERED_SEL_ID,
           type: 'symbol',
-          source: SOURCE_ID,
-          filter: ['has', 'point_count'],
+          source: MVT_SOURCE_ID,
+          'source-layer': 'businesses',
           layout: {
-            'text-field': ['get', 'point_count_abbreviated'],
+            'text-field': ['get', 'category_icon'],
             'text-font': ['Noto Sans Regular'],
-            'text-size': 12
+            'text-size': ['interpolate', ['linear'], ['zoom'], 10, 9, 16, 13],
+            'text-offset': [0, -1.8],
+            'text-allow-overlap': false,
+            'text-ignore-placement': true
           },
           paint: {
-            'text-color': '#ffffff'
+            'text-color': COLOR_SELECTED
           }
         });
 
-        // Halo de hover del cluster (igual que el halo de selección del pin):
-        // source dedicada + capa, porque este runtime MapLibre descarta capas
-        // con feature-state. Se rellena al `mouseenter` y vacía al `mouseleave`.
+        // ── Selection overlay (GeoJSON, small) ──
+        if (!map.getSource(SOURCE_SELECTION_ID)) {
+          map.addSource(SOURCE_SELECTION_ID, {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
+          });
+        }
+
+        // Halo de selección (debajo del pin)
+        ensureLayer({
+          id: LAYER_SELECTED_HALO_ID,
+          type: 'circle',
+          source: SOURCE_SELECTION_ID,
+          paint: {
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 16, 18, 22],
+            'circle-color': COLOR_VERIFIED,
+            'circle-opacity': 0.28,
+            'circle-blur': 0.55,
+            'circle-translate': [0, 22]
+          }
+        });
+
+        // ── Cluster hover halo (kept for zoom-in behavior) ──
         if (!map.getSource(SOURCE_CLUSTER_HOVER_ID)) {
           map.addSource(SOURCE_CLUSTER_HOVER_ID, {
             type: 'geojson',
@@ -648,98 +488,10 @@ const map = mapInstanceRef.current;
             'circle-blur': 0.5
           }
         });
-        if (map.getLayer(LAYER_CLUSTER_ID) && map.getLayer(LAYER_CLUSTER_HOVER_ID)) {
-          map.moveLayer(LAYER_CLUSTER_HOVER_ID, LAYER_CLUSTER_ID);
-        }
-
-        // Individual pins (sin feature-state: MapLibre de este proyecto descarta
-// silenciosamente capas con expresiones feature-state). El pin seleccionado
-// vive en su propia capa, filtrada por la property `selected` del GeoJSON.
-ensureLayer({
-          id: LAYER_UNCLUSTERED_ID,
-          type: 'symbol',
-          source: SOURCE_ID,
-          filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'selected'], true]],
-          layout: {
-            'icon-image': ['get', 'icon'],
-            'icon-size': 1,
-            'icon-allow-overlap': false,
-            'icon-ignore-placement': true,
-            'icon-anchor': 'bottom',
-            'icon-padding': 4
-          }
-        });
-
-        // Pin seleccionado: icono sel + tamaño mayor (estilo Google Maps).
-        ensureLayer({
-          id: LAYER_UNCLUSTERED_SEL_ID,
-          type: 'symbol',
-          source: SOURCE_ID,
-          filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'selected'], true]],
-          layout: {
-            'icon-image': ['get', 'iconSel'],
-            'icon-size': 1.18,
-            'icon-allow-overlap': true,
-            'icon-ignore-placement': true,
-            'icon-anchor': 'bottom',
-            'icon-padding': 4
-          }
-        });
-
-        // Halo suave de selección (Sprint 9): emerald glow bajo el pin elegido.
-        ensureLayer({
-          id: LAYER_SELECTED_HALO_ID,
-          type: 'circle',
-          source: SOURCE_ID,
-          filter: ['all', ['!=', ['has', 'point_count'], true], ['==', ['get', 'selected'], true]],
-          paint: {
-            'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 16, 18, 22],
-            'circle-color': COLOR_VERIFIED,
-            'circle-opacity': 0.28,
-            'circle-blur': 0.55,
-            'circle-translate': [0, 22]
-          }
-        });
-        if (map.getLayer(LAYER_SELECTED_HALO_ID) && map.getLayer(LAYER_UNCLUSTERED_SEL_ID)) {
-          map.moveLayer(LAYER_SELECTED_HALO_ID, LAYER_UNCLUSTERED_SEL_ID);
-        }
 
         // Interacción (click/cursor/popup) — se registra solo la primera vez
         if (!mapInteractiveRef.current) {
           mapInteractiveRef.current = true;
-
-          const onClusterBubbleClick = async (e: maplibregl.MapLayerMouseEvent) => {
-            const feature = e.features?.[0];
-            if (!feature) return;
-            const clusterId = Number(feature.properties?.cluster_id);
-            const src = map.getSource(SOURCE_ID) as GeoJSONSource;
-            const coords = feature.geometry;
-            if (coords.type !== 'Point') return;
-            const center: [number, number] = coords.coordinates as [number, number]; // [lng,lat]
-
-            const cb = callbacksRef.current.onClusterClick;
-            const expansionZoom = await src.getClusterExpansionZoom(clusterId).catch(() => Math.min(map.getZoom() + 1, 16));
-            try {
-              // Trae todas las hojas del cluster (point_count acotado por
-              // clusterMaxZoom); la paginación de la tarjeta es pura UI.
-              const pointCount = Number(feature.properties?.point_count ?? 8);
-              const leaves = await src.getClusterLeaves(clusterId, Math.max(pointCount, 8), 0);
-              const bizs = leaves
-                .map((l) => businessesByIdRef.current.get(String(l.properties?.id)))
-                .filter((b): b is Business => Boolean(b));
-              if (bizs.length > 0 && cb) {
-                cb({ businesses: bizs, center: [center[1], center[0]], clusterId, expansionZoom });
-                return;
-              }
-            } catch {
-              // ignore, fall through to zoom
-            }
-
-            // Fallback: zoom into the cluster (Google '+' behaviour).
-            map.easeTo({ center, zoom: expansionZoom, duration: 600 });
-          };
-
-          map.on('click', LAYER_CLUSTER_ID, onClusterBubbleClick);
 
           const onPinClick = (e: maplibregl.MapLayerMouseEvent) => {
             const feature = e.features?.[0];
@@ -760,36 +512,6 @@ ensureLayer({
               map.getCanvas().style.cursor = '';
             });
           });
-          map.on('mouseenter', LAYER_CLUSTER_ID, () => {
-            map.getCanvas().style.cursor = 'pointer';
-          });
-          map.on('mouseleave', LAYER_CLUSTER_ID, () => {
-            map.getCanvas().style.cursor = '';
-          });
-
-          // Halo de hover del cluster: escribe el punto bajo el cursor con su
-          // radio en la source dedicada (vacía al salir).
-          const setClusterHover = (feature: maplibregl.GeoJSONFeature | undefined) => {
-            const hoverSrc = map.getSource(SOURCE_CLUSTER_HOVER_ID) as GeoJSONSource | undefined;
-            if (!hoverSrc) return;
-            if (feature && feature.geometry.type === 'Point') {
-              const count = Number(feature.properties?.point_count ?? 0);
-              hoverSrc.setData({
-                type: 'FeatureCollection',
-                features: [
-                  {
-                    type: 'Feature',
-                    geometry: feature.geometry,
-                    properties: { r: clusterRadius(count) + 5 }
-                  }
-                ]
-              });
-            } else {
-              hoverSrc.setData({ type: 'FeatureCollection', features: [] });
-            }
-          };
-          map.on('mouseenter', LAYER_CLUSTER_ID, (e) => setClusterHover(e.features?.[0]));
-          map.on('mouseleave', LAYER_CLUSTER_ID, () => setClusterHover(undefined));
 
           // Hover popup: business name (desktop nicety)
           const popup = new maplibregl.Popup({
@@ -818,10 +540,26 @@ ensureLayer({
           });
         }
 
-        // Siempre refresca los datos (inserta/actualiza features o clusteriza)
-        (map.getSource(SOURCE_ID) as GeoJSONSource).setData(
-          businessesToGeoJSON(businessesRef.current, selectedBusinessRef.current?.id ?? null)
-        );
+        // Update selection overlay
+        const selId = selectedBusinessRef.current?.id ?? null;
+        const selBiz = selId ? businessesByIdRef.current.get(selId) : null;
+        const selSrc = map.getSource(SOURCE_SELECTION_ID) as GeoJSONSource | undefined;
+        if (selSrc) {
+          selSrc.setData(
+            selBiz
+              ? {
+                  type: 'FeatureCollection' as const,
+                  features: [
+                    {
+                      type: 'Feature' as const,
+                      geometry: { type: 'Point' as const, coordinates: [selBiz.lng, selBiz.lat] },
+                      properties: { id: selBiz.id, name: selBiz.name }
+                    }
+                  ]
+                }
+              : { type: 'FeatureCollection' as const, features: [] }
+          );
+        }
       } catch (setupErr) {
         console.error('setupLayers failed:', setupErr);
       }
@@ -841,8 +579,7 @@ ensureLayer({
           console.error('setupLayers failed:', err);
         }
         const complete =
-          map.getSource(SOURCE_ID) &&
-          map.getLayer(LAYER_CLUSTER_ID) &&
+          map.getSource(MVT_SOURCE_ID) &&
           map.getLayer(LAYER_UNCLUSTERED_ID) &&
           map.getLayer(LAYER_UNCLUSTERED_SEL_ID) &&
           map.getLayer(LAYER_SELECTED_HALO_ID);
@@ -856,13 +593,13 @@ ensureLayer({
     } else {
       map.once('style.load', () => void attempt());
     }
-  }, [businesses, onSelectBusiness]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Selection highlight: el id seleccionado viaja en el GeoJSON (property
-  // `selected`), así que basta refrescar los datos (setupLayers es idempotente).
+  // Selection highlight: actualiza el overlay GeoJSON del pin seleccionado.
   useEffect(() => {
     const map = mapInstanceRef.current;
-    if (!map || !map.getSource(SOURCE_ID)) return;
+    if (!map || !map.getSource(SOURCE_SELECTION_ID)) return;
     void setupLayersRef.current?.();
   }, [selectedBusiness]);
 
