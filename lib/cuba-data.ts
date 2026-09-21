@@ -158,6 +158,97 @@ export const CUBAN_PROVINCES: ProvinceData[] = [
       'Consolación del Sur',
       'Sandino'
     ]
+  },
+  {
+    name: 'Guantánamo',
+    slug: 'guantanamo',
+    center: [20.1404, -75.2091],
+    zoom: 13,
+    municipalities: [
+      'Guantánamo',
+      'Baracoa',
+      'Caimanera',
+      'Yateras',
+      'San Antonio del Sur'
+    ]
+  },
+  {
+    name: 'Granma',
+    slug: 'granma',
+    center: [20.3845, -76.6425],
+    zoom: 13,
+    municipalities: [
+      'Bayamo',
+      'Manzanillo',
+      'Niceto Pérez',
+      'Jiguaní',
+      'Barto de Heredia'
+    ]
+  },
+  {
+    name: 'Las Tunas',
+    slug: 'las-tunas',
+    center: [20.9614, -76.9511],
+    zoom: 13,
+    municipalities: [
+      'Las Tunas',
+      'Puerto Padre',
+      'Colombia',
+      'Jesús Menéndez',
+      'Manatí'
+    ]
+  },
+  {
+    name: 'Sancti Spíritus',
+    slug: 'sancti-spiritus',
+    center: [21.9342, -79.4447],
+    zoom: 13,
+    municipalities: [
+      'Sancti Spíritus',
+      'Trinidad',
+      'Cienfuegos',
+      'Yaguajay',
+      'Jatibonico'
+    ]
+  },
+  {
+    name: 'Ciego de Ávila',
+    slug: 'ciego-de-avila',
+    center: [21.8400, -78.7619],
+    zoom: 13,
+    municipalities: [
+      'Ciego de Ávila',
+      'Morón',
+      'Chambas',
+      'Florencia',
+      'Venezuela'
+    ]
+  },
+  {
+    name: 'Artemisa',
+    slug: 'artemisa',
+    center: [22.8142, -82.7589],
+    zoom: 13,
+    municipalities: [
+      'Artemisa',
+      'Guanajay',
+      'Caimito',
+      'Bauta',
+      'San Antonio de los Baños'
+    ]
+  },
+  {
+    name: 'Mayabeque',
+    slug: 'mayabeque',
+    center: [22.9608, -82.1439],
+    zoom: 13,
+    municipalities: [
+      'San José de las Lajas',
+      'Santa Cruz del Norte',
+      'Madruga',
+      'Nueva Paz',
+      'San Nicolás de Bari'
+    ]
   }
 ];
 
