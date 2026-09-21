@@ -199,11 +199,14 @@ SO (no determinista). Fix con `font-faces` (style-spec de MapLibre ≥ 6.9):
   guardar cada `url(...)` secuencialmente como `emoji-{i}.woff2` y
   regenerar el bloque `font-faces` con los `unicode-range` del CSS.
 
-## Capas del mapa (Sprint 9)
+## Capas del mapa (Sprint 9 + MVT)
 
-`MapLibreMap` monta un source GeoJSON `businesses-source` (`cluster:true`,
-`clusterRadius:55`, `clusterMaxZoom:14`, `clusterProperties.active`) y cinco
-capas idempotentes (re-añadidas si faltan):
+`MapLibreMap` monta un source vectorial `businesses-mvt` apuntando a
+`/api/tiles/{z}/{x}/{y}` (MVT desde PostGIS), con capas circle + symbol
+para pins y emoji de categoría. La selección usa un overlay GeoJSON
+pequeño `selected-business-source` para el halo y pin seleccionado.
+Los datos de negocios se cargan bajo demanda al hacer pan/zoom;
+cache CDN con `s-maxage=300, stale-while-revalidate=3600`.
 
 | Capa | Tipo | Filtro / nota |
 |---|---|---|
@@ -255,47 +258,45 @@ capas idempotentes (re-añadidas si faltan):
   `easeTo({zoom: expansionZoom, duration: 900})` en vez del zoom fijo 15
   anterior (verificado headless: z12.97 → z15, tarjeta cerrada).
 
-## Futuro: PostGIS
+## PostGIS (implementado — Sprint 10)
 
-El diseño está listo para migrar la capa de datos:
+La migración a PostGIS/Neon se completó en Sprint 10:
 
-1. Reemplazar `INITIAL_BUSINESSES` por tabla `businesses` en PostgreSQL con
-   columna `geography(Point, 4326)`.
-2. El GET del API pasa de Haversine a:
-   ```sql
-   SELECT *, ST_Distance(geom, ST_MakePoint($lng,$lat)::geography)
-   FROM businesses
-   WHERE ST_DWithin(geom, ST_MakePoint($lng,$lat)::geography, $radius);
-   ```
-3. Sincronizar `localStorage` → server (hoy son dos stores independientes;
-   `page.tsx` aún no consume el API route).
+1. Tabla `businesses` en PostgreSQL (Neon free) con columna `geography(Point, 4326)`.
+2. GET del API usa consultas SQL reales con índices GIST (`ST_DWithin`/`ST_Distance`,
+   viewport queries con `ST_MakeEnvelope`).
+3. `page.tsx` consume `GET /api/businesses`; `localStorage` queda como cache offline.
+4. Circuit breaker en `lib/db.ts` protege contra BD inalcanzable (fallback in-memory en dev).
+5. **Vector tiles MVT**: `GET /api/tiles/[z]/[x]/[y]` genera tiles con `ST_AsMVT`
+   (PostGIS puro). Frontend consume via source vectorial en MapLibreMap.
 
 ## Errores conocidos / deuda técnica
 
 - **Doble store:** el frontend usa localStorage y el API su memoria; el
   registro de un negocio no llama a `POST /api/businesses`.
 
-## Fotos de negocio (Sprint 5 — sin CDNs externos)
+## Fotos de negocio (Cloudinary + business_images)
 
-Cuba-first: ninguna foto de negocio se carga desde un CDN externo
-(Picsum/Unsplash/Pexels/Shutterstock); en Cuba esos dominios son lentos o
-inaccesibles, y el placeholder local siempre es más rápido.
+### Almacenamiento: Cloudinary (unsigned upload)
 
-- **Fuente de verdad**: `businesses.photos` (`string[]`). El seed
-  (`INITIAL_BUSINESSES` en `lib/cuba-data.ts`) usa `photos: []`.
-- **Sanitización en 2 capas**: `lib/db.ts` (`sanitizePhotos`, al leer filas
-  y al insertar) y `app/api/businesses/route.ts` (`POST` descarta CDNs
-  externos y no inyecta fallback: sin fotos → `[]`). La regex
-  `EXTERNAL_PHOTO_PATTERN` filtra `unsplash|picsum|pexels|shutterstock`.
-- **Render**: `components/BusinessCover.tsx`. Con foto → `next/image`
-  (`loading="lazy"`, `fill`, `referrerPolicy="no-referrer"`); sin foto →
-  placeholder local por categoría (`getCategoryStyle` en
-  `lib/category-style.tsx`), icono lucide + color de la categoría en ambos
-  variants (`thumb` miniatura, `banner` con label de categoría).
-- **Config**: `next.config.ts` ya no declara `remotePatterns` de
-  imágenes externas; el único `<img>` de red que existía quedó eliminado.
-  Si un negocio llega a subir fotos propias, se añadirá el host al que
-  se sirvan (self-host o storage propio), nunca un CDN público.
+Las fotos se suben directamente desde el navegador a Cloudinary (upload
+unsigned, sin exponer API keys). El servidor guarda la URL en la tabla
+`business_images` vía `POST /api/businesses/[id]/images`.
+
+- **Flujo de subida**: `RegisterBusinessModal` sube archivos a Cloudinary
+  (`NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` + `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET`),
+  obtiene `secure_url` y `public_id`, y al crear el negocio envía las URLs al
+  endpoint de imágenes.
+- **Borrado**: `DELETE /api/businesses/[id]/images/[imageId]` borra de la BD
+  y de Cloudinary (requiere `CLOUDINARY_API_KEY` + `CLOUDINARY_API_SECRET`).
+  Si las API keys no están configuradas, solo borra de la BD.
+- **Helpers**: `lib/cloudinary.ts` (`getUploadUrl`, `deleteAsset`,
+  `publicIdFromUrl`) — sin dependencias externas, REST API + crypto nativo.
+- **Plan gratuito**: 25 GB storage, 25 GB bandwidth/mes.
+- **Sanitización**: `POST /api/businesses` descarta URLs que no sean de
+  Cloudinary (validación `res.cloudinary.com`).
+- **Render**: `components/BusinessCover.tsx`. Con foto → `next/image`;
+  sin foto → placeholder local por categoría.
 
 ## Auth del panel admin (Sprint 11)
 

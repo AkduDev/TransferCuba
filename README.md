@@ -10,12 +10,13 @@
 
 ## ✨ Funcionalidades
 
-- **🗺️ Mapa fullscreen** — MapLibre GL JS + tiles vectoriales OpenFreeMap (OSM) — gratis, ilimitado, sin API keys, nitidez GPU en cualquier zoom
+- **🗺️ Mapa fullscreen** — MapLibre GL JS + tiles vectoriales MVT desde PostGIS (OpenFreeMap para basemap) — nitidez GPU en cualquier zoom
 - **📍 Directorio con filtros** — provincia, municipio, categoría, estado de verificación, canal de pago (QR / online)
 - **🟢 Estado en vivo** — "acepta transferencia ahora" actualizable por la comunidad
 - **🚗 Rutas OSRM** — traza la ruta de conducción desde tu ubicación GPS hasta el negocio, con distancia y tiempo
 - **🔎 Geocodificación Nominatim** — búsqueda de direcciones cubanas y colocación de pines por coordenadas
 - **🏪 Registro de negocios** — flujo de alta con pin interactivo en el mapa y asistente de direcciones
+- **📸 Fotos de negocios** — subida directa a Cloudinary (plan gratuito 25 GB), almacenadas en `business_images`
 - **🛡️ Panel de administración** — aprobación, verificación, activación y eliminación de negocios
 - **👍 Verificación comunitaria** — votos de confirmación y reportes por negocio
 - **📱 Responsive** — bottom sheet en móvil, panel flotante en escritorio
@@ -27,7 +28,9 @@
 | Framework | Next.js 15 (App Router) + React 19 |
 | Lenguaje | TypeScript 5.9 |
 | Estilos | Tailwind CSS 4 + tw-animate-css |
-| Mapa | MapLibre GL JS v6 + tiles vectoriales OpenFreeMap (Positron) |
+| Mapa | MapLibre GL JS v6 + tiles vectoriales MVT (PostGIS) + basemap OpenFreeMap |
+| Datos | PostgreSQL/PostGIS (Neon free) |
+| Fotos | Cloudinary (upload unsigned, plan gratuito 25 GB) |
 | Geocoding | Nominatim (OSM) |
 | Rutas | OSRM (router.project-osrm.org) |
 | Iconos | lucide-react |
@@ -48,8 +51,10 @@ bun run dev
 bun run build && bun run start
 ```
 
-No se requieren variables de entorno ni API keys: todos los servicios de mapas
-(Nominatim, OSRM, tiles OSM) son públicos y gratuitos. Ver `.env.example`.
+No se requieren API keys para mapas/rutas (Nominatim, OSRM, OpenFreeMap son
+públicos). Las variables opcionales son: `DATABASE_URL` (PostgreSQL/Neon,
+sin ella usa fallback in-memory), Cloudinary keys (fotos de negocios;
+sin ellas el registro no permite fotos). Ver `.env.example`.
 
 ## 📂 Estructura del proyecto
 

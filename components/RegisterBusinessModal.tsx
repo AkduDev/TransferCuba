@@ -240,7 +240,7 @@ export default function RegisterBusinessModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Photos upload state
-  const [uploadedPhotos, setUploadedPhotos] = useState<{ url: string; alt: string }[]>([]);
+  const [uploadedPhotos, setUploadedPhotos] = useState<{ url: string; alt: string; publicId: string }[]>([]);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -249,38 +249,38 @@ export default function RegisterBusinessModal({
     setTouched(prev => ({ ...prev, [field]: true }));
   };
 
-  // Photo upload handler
+  // Photo upload handler — sube directamente a Cloudinary (unsigned)
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+    if (!cloudName || !uploadPreset) return;
+
     setIsUploadingPhoto(true);
     try {
       for (const file of Array.from(files)) {
-        if (file.size > 5 * 1024 * 1024) continue; // skip >5MB
+        if (file.size > 5 * 1024 * 1024) continue;
 
-        const res = await fetch('/api/businesses/new/images', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fileName: file.name,
-            contentType: file.type,
-            fileSize: file.size
-          })
-        });
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', uploadPreset);
+        formData.append('folder', 'businesses');
 
-        const body = await res.json() as { success?: boolean; uploadUrl?: string; publicUrl?: string; error?: string };
-        if (!res.ok || !body.success || !body.uploadUrl || !body.publicUrl) continue;
+        const res = await fetch(
+          `https://api.cloudinary.com/v1_1/${cloudName}/upload`,
+          { method: 'POST', body: formData }
+        );
 
-        // Upload directly to R2
-        const putRes = await fetch(body.uploadUrl, {
-          method: 'PUT',
-          body: file,
-          headers: { 'Content-Type': file.type }
-        });
+        const body = await res.json() as {
+          secure_url?: string;
+          public_id?: string;
+          error?: { message?: string };
+        } | null;
 
-        if (putRes.ok) {
-          setUploadedPhotos(prev => [...prev, { url: body.publicUrl!, alt: file.name }]);
+        if (res.ok && body?.secure_url && body?.public_id) {
+          setUploadedPhotos(prev => [...prev, { url: body.secure_url!, alt: file.name, publicId: body.public_id! }]);
         }
       }
     } finally {
