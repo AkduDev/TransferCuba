@@ -14,13 +14,17 @@ import {
   Plus,
   User,
   ArrowLeft,
-  Bell
+  Bell,
+  Star,
+  MessageSquare
 } from 'lucide-react';
 import {
   PACKAGE_TYPES,
   PACKAGE_TYPE_LABELS,
   STATUS_LABELS,
+  REVIEW_COMMENT_MAX,
   type DeliveryDTO,
+  type DeliveryReviewDTO,
   type PackageType
 } from '@/lib/delivery-client';
 import type { UseDeliveriesState } from '@/lib/hooks/useDeliveries';
@@ -234,6 +238,12 @@ export default function GoogleMapsDeliveryModal({
               history={deliveries.history}
               isLoading={deliveries.isOpeningHistory}
               onNew={() => deliveries.openForm()}
+              reviewsByDelivery={deliveries.reviewsByDelivery}
+              onSubmitReview={deliveries.submitReview}
+              isSubmittingReview={deliveries.isSubmittingReview}
+              onLoadMore={deliveries.loadMoreHistory}
+              hasMore={deliveries.historyCursor !== null}
+              isLoadingMore={deliveries.isLoadingMoreHistory}
             />
           ) : (
             <>
@@ -392,7 +402,48 @@ function SuccessView({ d, onAnother, onHistory }: { d: DeliveryDTO; onAnother: (
   );
 }
 
-function HistoryView({ history, isLoading, onNew }: { history: DeliveryDTO[]; isLoading: boolean; onNew: () => void }) {
+function HistoryView({
+  history,
+  isLoading,
+  onNew,
+  reviewsByDelivery,
+  onSubmitReview,
+  isSubmittingReview,
+  onLoadMore,
+  hasMore,
+  isLoadingMore
+}: {
+  history: DeliveryDTO[];
+  isLoading: boolean;
+  onNew: () => void;
+  reviewsByDelivery: Record<string, DeliveryReviewDTO>;
+  onSubmitReview: (deliveryId: string, rating: number, comment: string) => Promise<boolean>;
+  isSubmittingReview: boolean;
+  onLoadMore: () => Promise<void>;
+  hasMore: boolean;
+  isLoadingMore: boolean;
+}) {
+  const [reviewingId, setReviewingId] = React.useState<string | null>(null);
+  const [rating, setRating] = React.useState(0);
+  const [hoverRating, setHoverRating] = React.useState(0);
+  const [comment, setComment] = React.useState('');
+
+  const handleSubmit = async (deliveryId: string) => {
+    if (rating < 1 || rating > 5) return;
+    const ok = await onSubmitReview(deliveryId, rating, comment);
+    if (ok) {
+      setReviewingId(null);
+      setRating(0);
+      setComment('');
+    }
+  };
+
+  const startReview = (deliveryId: string) => {
+    setReviewingId(deliveryId);
+    setRating(0);
+    setComment('');
+  };
+
   return (
     <div className="space-y-2">
       {isLoading && (
@@ -406,34 +457,130 @@ function HistoryView({ history, isLoading, onNew }: { history: DeliveryDTO[]; is
           <p className="text-xs text-slate-400 mt-1">Solicita tu primera carrera para verla aquí.</p>
         </div>
       )}
-      {history.map((d) => (
-        <div key={d.id} className="rounded-lg border border-border-subtle p-3 space-y-1.5 bg-white">
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-xs font-extrabold text-cerulean">{d.code}</span>
-            <DeliveryStatusBadge d={d} />
-          </div>
-          <div className="flex items-center gap-2 text-[11px] text-slate-500">
-            <MapPin className="w-3 h-3 text-emerald-brand shrink-0" />
-            <span className="truncate">{d.pickup?.address ?? '—'}</span>
-          </div>
-          <div className="flex items-center gap-2 text-[11px] text-slate-500">
-            <MapPin className="w-3 h-3 text-rose-400 shrink-0" />
-            <span className="truncate">{d.dropoff?.address ?? '—'}</span>
-          </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-border-subtle">
-            <span>{d.distanceKm ?? '—'} km · {d.durationMin ?? '—'} min</span>
-            <span className="font-extrabold text-emerald-brand">{cup(d.totalFareCup)}</span>
-          </div>
-          {d.messenger && (
-            <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
-              <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-brand text-[9px] font-extrabold flex items-center justify-center">
-                🛵
-              </span>
-              {d.messenger.name}
+      {history.map((d) => {
+        const existingReview = reviewsByDelivery[d.id];
+        const canReview = d.status === 'DELIVERED' && !existingReview && reviewingId !== d.id;
+        const isReviewing = reviewingId === d.id;
+
+        return (
+          <div key={d.id} className="rounded-lg border border-border-subtle p-3 space-y-1.5 bg-white">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-xs font-extrabold text-cerulean">{d.code}</span>
+              <DeliveryStatusBadge d={d} />
             </div>
-          )}
-        </div>
-      ))}
+            <div className="flex items-center gap-2 text-[11px] text-slate-500">
+              <MapPin className="w-3 h-3 text-emerald-brand shrink-0" />
+              <span className="truncate">{d.pickup?.address ?? '—'}</span>
+            </div>
+            <div className="flex items-center gap-2 text-[11px] text-slate-500">
+              <MapPin className="w-3 h-3 text-rose-400 shrink-0" />
+              <span className="truncate">{d.dropoff?.address ?? '—'}</span>
+            </div>
+            <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-border-subtle">
+              <span>{d.distanceKm ?? '—'} km · {d.durationMin ?? '—'} min</span>
+              <span className="font-extrabold text-emerald-brand">{cup(d.totalFareCup)}</span>
+            </div>
+            {d.messenger && (
+              <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-brand text-[9px] font-extrabold flex items-center justify-center">
+                  🛵
+                </span>
+                {d.messenger.name}
+              </div>
+            )}
+
+            {/* Review existente */}
+            {existingReview && (
+              <div className="rounded-md bg-amber-50 border border-amber-200 p-2 space-y-1">
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <Star
+                      key={i}
+                      className={`w-3 h-3 ${i < existingReview.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'}`}
+                    />
+                  ))}
+                  <span className="text-[10px] text-slate-500 ml-1">{existingReview.rating}/5</span>
+                </div>
+                {existingReview.comment && (
+                  <p className="text-[11px] text-slate-600">{existingReview.comment}</p>
+                )}
+              </div>
+            )}
+
+            {/* Botón valorar */}
+            {canReview && (
+              <button
+                onClick={() => startReview(d.id)}
+                className="w-full py-1.5 rounded-md border border-amber-200 bg-amber-50 text-amber-700 text-[11px] font-bold hover:bg-amber-100 transition-colors inline-flex items-center justify-center gap-1"
+              >
+                <Star className="w-3 h-3" /> Valorar mensajero
+              </button>
+            )}
+
+            {/* Formulario inline de review */}
+            {isReviewing && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 p-2.5 space-y-2">
+                <div className="flex items-center gap-0.5">
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setRating(i + 1)}
+                      onMouseEnter={() => setHoverRating(i + 1)}
+                      onMouseLeave={() => setHoverRating(0)}
+                      className="p-0"
+                    >
+                      <Star
+                        className={`w-5 h-5 transition-colors ${
+                          i < (hoverRating || rating) ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
+                        }`}
+                      />
+                    </button>
+                  ))}
+                  {rating > 0 && <span className="text-[11px] text-slate-500 ml-1">{rating}/5</span>}
+                </div>
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  maxLength={REVIEW_COMMENT_MAX}
+                  rows={2}
+                  placeholder="Comentario opcional..."
+                  className="w-full px-2 py-1.5 rounded border border-amber-200 text-[11px] text-slate-700 outline-none focus:ring-1 focus:ring-amber-300 resize-none placeholder:text-slate-400"
+                />
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => handleSubmit(d.id)}
+                    disabled={rating < 1 || isSubmittingReview}
+                    className="flex-1 py-1.5 rounded bg-amber-500 text-white text-[11px] font-bold hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-1"
+                  >
+                    {isSubmittingReview ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                    Enviar
+                  </button>
+                  <button
+                    onClick={() => setReviewingId(null)}
+                    className="px-3 py-1.5 rounded border border-slate-200 text-slate-500 text-[11px] font-bold hover:bg-slate-50 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Cargar más */}
+      {hasMore && (
+        <button
+          onClick={() => onLoadMore()}
+          disabled={isLoadingMore}
+          className="w-full py-2 rounded-lg border border-slate-200 text-slate-500 text-xs font-bold hover:bg-slate-50 disabled:opacity-50 transition-colors inline-flex items-center justify-center gap-1.5"
+        >
+          {isLoadingMore ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+          {isLoadingMore ? 'Cargando...' : 'Cargar más'}
+        </button>
+      )}
+
       <button
         onClick={onNew}
         className="w-full py-2.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-brand text-xs font-extrabold hover:bg-emerald-100 transition-colors inline-flex items-center justify-center gap-1.5"

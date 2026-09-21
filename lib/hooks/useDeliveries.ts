@@ -66,9 +66,10 @@ export interface UseDeliveriesState {
   messengerHistory: DeliveryDTO[];
   isFetchingAvailable: boolean;
   isActing: boolean;
-  messengerTab: 'available' | 'active';
-  setMessengerTab: (v: 'available' | 'active') => void;
+  messengerTab: 'available' | 'active' | 'history' | 'stats';
+  setMessengerTab: (v: 'available' | 'active' | 'history' | 'stats') => void;
   refreshMessenger: (silent?: boolean) => Promise<void>;
+  openMessengerHistory: () => Promise<void>;
   acceptAvailable: (id: string) => Promise<void>;
   messengerStep: (action: MessengerStep) => Promise<void>;
 
@@ -139,7 +140,7 @@ export function useDeliveries(opts: { showToast: (msg: string) => void; role: Au
   const [messengerHistory, setMessengerHistory] = useState<DeliveryDTO[]>([]);
   const [isFetchingAvailable, setIsFetchingAvailable] = useState(false);
   const [isActing, setIsActing] = useState(false);
-  const [messengerTab, setMessengerTab] = useState<'available' | 'active'>('available');
+  const [messengerTab, setMessengerTab] = useState<'available' | 'active' | 'history' | 'stats'>('available');
 
   const [requesterActive, setRequesterActive] = useState<DeliveryDTO | null>(null);
   const [trackingId, setTrackingId] = useState<string | null>(null);
@@ -315,21 +316,58 @@ export function useDeliveries(opts: { showToast: (msg: string) => void; role: Au
     }
   }, [pickup, dropoff, packageType, packageNote, fragile, payableOnDelivery, isSubmitting, openSuccess, showToast]);
 
+  /* ------------------ Fase 6: stats del mensajero ------------------ */
+
+  const refreshMessengerStats = useCallback(async () => {
+    try {
+      const me = await fetch('/api/account/me', { cache: 'no-store' });
+      if (!me.ok) return;
+      const { user } = (await me.json()) as { user?: { id?: string } };
+      if (!user?.id) return;
+      const res = await fetch(`/api/messengers/${user.id}/stats`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const body = (await res.json()) as { stats?: MessengerStatsDTO };
+      if (body.stats) setMessengerStats(body.stats);
+    } catch {
+      // sin red: se reintenta al reabrir el panel
+    }
+  }, []);
+
   const openHistory = useCallback(async () => {
     setIsOpeningHistory(true);
     try {
-      const res = await fetch('/api/deliveries', { cache: 'no-store' });
+      const res = await fetch('/api/deliveries/history?limit=20', { cache: 'no-store' });
       if (res.ok) {
-        const body = (await res.json()) as { deliveries?: DeliveryDTO[] };
+        const body = (await res.json()) as { deliveries?: DeliveryDTO[]; nextCursor?: string | null };
         setHistory(body.deliveries ?? []);
+        setHistoryCursor(body.nextCursor ?? null);
         setView('history');
       } else {
         showToast(await readError(res, 'No se pudo cargar el historial'));
       }
+      if (role === 'MESSENGER') void refreshMessengerStats();
     } finally {
       setIsOpeningHistory(false);
     }
-  }, [showToast]);
+  }, [showToast, role, refreshMessengerStats]);
+
+  /** Carga el historial del mensajero (para el tab "Historial" del modal de mensajería). */
+  const openMessengerHistory = useCallback(async () => {
+    setIsOpeningHistory(true);
+    try {
+      const res = await fetch('/api/deliveries/history?limit=20', { cache: 'no-store' });
+      if (res.ok) {
+        const body = (await res.json()) as { deliveries?: DeliveryDTO[]; nextCursor?: string | null };
+        setMessengerHistory(body.deliveries ?? []);
+        setHistoryCursor(body.nextCursor ?? null);
+      } else {
+        showToast(await readError(res, 'No se pudo cargar el historial'));
+      }
+      void refreshMessengerStats();
+    } finally {
+      setIsOpeningHistory(false);
+    }
+  }, [showToast, refreshMessengerStats]);
 
   /* ------------------ modo mensajero ------------------ */
 
@@ -414,23 +452,6 @@ export function useDeliveries(opts: { showToast: (msg: string) => void; role: Au
     },
     [messengerActive, showToast]
   );
-
-  /* ------------------ Fase 6: historial, valoraciones y stats ------------------ */
-
-  const refreshMessengerStats = useCallback(async () => {
-    try {
-      const me = await fetch('/api/account/me', { cache: 'no-store' });
-      if (!me.ok) return;
-      const { user } = (await me.json()) as { user?: { id?: string } };
-      if (!user?.id) return;
-      const res = await fetch(`/api/messengers/${user.id}/stats`, { cache: 'no-store' });
-      if (!res.ok) return;
-      const body = (await res.json()) as { stats?: MessengerStatsDTO };
-      if (body.stats) setMessengerStats(body.stats);
-    } catch {
-      // sin red: se reintenta al reabrir el panel
-    }
-  }, []);
 
   /** Trae una página más del historial y la añade al final. */
   const loadMoreHistory = useCallback(async () => {
@@ -585,6 +606,7 @@ export function useDeliveries(opts: { showToast: (msg: string) => void; role: Au
     isActing,
     messengerTab, setMessengerTab,
     refreshMessenger,
+    openMessengerHistory,
     acceptAvailable,
     messengerStep,
     requesterActive,

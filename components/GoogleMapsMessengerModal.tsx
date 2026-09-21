@@ -1,14 +1,16 @@
 'use client';
 
 import React from 'react';
-import { X, Bike, Loader2, MapPin, Package, Banknote, RefreshCw, User, CheckCircle2, CreditCard, MessageCircle, Send, AlertCircle, ClipboardCheck, Clock, XCircle, CalendarClock, Wallet, TimerReset } from 'lucide-react';
+import { X, Bike, Loader2, MapPin, Package, Banknote, RefreshCw, User, CheckCircle2, CreditCard, MessageCircle, Send, AlertCircle, ClipboardCheck, Clock, XCircle, CalendarClock, Wallet, TimerReset, Star, History, BarChart3 } from 'lucide-react';
 import ModalShell from '@/components/ModalShell';
 import {
   PACKAGE_TYPE_LABELS,
   STATUS_LABELS,
   type AvailableDeliveryDTO,
   type DeliveryDTO,
+  type DeliveryReviewDTO,
   type DeliveryStatus,
+  type MessengerStatsDTO,
   type PackageType
 } from '@/lib/delivery-client';
 import type { UseDeliveriesState } from '@/lib/hooks/useDeliveries';
@@ -44,7 +46,7 @@ const WAYPOINT = {
   dropoff: { letter: 'B', label: 'Destino', badge: 'bg-rose-500' }
 } as const;
 
-const TAB_ORDER = ['available', 'active'] as const;
+const TAB_ORDER = ['available', 'active', 'history', 'stats'] as const;
 type MessengerTab = (typeof TAB_ORDER)[number];
 
 function cup(n: number | null | undefined): string {
@@ -547,6 +549,121 @@ function SubscriptionStrip({
   );
 }
 
+function MessengerHistoryPanel({
+  history,
+  isLoading,
+  onLoadMore,
+  hasMore,
+  isLoadingMore
+}: {
+  history: DeliveryDTO[];
+  isLoading: boolean;
+  onLoadMore: () => Promise<void>;
+  hasMore: boolean;
+  isLoadingMore: boolean;
+}) {
+  if (isLoading && history.length === 0) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-slate-500 py-6 justify-center">
+        <Loader2 className="w-4 h-4 animate-spin" /> Cargando historial...
+      </div>
+    );
+  }
+
+  if (!isLoading && history.length === 0) {
+    return (
+      <div className="py-10 text-center">
+        <p className="text-sm font-bold text-slate-600">Sin carreras aún</p>
+        <p className="text-xs text-slate-500 mt-1">Tus carreras completadas aparecerán aquí.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {history.map((d) => (
+        <div key={d.id} className="rounded-lg border border-border-subtle p-3 space-y-1.5 bg-white">
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-xs font-extrabold text-cerulean">{d.code}</span>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+              d.status === 'DELIVERED' ? 'bg-emerald-100 text-emerald-700' :
+              d.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
+              'bg-slate-100 text-slate-600'
+            }`}>
+              {STATUS_LABELS[d.status] ?? d.status}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-[11px] text-slate-500">
+            <MapPin className="w-3 h-3 text-emerald-brand shrink-0" />
+            <span className="truncate">{d.pickup?.address ?? '—'}</span>
+          </div>
+          <div className="flex items-center gap-2 text-[11px] text-slate-500">
+            <MapPin className="w-3 h-3 text-rose-400 shrink-0" />
+            <span className="truncate">{d.dropoff?.address ?? '—'}</span>
+          </div>
+          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-border-subtle">
+            <span>{d.distanceKm ?? '—'} km · {d.durationMin ?? '—'} min</span>
+            <span className="font-extrabold text-emerald-brand">{cup(d.totalFareCup)}</span>
+          </div>
+        </div>
+      ))}
+      {hasMore && (
+        <button
+          onClick={() => onLoadMore()}
+          disabled={isLoadingMore}
+          className="w-full py-2 rounded-lg border border-slate-200 text-slate-500 text-xs font-bold hover:bg-slate-50 disabled:opacity-50 transition-colors inline-flex items-center justify-center gap-1.5"
+        >
+          {isLoadingMore && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+          {isLoadingMore ? 'Cargando...' : 'Cargar más'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function MessengerStatsPanel({ stats }: { stats: MessengerStatsDTO | null }) {
+  if (!stats) {
+    return (
+      <div className="py-10 text-center">
+        <Loader2 className="w-5 h-5 animate-spin text-slate-400 mx-auto" />
+        <p className="text-xs text-slate-500 mt-2">Cargando estadísticas...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Rating promedio */}
+      <div className="rounded-lg border border-border-subtle p-4 bg-white text-center">
+        <div className="flex items-center justify-center gap-0.5 mb-1">
+          {stats.rating !== null ? (
+            Array.from({ length: 5 }, (_, i) => (
+              <Star
+                key={i}
+                className={`w-5 h-5 ${i < Math.round(stats.rating!) ? 'fill-amber-400 text-amber-400' : 'text-slate-300'}`}
+              />
+            ))
+          ) : (
+            <Star className="w-5 h-5 text-slate-300" />
+          )}
+        </div>
+        <p className="text-2xl font-extrabold text-slate-800">
+          {stats.rating !== null ? stats.rating.toFixed(1) : '—'}
+        </p>
+        <p className="text-[11px] text-slate-500 mt-0.5">
+          {stats.reviewCount === 0 ? 'Sin valoraciones' : `${stats.reviewCount} valoración${stats.reviewCount === 1 ? '' : 'es'}`}
+        </p>
+      </div>
+
+      {/* Órdenes completadas */}
+      <div className="rounded-lg border border-border-subtle p-4 bg-white text-center">
+        <p className="text-2xl font-extrabold text-emerald-brand">{stats.completedOrders}</p>
+        <p className="text-[11px] text-slate-500 mt-0.5">Órdenes completadas</p>
+      </div>
+    </div>
+  );
+}
+
 export default function GoogleMapsMessengerModal({ isOpen, onClose, onOpenAuth, user, deliveries, application }: GoogleMapsMessengerModalProps) {
   const isMessenger = user?.role === 'MESSENGER';
   const applicationData = application.data;
@@ -572,6 +689,7 @@ export default function GoogleMapsMessengerModal({ isOpen, onClose, onOpenAuth, 
   React.useEffect(() => {
     if (isOpen && isMessenger) {
       void deliveries.refreshMessenger();
+      void deliveries.refreshMessengerStats();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -816,6 +934,35 @@ export default function GoogleMapsMessengerModal({ isOpen, onClose, onOpenAuth, 
                   </>
                 )}
               </button>
+              <button
+                id="messenger-tab-history"
+                role="tab"
+                type="button"
+                aria-selected={deliveries.messengerTab === 'history'}
+                aria-controls="messenger-panel"
+                tabIndex={deliveries.messengerTab === 'history' ? 0 : -1}
+                onClick={() => {
+                  deliveries.setMessengerTab('history');
+                  void deliveries.openMessengerHistory();
+                }}
+                className={tabClass('history')}
+              >
+                <History className="w-3.5 h-3.5 inline-block mr-1" />
+                Historial
+              </button>
+              <button
+                id="messenger-tab-stats"
+                role="tab"
+                type="button"
+                aria-selected={deliveries.messengerTab === 'stats'}
+                aria-controls="messenger-panel"
+                tabIndex={deliveries.messengerTab === 'stats' ? 0 : -1}
+                onClick={() => deliveries.setMessengerTab('stats')}
+                className={tabClass('stats')}
+              >
+                <BarChart3 className="w-3.5 h-3.5 inline-block mr-1" />
+                Stats
+              </button>
             </div>
             <button
               type="button"
@@ -849,19 +996,31 @@ export default function GoogleMapsMessengerModal({ isOpen, onClose, onOpenAuth, 
                   <AvailableCard key={d.id} d={d} isActing={deliveries.isActing} onAccept={() => void deliveries.acceptAvailable(d.id)} />
                 ))
               )
-            ) : deliveries.messengerActive ? (
-              <ActiveCard d={deliveries.messengerActive} isActing={deliveries.isActing} onStep={(a) => void deliveries.messengerStep(a)} />
+            ) : deliveries.messengerTab === 'active' ? (
+              deliveries.messengerActive ? (
+                <ActiveCard d={deliveries.messengerActive} isActing={deliveries.isActing} onStep={(a) => void deliveries.messengerStep(a)} />
+              ) : (
+                <div className="py-10 text-center">
+                  <p className="text-sm font-bold text-slate-600">No tienes una carrera activa</p>
+                  <p className="text-xs text-slate-500 mt-1">Acepta una del tablón para empezar.</p>
+                  <button
+                    onClick={() => deliveries.setMessengerTab('available')}
+                    className="mt-3 min-h-11 px-4 rounded-lg bg-emerald-brand hover:bg-emerald-700 text-white text-xs font-extrabold transition-colors"
+                  >
+                    Ver carreras disponibles
+                  </button>
+                </div>
+              )
+            ) : deliveries.messengerTab === 'history' ? (
+              <MessengerHistoryPanel
+                history={deliveries.messengerHistory}
+                isLoading={deliveries.isOpeningHistory}
+                onLoadMore={deliveries.loadMoreHistory}
+                hasMore={deliveries.historyCursor !== null}
+                isLoadingMore={deliveries.isLoadingMoreHistory}
+              />
             ) : (
-              <div className="py-10 text-center">
-                <p className="text-sm font-bold text-slate-600">No tienes una carrera activa</p>
-                <p className="text-xs text-slate-500 mt-1">Acepta una del tablón para empezar.</p>
-                <button
-                  onClick={() => deliveries.setMessengerTab('available')}
-                  className="mt-3 min-h-11 px-4 rounded-lg bg-emerald-brand hover:bg-emerald-700 text-white text-xs font-extrabold transition-colors"
-                >
-                  Ver carreras disponibles
-                </button>
-              </div>
+              <MessengerStatsPanel stats={deliveries.messengerStats} />
             )}
           </div>
         </>
