@@ -123,6 +123,8 @@ docs/
 ├── api.md                  # Referencia de la API REST
 ├── data-model.md           # Modelo de datos y ciclo de vida
 ├── messaging-module.md     # Módulo de mensajería (estado y decisiones)
+db/
+├── create_admin_user.sql   # Script para crear usuario admin (phone 5350000000, PIN admin123)
 ```
 
 ## 📖 Documentación
