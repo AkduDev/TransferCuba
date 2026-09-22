@@ -452,9 +452,15 @@ function HistoryView({
         </div>
       )}
       {!isLoading && history.length === 0 && (
-        <div className="py-8 text-center">
+        <div className="py-8 text-center space-y-3">
           <p className="text-sm font-bold text-slate-600">Aún no has solicitado deliveries</p>
-          <p className="text-xs text-slate-400 mt-1">Solicita tu primer delivery desde un negocio cercano.</p>
+          <p className="text-xs text-slate-400">Solicita tu primer delivery desde un negocio cercano.</p>
+          <button
+            onClick={onNew}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-brand hover:bg-emerald-700 text-white text-xs font-extrabold transition-colors"
+          >
+            Solicitar mi primer delivery
+          </button>
         </div>
       )}
       {history.map((d) => {

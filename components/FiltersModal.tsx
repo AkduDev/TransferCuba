@@ -258,9 +258,18 @@ export default function FiltersModal({
             onClick={onClose}
             className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-level-2 active:scale-95 transition-all"
           >
-            Ver {totalResults} {totalResults === 1 ? 'resultado' : 'resultados'}
+            {totalResults === 0 ? 'Cerrar' : `Ver ${totalResults} ${totalResults === 1 ? 'resultado' : 'resultados'}`}
           </button>
         </div>
+
+        {totalResults === 0 && (
+          <div className="px-4 pb-4 bg-slate-50 border-t border-border-subtle">
+            <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-center space-y-1">
+              <p className="text-xs font-bold text-amber-800">No encontramos negocios con estos filtros</p>
+              <p className="text-[11px] text-amber-600">Prueba ampliar tu búsqueda o cambiar los filtros.</p>
+            </div>
+          </div>
+        )}
     </ModalShell>
   );
 }

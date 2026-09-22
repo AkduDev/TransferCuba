@@ -41,6 +41,7 @@ interface ExplorePanelProps {
   hasUserLocation: boolean;
   isOpen: boolean;
   onToggleOpen: () => void;
+  onRegisterClick: () => void;
 }
 
 export default function ExplorePanel({
@@ -53,7 +54,8 @@ export default function ExplorePanel({
   onCalculateRoute,
   hasUserLocation,
   isOpen,
-  onToggleOpen
+  onToggleOpen,
+  onRegisterClick
 }: ExplorePanelProps) {
   const [copied, setCopied] = useState(false);
   const [votedType, setVotedType] = useState<'yes' | 'no' | null>(null);
@@ -501,8 +503,14 @@ export default function ExplorePanel({
                   </div>
                   <p className="text-sm font-bold text-text-primary">No encontramos negocios cerca</p>
                   <p className="text-xs text-text-muted max-w-xs mx-auto leading-relaxed">
-                    Prueba cambiando la categoría, ampliando el área de búsqueda o buscando otro término como farmacia o cafetería.
+                    Estamos creciendo. Puedes ayudarnos agregando un negocio que conozcas.
                   </p>
+                  <button
+                    onClick={onRegisterClick}
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-brand hover:bg-emerald-700 text-white text-xs font-extrabold transition-colors"
+                  >
+                    + Agregar negocio
+                  </button>
                 </div>
               ) : (
                 businesses.map((biz) => (

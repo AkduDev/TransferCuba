@@ -38,6 +38,7 @@ interface BottomSheetProps {
   hasUserLocation: boolean;
   sheetState?: 'peek' | 'half' | 'full';
   onSheetStateChange?: (state: 'peek' | 'half' | 'full') => void;
+  onRegisterClick: () => void;
 }
 
 type SheetState = 'peek' | 'half' | 'full';
@@ -52,7 +53,8 @@ export default function BottomSheet({
   onCalculateRoute,
   hasUserLocation,
   sheetState: externalSheetState,
-  onSheetStateChange
+  onSheetStateChange,
+  onRegisterClick
 }: BottomSheetProps) {
   // Height state: 'peek' | 'half' | 'full'
   const [internalSheetState, setInternalSheetState] = useState<SheetState>('peek');
@@ -439,7 +441,13 @@ export default function BottomSheet({
                     <Store className="w-6 h-6" />
                   </div>
                   <p className="text-xs font-bold text-slate-800 font-display">No encontramos negocios cerca</p>
-                  <p className="text-[11px] text-slate-500">Prueba cambiando la categoría o ampliando el área de búsqueda.</p>
+                  <p className="text-[11px] text-slate-500">Estamos creciendo. Ayúdanos agregando un negocio que conozcas.</p>
+                  <button
+                    onClick={onRegisterClick}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-brand hover:bg-emerald-700 text-white text-[11px] font-extrabold transition-colors"
+                  >
+                    + Agregar negocio
+                  </button>
                 </div>
               ) : (
                 businesses.map((biz) => (
