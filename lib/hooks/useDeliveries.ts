@@ -22,6 +22,15 @@ type MessengerStep = 'pick_up' | 'in_transit' | 'deliver';
 const ACTIVE_STATUSES = new Set<DeliveryStatus>(['ACCEPTED', 'PICKED_UP', 'IN_TRANSIT']);
 const TERMINAL_STATUSES = new Set<DeliveryStatus>(['DELIVERED', 'CANCELLED', 'EXPIRED']);
 
+/**
+ * Cadencias del polling. Con el stream vivo NO se apaga: se espacia a una red
+ * de seguridad. Un canal de eventos puede perder un mensaje sin enterarse, y
+ * quedarse solo con él significaría no volver a converger nunca.
+ */
+const POLL_SOLICITANTE_MS = 12_000;
+const POLL_MENSAJERO_MS = 15_000;
+const POLL_RED_DE_SEGURIDAD_MS = 60_000;
+
 const STATUS_CHANGE_MESSAGES: Partial<Record<DeliveryStatus, string>> = {
   ACCEPTED: 'Un mensajero aceptó tu envío',
   PICKED_UP: 'Tu paquete fue recogido',
@@ -157,6 +166,7 @@ export function useDeliveries(opts: { showToast: (msg: string) => void; role: Au
   const requesterActiveRef = useRef<DeliveryDTO | null>(null);
   const messengerActiveRef = useRef<DeliveryDTO | null>(null);
   const messengerAvailableRef = useRef<AvailableDeliveryDTO[]>([]);
+  const trackingIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     requesterActiveRef.current = requesterActive;
@@ -169,6 +179,10 @@ export function useDeliveries(opts: { showToast: (msg: string) => void; role: Au
   useEffect(() => {
     messengerAvailableRef.current = messengerAvailable;
   }, [messengerAvailable]);
+
+  useEffect(() => {
+    trackingIdRef.current = trackingId;
+  }, [trackingId]);
 
   const openForm = useCallback(() => {
     setView('form');
@@ -513,6 +527,115 @@ export function useDeliveries(opts: { showToast: (msg: string) => void; role: Au
     [isSubmittingReview, showToast]
   );
 
+  /* ------------------ Fase 6: canal en vivo (SSE) ------------------ */
+
+  /**
+   * Conecta con `GET /api/deliveries/stream`.
+   *
+   * `EventSource` reconecta solo y manda `Last-Event-ID`, así que no hace falta
+   * backoff propio para el ciclo normal: el servidor cierra a propósito cada
+   * ~50 s (tope de la función serverless) y el navegador vuelve a abrir desde
+   * el cursor. Solo se cuenta como fallo una conexión que muere SIN llegar a
+   * saludar; tras varios seguidos se abandona el stream y manda el polling.
+   */
+  useEffect(() => {
+    if (!role) return;
+    if (typeof window === 'undefined' || typeof EventSource === 'undefined') return;
+
+    let fuente: EventSource | null = null;
+    let fallosSeguidos = 0;
+    let abandonado = false;
+    let huboConexion = false;
+
+    const leer = <T,>(e: Event): T | null => {
+      try {
+        return JSON.parse((e as MessageEvent<string>).data) as T;
+      } catch {
+        return null;
+      }
+    };
+
+    const abrir = () => {
+      if (abandonado) return;
+      setStreamState('connecting');
+      fuente = new EventSource('/api/deliveries/stream');
+
+      fuente.addEventListener('ready', () => {
+        fallosSeguidos = 0;
+        huboConexion = true;
+        setStreamState('connected');
+      });
+
+      fuente.addEventListener('delivery.updated', (e) => {
+        const cuerpo = leer<{ delivery?: DeliveryDTO }>(e);
+        const delivery = cuerpo?.delivery;
+        if (!delivery) return;
+
+        // Solicitante: es la carrera que está siguiendo.
+        if (delivery.id === trackingIdRef.current) {
+          const anterior = requesterActiveRef.current?.status;
+          setRequesterActive(delivery);
+          if (anterior && anterior !== delivery.status) {
+            const msg = STATUS_CHANGE_MESSAGES[delivery.status];
+            if (msg) showToast(msg);
+          }
+          if (TERMINAL_STATUSES.has(delivery.status)) setTrackingId(null);
+        }
+
+        // Mensajero: es la carrera que tiene asignada.
+        if (delivery.id === messengerActiveRef.current?.id) {
+          setMessengerActive(delivery);
+        }
+
+        // Si dejó de estar pendiente, se cae del tablón: otro la tomó.
+        if (delivery.status !== 'PENDING') {
+          setMessengerAvailable((prev) => prev.filter((d) => d.id !== delivery.id));
+        }
+      });
+
+      // El evento avisa, no sustituye a la lista: se refresca del endpoint para
+      // no fabricar un AvailableDeliveryDTO a mano y arriesgar la privacidad.
+      fuente.addEventListener('delivery.available', () => {
+        void refreshMessenger(true);
+      });
+
+      fuente.addEventListener('delivery.reviewed', (e) => {
+        const cuerpo = leer<{ review?: DeliveryReviewDTO }>(e);
+        const review = cuerpo?.review;
+        if (!review) return;
+        setReviewsByDelivery((prev) => ({ ...prev, [review.deliveryId]: review }));
+        if (role === 'MESSENGER') {
+          showToast(`Recibiste una valoración de ${review.rating} estrellas`);
+        }
+      });
+
+      fuente.onerror = () => {
+        fallosSeguidos += 1;
+        if (fallosSeguidos >= MAX_FALLOS_STREAM) {
+          abandonado = true;
+          fuente?.close();
+          setStreamState('fallback');
+          return;
+        }
+        // Tras una conexión sana, un corte es el reciclado normal: el servidor
+        // cierra cada ~50 s por el tope de la función y EventSource reabre
+        // solo. Bajar a 'connecting' haría que los efectos de polling
+        // reiniciaran su intervalo —y dispararan un fetch— en cada ciclo.
+        if (!huboConexion) setStreamState('connecting');
+      };
+    };
+
+    // Diferido: abrir en el cuerpo del efecto haría un setState síncrono.
+    const t = setTimeout(abrir, 0);
+
+    return () => {
+      abandonado = true;
+      clearTimeout(t);
+      fuente?.close();
+      setStreamState('disconnected');
+    };
+  }, [role, showToast, refreshMessenger]);
+
   /* ------------------ Fase 4: seguimiento en vivo ------------------ */
 
   // Al iniciar sesión, retoma el seguimiento de la carrera activa pendiente.
@@ -563,20 +686,22 @@ export function useDeliveries(opts: { showToast: (msg: string) => void; role: Au
       }
     };
     void check();
-    const t = setInterval(() => void check(), 12000);
+    const cadencia = streamState === 'connected' ? POLL_RED_DE_SEGURIDAD_MS : POLL_SOLICITANTE_MS;
+    const t = setInterval(() => void check(), cadencia);
     return () => {
       cancelled = true;
       clearInterval(t);
     };
-  }, [trackingId, showToast]);
+  }, [trackingId, showToast, streamState]);
 
   // Polling del tablón y carrera activa del mensajero (15 s).
   useEffect(() => {
     if (role !== 'MESSENGER') return;
     void refreshMessenger(true);
-    const t = setInterval(() => void refreshMessenger(true), 15000);
+    const cadencia = streamState === 'connected' ? POLL_RED_DE_SEGURIDAD_MS : POLL_MENSAJERO_MS;
+    const t = setInterval(() => void refreshMessenger(true), cadencia);
     return () => clearInterval(t);
-  }, [role, refreshMessenger]);
+  }, [role, refreshMessenger, streamState]);
 
   return {
     view, setView,

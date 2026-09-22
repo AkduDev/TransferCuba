@@ -194,3 +194,51 @@ test('un mensajero vencido no recibe el tablón por el stream', async ({
     'el stream filtró una carrera del tablón a un mensajero con la suscripción vencida'
   ).toBe(false);
 });
+
+/**
+ * El cableado del cliente: que la APLICACIÓN abra el stream y reaccione, no
+ * solo que el endpoint funcione. Antes de esto el backend estaba completo pero
+ * `EventSource` no aparecía en ningún sitio del cliente: la app vivía del
+ * polling y `streamState` se quedaba en 'disconnected' para siempre.
+ */
+test.describe('Cableado en el cliente', () => {
+  test('la aplicación abre el stream al haber sesión', async ({ page, crearCuenta }) => {
+    await crearCuenta();
+
+    // Se observa sin interceptar: `page.route` podría bufferizar el SSE.
+    const peticionDelStream = page.waitForRequest(
+      (req) => req.url().includes('/api/deliveries/stream'),
+      { timeout: 20_000 }
+    );
+
+    await page.goto('/');
+    const req = await peticionDelStream;
+    expect(req.method()).toBe('GET');
+  });
+
+  test('un cambio de otra sesión llega a la UI sin recargar', async ({
+    page,
+    crearCuenta,
+    crearCuentaApi,
+    crearCarreraPendiente
+  }) => {
+    const solicitante = await crearCuenta();
+    const { api: apiMensajero } = await crearCuentaApi({ rol: 'MESSENGER' });
+    const carrera = await crearCarreraPendiente(solicitante.id);
+
+    // Se acepta ANTES de cargar la página para que el solicitante arranque
+    // siguiendo la carrera (el seguimiento solo engancha estados activos).
+    const aceptar = await apiMensajero.patch(`/api/deliveries/${carrera.id}`, { data: { action: 'accept' } });
+    expect(aceptar.status(), await aceptar.text()).toBe(200);
+
+    await page.goto('/');
+    await page.waitForRequest((r) => r.url().includes('/api/deliveries/stream'), { timeout: 20_000 });
+
+    const recogido = await apiMensajero.patch(`/api/deliveries/${carrera.id}`, { data: { action: 'pick_up' } });
+    expect(recogido.status(), await recogido.text()).toBe(200);
+
+    // Con el stream conectado el polling baja a 60 s, así que un aviso en
+    // menos de 15 s solo puede haber llegado por el canal en vivo.
+    await expect(page.getByText('Tu paquete fue recogido')).toBeVisible({ timeout: 15_000 });
+  });
+});

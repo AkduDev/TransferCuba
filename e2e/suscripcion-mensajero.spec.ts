@@ -25,7 +25,9 @@ async function abrirTablon(page: import('@playwright/test').Page) {
     .click();
   const cajon = page.getByRole('dialog');
   await expect(cajon).toBeVisible();
-  await cajon.getByRole('button', { name: /^Mensajería/ }).click();
+  // La entrada del cajón se llama "Mis entregas" desde el rediseño; la otra
+  // ("Solicitar delivery") también menciona mensajería, de ahí el ancla al inicio.
+  await cajon.getByRole('button', { name: /^Mis entregas/ }).click();
 
   const tablon = page.getByRole('dialog');
   await expect(tablon).toBeVisible();

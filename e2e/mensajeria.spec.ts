@@ -15,6 +15,9 @@ test.skip(
   'Requiere E2E_DATABASE_URL (base aparte, con las migraciones de db/ aplicadas)'
 );
 
+/** Solicitudes · Mi entrega · Historial · Resumen. */
+const TOTAL_PESTANAS = 4;
+
 test.beforeEach(async ({ page }) => {
   await aislarDeLaRed(page);
 });
@@ -28,7 +31,9 @@ async function abrirTablon(page: import('@playwright/test').Page) {
 
   // El cajón se cierra a sí mismo antes de abrir el tablón, así que aquí no
   // hay dos diálogos: el `role="dialog"` que queda es el del tablón.
-  await cajon.getByRole('button', { name: /^Mensajería/ }).click();
+  // La entrada del cajón se llama "Mis entregas" desde el rediseño; la otra
+  // ("Solicitar delivery") también menciona mensajería, de ahí el ancla al inicio.
+  await cajon.getByRole('button', { name: /^Mis entregas/ }).click();
 
   const tablon = page.getByRole('dialog');
   await expect(tablon).toBeVisible();
@@ -51,18 +56,23 @@ test('las pestañas son un tablist ARIA con la selección reflejada', async ({ p
   const tablist = tablon.getByRole('tablist');
   await expect(tablist).toHaveAttribute('aria-label', 'Vistas de mensajería');
 
+  // Solicitudes · Mi entrega · Historial · Resumen (las dos últimas las añadió
+  // la Fase 6; el patrón ARIA tiene que seguir cumpliéndose con cuatro).
   const pestanas = tablon.getByRole('tab');
-  await expect(pestanas).toHaveCount(2);
+  await expect(pestanas).toHaveCount(TOTAL_PESTANAS);
 
-  const carreras = tablon.getByRole('tab', { name: /Carreras/ });
-  const miCarrera = tablon.getByRole('tab', { name: /Mi carrera/ });
+  const solicitudes = tablon.getByRole('tab', { name: /Solicitudes/ });
+  const miEntrega = tablon.getByRole('tab', { name: /Mi entrega/ });
 
-  await expect(carreras).toHaveAttribute('aria-selected', 'true');
-  await expect(miCarrera).toHaveAttribute('aria-selected', 'false');
+  await expect(solicitudes).toHaveAttribute('aria-selected', 'true');
+  await expect(miEntrega).toHaveAttribute('aria-selected', 'false');
 
-  // Tabindex itinerante: solo la pestaña activa es alcanzable con Tab.
-  await expect(carreras).toHaveAttribute('tabindex', '0');
-  await expect(miCarrera).toHaveAttribute('tabindex', '-1');
+  // Tabindex itinerante: solo la pestaña activa es alcanzable con Tab, y eso
+  // vale para TODAS las no seleccionadas, no solo para la segunda.
+  await expect(solicitudes).toHaveAttribute('tabindex', '0');
+  for (const nombre of [/Mi entrega/, /Historial/, /Resumen/]) {
+    await expect(tablon.getByRole('tab', { name: nombre })).toHaveAttribute('tabindex', '-1');
+  }
 
   const panel = tablon.getByRole('tabpanel');
   await expect(panel).toHaveCount(1);
@@ -72,24 +82,25 @@ test('las flechas mueven entre pestañas y dan la vuelta', async ({ page, crearC
   await crearCuenta({ rol: 'MESSENGER' });
   const tablon = await abrirTablon(page);
 
-  const carreras = tablon.getByRole('tab', { name: /Carreras/ });
-  const miCarrera = tablon.getByRole('tab', { name: /Mi carrera/ });
+  const solicitudes = tablon.getByRole('tab', { name: /Solicitudes/ });
+  const miEntrega = tablon.getByRole('tab', { name: /Mi entrega/ });
 
-  await carreras.focus();
+  await solicitudes.focus();
 
   await page.keyboard.press('ArrowRight');
-  await expect(miCarrera).toBeFocused();
-  await expect(miCarrera).toHaveAttribute('aria-selected', 'true');
-  await expect(carreras).toHaveAttribute('aria-selected', 'false');
+  await expect(miEntrega).toBeFocused();
+  await expect(miEntrega).toHaveAttribute('aria-selected', 'true');
+  await expect(solicitudes).toHaveAttribute('aria-selected', 'false');
 
-  // Con solo dos pestañas, otra flecha derecha vuelve al principio.
-  await page.keyboard.press('ArrowRight');
-  await expect(carreras).toBeFocused();
-  await expect(carreras).toHaveAttribute('aria-selected', 'true');
+  // Dar la vuelta entera: tantas flechas como pestañas hay que volver al
+  // principio, sea cual sea el número.
+  for (let i = 1; i < TOTAL_PESTANAS; i++) await page.keyboard.press('ArrowRight');
+  await expect(solicitudes).toBeFocused();
+  await expect(solicitudes).toHaveAttribute('aria-selected', 'true');
 
+  // Y hacia atrás desde la primera se envuelve a la última.
   await page.keyboard.press('ArrowLeft');
-  await expect(miCarrera).toBeFocused();
-  await expect(miCarrera).toHaveAttribute('aria-selected', 'true');
+  await expect(tablon.getByRole('tab', { name: /Resumen/ })).toBeFocused();
 });
 
 test('el panel activo queda etiquetado por la pestaña seleccionada', async ({ page, crearCuenta }) => {
@@ -99,7 +110,7 @@ test('el panel activo queda etiquetado por la pestaña seleccionada', async ({ p
   const panel = tablon.getByRole('tabpanel');
   await expect(panel).toHaveAttribute('aria-labelledby', 'messenger-tab-available');
 
-  await tablon.getByRole('tab', { name: /Mi carrera/ }).click();
+  await tablon.getByRole('tab', { name: /Mi entrega/ }).click();
   await expect(panel).toHaveAttribute('aria-labelledby', 'messenger-tab-active');
 });
 
@@ -107,17 +118,17 @@ test('los estados vacíos ofrecen una salida, no solo texto', async ({ page, cre
   await crearCuenta({ rol: 'MESSENGER' });
   const tablon = await abrirTablon(page);
 
-  // Base de pruebas limpia: ni carreras disponibles ni carrera asignada.
-  await expect(tablon.getByText('No hay carreras pendientes')).toBeVisible();
+  // Base de pruebas limpia: ni solicitudes disponibles ni entrega asignada.
+  await expect(tablon.getByText('No hay solicitudes disponibles ahora')).toBeVisible();
 
-  await tablon.getByRole('tab', { name: /Mi carrera/ }).click();
-  await expect(tablon.getByText('No tienes una carrera activa')).toBeVisible();
+  await tablon.getByRole('tab', { name: /Mi entrega/ }).click();
+  await expect(tablon.getByText('No tienes una entrega activa')).toBeVisible();
 
-  const volver = tablon.getByRole('button', { name: 'Ver carreras disponibles' });
+  const volver = tablon.getByRole('button', { name: 'Ver solicitudes disponibles' });
   await expect(volver).toBeVisible();
   await volver.click();
 
-  await expect(tablon.getByRole('tab', { name: /Carreras/ })).toHaveAttribute('aria-selected', 'true');
+  await expect(tablon.getByRole('tab', { name: /Solicitudes/ })).toHaveAttribute('aria-selected', 'true');
 });
 
 test('el diálogo sigue cumpliendo el contrato de la carcasa', async ({ page, crearCuenta }) => {

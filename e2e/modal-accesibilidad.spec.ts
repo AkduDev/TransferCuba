@@ -47,7 +47,7 @@ test.describe('Modal de filtros', () => {
 
     await expect(dialog).toHaveAttribute('aria-modal', 'true');
     // El nombre sale de aria-labelledby → <h3 id="filters-modal-title">.
-    await expect(dialog).toHaveAccessibleName('Filtros de Búsqueda');
+    await expect(dialog).toHaveAccessibleName('Filtros');
   });
 
   test('al abrir, el foco entra en el diálogo', async ({ page }) => {
@@ -152,7 +152,9 @@ test.describe('Cajón lateral', () => {
     const { trigger, dialog } = await abrir(page, 'Menú principal TransferCuba');
 
     await expect(dialog).toHaveAttribute('aria-modal', 'true');
-    await expect(dialog).toHaveAccessibleName(/Dónde Pago/);
+    // El título del cajón se parte en dos <span> ("Transfer" + "Cuba"), así que
+    // el nombre accesible que se compone lleva el espacio: "Transfer Cuba".
+    await expect(dialog).toHaveAccessibleName(/Transfer\s*Cuba/);
     expect(await focoDentroDelDialogo(page)).toBe(true);
 
     await page.keyboard.press('Escape');
