@@ -150,6 +150,42 @@ Sin esas comillas vacías el comando falla **en silencio** si suprimes su salida
 conviene comprobar con `vercel env ls` después de cada alta, no fiarse del
 código de salida.
 
+## Pruebas contra un despliegue real (Preview)
+
+`e2e-preview/` corre contra un despliegue de Vercel de verdad, no contra el dev
+server. Es lo único que demuestra lo que solo existe tras un build: que las
+`NEXT_PUBLIC_CLOUDINARY_*` se incrustaron en el bundle y que la subida al
+navegador cruza hasta Cloudinary.
+
+```bash
+P=$(vercel ls transfercuba --json | …)   # o la URL del despliegue a mano
+vercel env run -- sh -c "PREVIEW_URL='$P' bunx playwright test \
+  --config playwright.preview.config.ts"
+```
+
+Apunta a la rama `preview` de Neon, así que puede escribir. **Lo que cree hay
+que borrarlo**: la fila en `businesses` (y su `business_images`) y el asset en
+Cloudinary (`cld uploader destroy businesses/<public_id>`).
+
+### El token de SSO no puede ir en `extraHTTPHeaders`
+
+Los despliegues de Preview están tras la protección de Vercel: sin
+`x-vercel-trusted-oidc-idp-token` cada navegación acaba en un 302 a
+`vercel.com/sso-api`. Pero `extraHTTPHeaders` de Playwright se aplica a **todas**
+las peticiones del contexto, terceros incluidos, y eso rompe la subida de fotos:
+
+- una cabecera no estándar convierte la POST a `api.cloudinary.com` en una
+  petición con preflight;
+- Cloudinary no declara esa cabecera en `Access-Control-Allow-Headers`;
+- el preflight falla y la subida muere con `net::ERR_FAILED`, **sin respuesta
+  HTTP que mirar** — parece un fallo de la aplicación y no lo es.
+
+Y, aparte de la prueba, mandar un token de acceso a un tercero es filtrarlo.
+
+El token se inyecta por `page.route` solo al origen de Vercel
+(`e2e-preview/fixtures/preview.ts`). Si alguna vez se ve `ERR_FAILED` contra un
+dominio externo, mírese esto antes que el código de la aplicación.
+
 ## Pruebas contra base de datos
 
 Las pruebas que necesitan sesión se **saltan solas** sin `E2E_DATABASE_URL`, y
