@@ -64,6 +64,7 @@ type Row = {
   reviews_count: number;
   featured: boolean;
   photos: string[];
+  has_delivery: boolean;
   last_status_update: string;
   last_updated_date: Date;
   distance_meters?: number;
@@ -192,6 +193,7 @@ function rowToBusiness(r: Row): Business {
     rating: Number(r.rating),
     reviewsCount: r.reviews_count,
     photos: sanitizePhotos(r.photos),
+    hasDelivery: r.has_delivery ?? false,
     featured: r.featured,
     status: r.status,
     ...(r.distance_meters !== undefined && r.distance_meters !== null
@@ -222,6 +224,7 @@ const businessToInsert = (b: Business) => [
   b.rating,
   b.reviewsCount,
   b.lastStatusUpdate,
+  b.hasDelivery ?? false,
   b.lat,
   b.lng
 ];
@@ -232,10 +235,10 @@ const INSERT_SQL = `
     neighborhood, address, whatsapp, phone, hours,
     accepts_transfer, transfer_active_now, transfer_verified, status,
     confirmations_count, reports_count, rating, reviews_count,
-    last_status_update, geom
+    last_status_update, has_delivery, geom
   ) VALUES (
     $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-    $21, ST_SetSRID(ST_MakePoint($23, $22), 4326)::geography
+    $21, $22, ST_SetSRID(ST_MakePoint($24, $23), 4326)::geography
   )
   ON CONFLICT (id) DO NOTHING
 `;
@@ -402,7 +405,7 @@ export async function queryBusinesses(filters: BusinessFilters): Promise<Busines
     b.neighborhood, b.address, b.whatsapp, b.phone, b.hours,
     b.accepts_transfer, b.transfer_active_now, b.transfer_verified, b.status,
     b.confirmations_count, b.reports_count, b.rating, b.reviews_count,
-    b.last_status_update, b.last_updated_date,
+    b.last_status_update, b.last_updated_date, b.has_delivery,
     -- V2: featured deriva de business_promotions (columna legacy eliminada en 1.9)
     COALESCE(
       (SELECT bp.active FROM business_promotions bp
@@ -778,7 +781,7 @@ export async function queryBusinessesByIds(ids: string[]): Promise<Map<string, B
         b.neighborhood, b.address, b.whatsapp, b.phone, b.hours,
         b.accepts_transfer, b.transfer_active_now, b.transfer_verified, b.status,
         b.confirmations_count, b.reports_count, b.rating, b.reviews_count,
-        b.last_status_update, b.last_updated_date,
+        b.last_status_update, b.last_updated_date, b.has_delivery,
         COALESCE(
           (SELECT bp.active FROM business_promotions bp
            WHERE bp.business_id = b.id AND bp.type = 'featured'

@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS businesses (
     reviews_count INTEGER NOT NULL DEFAULT 0,
     last_status_update TEXT NOT NULL,
     last_updated_date TIMESTAMPTZ NOT NULL,
+    has_delivery BOOLEAN NOT NULL DEFAULT false,
     geom geography(POINT, 4326) NOT NULL
 );
 
