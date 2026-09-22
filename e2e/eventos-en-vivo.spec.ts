@@ -242,3 +242,72 @@ test.describe('Cableado en el cliente', () => {
     await expect(page.getByText('Tu paquete fue recogido')).toBeVisible({ timeout: 15_000 });
   });
 });
+
+/**
+ * Los dos caminos que solo se recorren cuando algo va mal, y que por eso se
+ * pudren en silencio: el reciclado periódico del stream y el abandono hacia el
+ * polling. Son código del cliente que ninguna otra prueba ejercita.
+ */
+test.describe('Degradación y reconexión', () => {
+  test('si el stream falla, el polling sigue actualizando la UI', async ({
+    page,
+    crearCuenta,
+    crearCuentaApi,
+    crearCarreraPendiente
+  }) => {
+    const solicitante = await crearCuenta();
+    const { api: apiMensajero } = await crearCuentaApi({ rol: 'MESSENGER' });
+    const carrera = await crearCarreraPendiente(solicitante.id);
+    await apiMensajero.patch(`/api/deliveries/${carrera.id}`, { data: { action: 'accept' } });
+
+    // El stream se corta de raíz: EventSource reintenta, acumula fallos y el
+    // cliente acaba abandonándolo. El polling tiene que sostener la UI.
+    let intentos = 0;
+    await page.route('**/api/deliveries/stream*', (route) => {
+      intentos += 1;
+      return route.abort();
+    });
+
+    await page.goto('/');
+    await expect.poll(() => intentos, { timeout: 30_000 }).toBeGreaterThanOrEqual(1);
+
+    await apiMensajero.patch(`/api/deliveries/${carrera.id}`, { data: { action: 'pick_up' } });
+
+    // Sin stream el polling del solicitante está a 12 s: se da margen a dos
+    // ciclos. Si esto falla, la app se quedó sin ningún canal.
+    await expect(page.getByText('Tu paquete fue recogido')).toBeVisible({ timeout: 40_000 });
+  });
+
+  test('el stream se recicla y se reanuda sin perder eventos', async ({
+    page,
+    crearCuenta,
+    crearCuentaApi,
+    crearCarreraPendiente
+  }) => {
+    test.setTimeout(150_000);
+
+    const solicitante = await crearCuenta();
+    const { api: apiMensajero } = await crearCuentaApi({ rol: 'MESSENGER' });
+    const carrera = await crearCarreraPendiente(solicitante.id);
+    await apiMensajero.patch(`/api/deliveries/${carrera.id}`, { data: { action: 'accept' } });
+
+    // Se cuentan las aperturas: el servidor cierra a propósito cada ~50 s y
+    // EventSource reabre solo mandando Last-Event-ID.
+    let aperturas = 0;
+    page.on('request', (req) => {
+      if (req.url().includes('/api/deliveries/stream')) aperturas += 1;
+    });
+
+    await page.goto('/');
+    await expect.poll(() => aperturas, { timeout: 20_000 }).toBe(1);
+
+    // Se espera al reciclado: la segunda apertura prueba que reconectó solo.
+    await expect
+      .poll(() => aperturas, { timeout: 90_000, message: 'el stream no se reabrió tras el reciclado' })
+      .toBeGreaterThanOrEqual(2);
+
+    // Y después de reconectar sigue entregando: un cambio posterior llega.
+    await apiMensajero.patch(`/api/deliveries/${carrera.id}`, { data: { action: 'pick_up' } });
+    await expect(page.getByText('Tu paquete fue recogido')).toBeVisible({ timeout: 15_000 });
+  });
+});
