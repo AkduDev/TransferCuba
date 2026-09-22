@@ -40,24 +40,45 @@ Dos decisiones deliberadas:
   despliegue de vista previa tiene menos protección que producción; compartir la
   contraseña sería degradar la de producción al nivel de la más débil.
 
-### Lo que FALTA: Cloudinary
+### Cloudinary
 
-La subida de fotos del registro de negocios **no funciona en ningún entorno**,
-porque no hay ninguna variable de Cloudinary configurada (ni integración
-instalada). El formulario muestra "Fotos no configuradas. Contacta al
-administrador." y no sube nada.
+Las fotos de negocios se suben **directamente desde el navegador** a Cloudinary
+con un preset *unsigned*; el servidor solo guarda la URL resultante.
+
+| Variable | Valor | Estado |
+|---|---|---|
+| `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` | `ds7tspnjm` | configurada en los 3 entornos |
+| `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET` | `transfercuba_businesses` | configurada en los 3 entornos |
+| `CLOUDINARY_API_KEY` | — | **sin configurar** |
+| `CLOUDINARY_API_SECRET` | — | **sin configurar** |
+
+Las dos primeras no son secretas: viajan al navegador por definición (es lo que
+exige una subida unsigned) y se **incrustan en build**, así que al cambiarlas
+hay que redesplegar para que surtan efecto.
+
+El preset `transfercuba_businesses` es `unsigned` y publica en la carpeta
+`businesses`, que es la misma que manda el cliente. La protección contra abuso
+no es código: son las restricciones del preset en el panel de Cloudinary
+(formatos, tamaño máximo, carpeta), porque cualquiera puede leer el nombre del
+preset en el bundle.
+
+**Qué falta sin las claves de API.** Solo las usa `deleteAsset`
+(`lib/cloudinary.ts`), desde `DELETE /api/businesses/[id]/images/[imageId]`.
+Ese endpoint degrada con gracia: si el borrado en Cloudinary falla, igualmente
+quita la imagen del negocio. O sea que **no rompe nada visible**, pero el
+fichero se queda huérfano en Cloudinary consumiendo cuota. Para cerrarlo:
 
 ```bash
-vercel env add NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME production
-vercel env add NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET production
 vercel env add CLOUDINARY_API_KEY production
 vercel env add CLOUDINARY_API_SECRET production
-vercel --prod   # las NEXT_PUBLIC_* se incrustan en build: hay que redesplegar
 ```
 
-Las dos primeras habilitan la subida; las dos últimas solo hacen falta para el
-borrado firmado de assets. El `upload_preset` debe existir en el panel de
-Cloudinary como **unsigned**.
+(Y lo mismo para `preview` y `development`, recordando el positional de rama
+vacío que se describe más abajo.)
+
+El CLI `cld` de la máquina de desarrollo está autenticado por OAuth contra este
+mismo cloud, así que `cld admin upload_presets` lista los presets sin necesidad
+de claves.
 
 ## Migraciones
 

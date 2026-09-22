@@ -87,8 +87,10 @@ Runbook completo —orden de las migraciones, deriva entre `schema.sql` y la bas
 real, cómo aplicar SQL cuando el puerto 5432 está bloqueado, y las rarezas del
 CLI de Vercel— en [`docs/operaciones.md`](docs/operaciones.md).
 
-Pendiente: **las variables de Cloudinary no están configuradas en ningún
-entorno**, así que la subida de fotos del registro no funciona.
+Las fotos de negocios van a Cloudinary (cloud `ds7tspnjm`, preset unsigned
+`transfercuba_businesses`), configurado en los tres entornos. Las claves de API
+—solo necesarias para el borrado de assets— siguen sin poner: el borrado degrada
+con gracia, pero deja el fichero huérfano en Cloudinary.
 
 ## Reglas del dominio
 
