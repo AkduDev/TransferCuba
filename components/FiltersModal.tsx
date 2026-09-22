@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { CUBAN_PROVINCES, CATEGORIES } from '@/lib/cuba-data';
 
-interface GoogleMapsFiltersModalProps {
+interface FiltersModalProps {
   isOpen: boolean;
   onClose: () => void;
   selectedProvince: string;
@@ -37,7 +37,7 @@ interface GoogleMapsFiltersModalProps {
   totalResults: number;
 }
 
-export default function GoogleMapsFiltersModal({
+export default function FiltersModal({
   isOpen,
   onClose,
   selectedProvince,
@@ -58,7 +58,7 @@ export default function GoogleMapsFiltersModal({
   onFilterVerificationChange,
   onResetFilters,
   totalResults
-}: GoogleMapsFiltersModalProps) {
+}: FiltersModalProps) {
   const currentProvinceData = CUBAN_PROVINCES.find(p => p.name === selectedProvince);
   const municipalities = currentProvinceData ? currentProvinceData.municipalities : [];
 

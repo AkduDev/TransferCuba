@@ -23,7 +23,7 @@ import type {
   UseMessengerApplicationState
 } from '@/lib/hooks/useMessengerApplication';
 
-interface GoogleMapsMessengerModalProps {
+interface MessengerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenAuth: () => void;
@@ -664,7 +664,7 @@ function MessengerStatsPanel({ stats }: { stats: MessengerStatsDTO | null }) {
   );
 }
 
-export default function GoogleMapsMessengerModal({ isOpen, onClose, onOpenAuth, user, deliveries, application }: GoogleMapsMessengerModalProps) {
+export default function MessengerModal({ isOpen, onClose, onOpenAuth, user, deliveries, application }: MessengerModalProps) {
   const isMessenger = user?.role === 'MESSENGER';
   const applicationData = application.data;
   const latestPayment = applicationData?.payments[0];

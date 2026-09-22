@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { CUBAN_PROVINCES } from '@/lib/cuba-data';
 
-interface GoogleMapsSideDrawerProps {
+interface SideDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   selectedProvince: string;
@@ -36,7 +36,7 @@ interface GoogleMapsSideDrawerProps {
   totalBusinesses: number;
 }
 
-export default function GoogleMapsSideDrawer({
+export default function SideDrawer({
   isOpen,
   onClose,
   selectedProvince,
@@ -49,7 +49,7 @@ export default function GoogleMapsSideDrawer({
   onMessengerClick,
   authUser,
   totalBusinesses
-}: GoogleMapsSideDrawerProps) {
+}: SideDrawerProps) {
   const [showProvinces, setShowProvinces] = useState(false);
 
   return (

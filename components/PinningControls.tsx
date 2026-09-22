@@ -1,12 +1,12 @@
 'use client';
 import { Check } from 'lucide-react';
 
-interface GoogleMapsPinningControlsProps {
+interface PinningControlsProps {
   onConfirm: () => void;
   onCancel: () => void;
 }
 
-export default function GoogleMapsPinningControls({ onConfirm, onCancel }: GoogleMapsPinningControlsProps) {
+export default function PinningControls({ onConfirm, onCancel }: PinningControlsProps) {
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-white p-3 rounded-xl shadow-level-4 border border-border-subtle animate-in slide-in-from-bottom-5">
       <button

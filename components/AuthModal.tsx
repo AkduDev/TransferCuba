@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import type { AuthRole, AuthState } from '@/lib/hooks/useAuth';
 
-interface GoogleMapsAuthModalProps {
+interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   auth: AuthState;
@@ -33,7 +33,7 @@ const ROLE_LABELS: Record<AuthRole, string> = {
 
 type Mode = 'login' | 'register';
 
-export default function GoogleMapsAuthModal({ isOpen, onClose, auth }: GoogleMapsAuthModalProps) {
+export default function AuthModal({ isOpen, onClose, auth }: AuthModalProps) {
   const [mode, setMode] = useState<Mode>('login');
   const [phone, setPhone] = useState('');
   const [pin, setPin] = useState('');

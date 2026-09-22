@@ -10,7 +10,7 @@ import {
   Minimize
 } from 'lucide-react';
 
-interface GoogleMapsFloatingControlsProps {
+interface MapControlsProps {
   onNearMeClick: () => void;
   hasUserLocation: boolean;
   isLocating: boolean;
@@ -34,7 +34,7 @@ function iconButtonClass(active: boolean): string {
   }`;
 }
 
-export default function GoogleMapsFloatingControls({
+export default function MapControls({
   onNearMeClick,
   hasUserLocation,
   isLocating,
@@ -48,7 +48,7 @@ export default function GoogleMapsFloatingControls({
   mapReady = false,
   isFullscreen = false,
   onFullscreenToggle
-}: GoogleMapsFloatingControlsProps) {
+}: MapControlsProps) {
   // Determine mobile bottom positioning with safe-area insets
   const mobilePositionClasses = (() => {
     if (sheetState === 'half' || sheetState === 'full') {

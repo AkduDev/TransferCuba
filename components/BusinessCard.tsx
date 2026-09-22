@@ -33,19 +33,19 @@ function PaymentBadge({ kind }: { kind: 'tm' | 'ez' | 'qr' | 'cash' }) {
   );
 }
 
-interface GoogleMapsPlaceCardProps {
+interface BusinessCardProps {
   business: Business;
   onSelect: (biz: Business) => void;
   onCalculateRoute?: (biz: Business) => void;
   isSelected?: boolean;
 }
 
-export default function GoogleMapsPlaceCard({
+export default function BusinessCard({
   business,
   onSelect,
   onCalculateRoute,
   isSelected = false
-}: GoogleMapsPlaceCardProps) {
+}: BusinessCardProps) {
   const catStyle = getCategoryStyle(business.category);
   const emoji = CATEGORY_EMOJI[business.category] ?? '🏪';
 

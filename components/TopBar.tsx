@@ -17,7 +17,7 @@ import {
 import { CATEGORIES, CATEGORY_EMOJI, Business } from '@/lib/cuba-data';
 import type { NominatimResult } from '@/lib/nominatim';
 
-interface GoogleMapsTopBarProps {
+interface TopBarProps {
   searchQuery: string;
   onSearchChange: (q: string) => void;
   onMenuClick: () => void;
@@ -46,7 +46,7 @@ interface GoogleMapsTopBarProps {
   onSelectBusiness: (b: Business) => void;
 }
 
-export default function GoogleMapsTopBar({
+export default function TopBar({
   searchQuery,
   onSearchChange,
   onMenuClick,
@@ -73,7 +73,7 @@ export default function GoogleMapsTopBar({
   searchSuggestions,
   onSelectPlace,
   onSelectBusiness
-}: GoogleMapsTopBarProps) {
+}: TopBarProps) {
   const PLACEHOLDER_EXAMPLES = [
     '¿Qué estás buscando?',
     'Busca "pizza"...',

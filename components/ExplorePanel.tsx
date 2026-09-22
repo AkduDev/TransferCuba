@@ -27,10 +27,10 @@ import {
   Star
 } from 'lucide-react';
 import { Business, formatDistance, CATEGORY_EMOJI } from '@/lib/cuba-data';
-import GoogleMapsPlaceCard from '@/components/GoogleMapsPlaceCard';
+import BusinessCard from '@/components/BusinessCard';
 import BusinessCover from '@/components/BusinessCover';
 
-interface GoogleMapsDesktopPanelProps {
+interface ExplorePanelProps {
   businesses: Business[];
   selectedBusiness: Business | null;
   onSelectBusiness: (biz: Business | null) => void;
@@ -43,7 +43,7 @@ interface GoogleMapsDesktopPanelProps {
   onToggleOpen: () => void;
 }
 
-export default function GoogleMapsDesktopPanel({
+export default function ExplorePanel({
   businesses,
   selectedBusiness,
   onSelectBusiness,
@@ -54,7 +54,7 @@ export default function GoogleMapsDesktopPanel({
   hasUserLocation,
   isOpen,
   onToggleOpen
-}: GoogleMapsDesktopPanelProps) {
+}: ExplorePanelProps) {
   const [copied, setCopied] = useState(false);
   const [votedType, setVotedType] = useState<'yes' | 'no' | null>(null);
   const [showReportForm, setShowReportForm] = useState(false);
@@ -506,7 +506,7 @@ export default function GoogleMapsDesktopPanel({
                 </div>
               ) : (
                 businesses.map((biz) => (
-                  <GoogleMapsPlaceCard
+                  <BusinessCard
                     key={biz.id}
                     business={biz}
                     isSelected={false}

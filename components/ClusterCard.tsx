@@ -4,7 +4,7 @@ import { CATEGORY_EMOJI, CATEGORIES, Business } from '@/lib/cuba-data';
 import type { ClusterInfo } from '@/components/MapLibreMap';
 import { ChevronDown, X as XIcon } from 'lucide-react';
 
-interface GoogleMapsClusterCardProps {
+interface ClusterCardProps {
   cluster: ClusterInfo;
   visibleCount: number;
   onSelectBusiness: (b: Business) => void;
@@ -13,14 +13,14 @@ interface GoogleMapsClusterCardProps {
   onShowMore: () => void;
 }
 
-export default function GoogleMapsClusterCard({
+export default function ClusterCard({
   cluster,
   visibleCount,
   onSelectBusiness,
   onExpand,
   onClose,
   onShowMore
-}: GoogleMapsClusterCardProps) {
+}: ClusterCardProps) {
   return (
     <div className="fixed z-40 bottom-40 sm:bottom-44 left-1/2 -translate-x-1/2 w-[min(92vw,420px)] bg-white rounded-2xl border border-border-subtle shadow-level-4 overflow-hidden flex flex-col max-h-[42vh] animate-in slide-in-from-bottom-5 fade-in duration-200">
       <div className="flex items-center justify-between gap-2 pl-4 pr-2 pt-2.5 pb-2 border-b border-border-subtle">

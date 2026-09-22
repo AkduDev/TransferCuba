@@ -24,10 +24,10 @@ import {
   Star
 } from 'lucide-react';
 import { Business, formatDistance } from '@/lib/cuba-data';
-import GoogleMapsPlaceCard from '@/components/GoogleMapsPlaceCard';
+import BusinessCard from '@/components/BusinessCard';
 import BusinessCover from '@/components/BusinessCover';
 
-interface GoogleMapsMobileBottomSheetProps {
+interface BottomSheetProps {
   businesses: Business[];
   selectedBusiness: Business | null;
   onSelectBusiness: (biz: Business | null) => void;
@@ -42,7 +42,7 @@ interface GoogleMapsMobileBottomSheetProps {
 
 type SheetState = 'peek' | 'half' | 'full';
 
-export default function GoogleMapsMobileBottomSheet({
+export default function BottomSheet({
   businesses,
   selectedBusiness,
   onSelectBusiness,
@@ -53,7 +53,7 @@ export default function GoogleMapsMobileBottomSheet({
   hasUserLocation,
   sheetState: externalSheetState,
   onSheetStateChange
-}: GoogleMapsMobileBottomSheetProps) {
+}: BottomSheetProps) {
   // Height state: 'peek' | 'half' | 'full'
   const [internalSheetState, setInternalSheetState] = useState<SheetState>('peek');
   const sheetState = externalSheetState ?? internalSheetState;
@@ -443,7 +443,7 @@ export default function GoogleMapsMobileBottomSheet({
                 </div>
               ) : (
                 businesses.map((biz) => (
-                  <GoogleMapsPlaceCard
+                  <BusinessCard
                     key={biz.id}
                     business={biz}
                     isSelected={false}

@@ -29,7 +29,7 @@ import {
 } from '@/lib/delivery-client';
 import type { UseDeliveriesState } from '@/lib/hooks/useDeliveries';
 
-interface GoogleMapsDeliveryModalProps {
+interface DeliveryModalProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenAuth: () => void;
@@ -124,7 +124,7 @@ function DeliveryStatusBadge({ d }: { d: DeliveryDTO }) {
   );
 }
 
-export default function GoogleMapsDeliveryModal({
+export default function DeliveryModal({
   isOpen,
   onClose,
   onOpenAuth,
@@ -132,7 +132,7 @@ export default function GoogleMapsDeliveryModal({
   userLocation,
   deliveries,
   pickFromUserLocation
-}: GoogleMapsDeliveryModalProps) {
+}: DeliveryModalProps) {
   React.useEffect(() => {
     if (!isOpen) {
       deliveries.reset();
