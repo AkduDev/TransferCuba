@@ -418,6 +418,12 @@ export async function queryBusinesses(filters: BusinessFilters): Promise<Busines
     (SELECT COALESCE(jsonb_object_agg(pm.slug, true), '{}'::jsonb)
      FROM business_payment_methods bpm JOIN payment_methods pm ON pm.id = bpm.payment_method_id
      WHERE bpm.business_id = b.id AND bpm.is_active) AS transfer_details_v2,
+    -- Fotos desde business_images (la columna legacy fue eliminada en 1.9)
+    COALESCE(
+      (SELECT ARRAY(SELECT url FROM business_images bi
+        WHERE bi.business_id = b.id ORDER BY bi.sort_order)),
+      ARRAY[]::text[]
+    ) AS photos,
     ${
     hasOrigin
       ? `ST_Distance(b.geom, ST_GeomFromText(${originParam}, 4326)::geography) AS distance_meters`
