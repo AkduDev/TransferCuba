@@ -12,29 +12,58 @@ Gestor de paquetes: **Bun**. Documentación adicional en `docs/`.
 bun run dev      # servidor de desarrollo (localhost:3000)
 bun run build    # build de producción — verificar antes de terminar tareas grandes
 bun run lint     # ESLint — correr tras cambios de código
-bun run test:e2e # Playwright (accesibilidad de modales); levanta next dev solo
+bun run test:e2e # Playwright; levanta next dev solo
 bunx tsc --noEmit  # typecheck rápido
 ```
 
 Regla: tras cualquier cambio de código, correr `bun run lint` y si es posible
 `bunx tsc --noEmit`. `bun run build` para verificar integrales.
 
+Las pruebas que necesitan sesión (mensajería, suscripción, valoraciones, SSE)
+se **saltan solas** sin `E2E_DATABASE_URL`: exigen una base APARTE y nunca
+escriben en la de la aplicación. En Neon lo natural es una rama. La moderación
+de valoraciones pide además `E2E_ADMIN_PASSWORD`.
+
+```bash
+E2E_DATABASE_URL='postgresql://…/neondb-e2e' bun run test:e2e
+```
+
+Ojo con el lint: el repo arrastra 3 errores previos de
+`react-hooks/set-state-in-effect` y 1 aviso. Compara contra esa línea base
+(`git show HEAD:<fichero> | bunx eslint --stdin --stdin-filename <fichero>`)
+antes de dar por tuyo un error.
+
 ## Estructura y convenciones
 
-- `app/page.tsx` es un orquestador DELGADO (~90 líneas): el estado vive en
+- `app/page.tsx` es un orquestador DELGADO (~110 líneas): el estado vive en
   hooks de `lib/hooks/` (useMapViewport, useFilters, useGeolocation,
-  useGeocoding, useBusinessesData, useBusinessActions, useModals, useToast)
-  y baja por props. No añadir estado nuevo a page.tsx.
-- Componentes de UI estilo "Google Maps" en `components/` con prefijo
-  `GoogleMaps*`, modales con sufijo `*Modal`.
+  useGeocoding, useBusinessesData, useBusinessActions, useModals, useToast,
+  useAuth, useDeliveries, useMessengerApplication) y baja por props. No añadir
+  estado nuevo a page.tsx.
+- Componentes de UI en `components/` con **nombre propio, sin prefijo**: el
+  antiguo `GoogleMaps*` se eliminó en el rediseño V2. Hoy son `TopBar`,
+  `SideDrawer`, `ExplorePanel`, `BottomSheet`, `BusinessCard`, `ClusterCard`,
+  `MapControls`, `MapAttribution`, `PinningControls`, `Toast`, y los modales
+  con sufijo `*Modal` (`AuthModal`, `DeliveryModal`, `MessengerModal`,
+  `FiltersModal`, `LocationPickerModal`, `RegisterBusinessModal`,
+  `AdminDashboardModal`).
+- Todo modal y el cajón lateral se montan sobre `components/ModalShell.tsx`,
+  que aporta la semántica de diálogo (role, aria-modal, Escape, trampa y
+  devolución de foco, clic en el fondo, bloqueo de scroll y pila cuando hay
+  varios abiertos). No volver a escribir el `div` de capa a mano.
 - Lógica de dominio y datos en `lib/`: `cuba-data.ts` (tipos, seed,
-  provincias), `osrm.ts`, `nominatim.ts`, `dto.ts`, `db.ts`.
+  provincias), `osrm.ts`, `nominatim.ts`, `cloudinary.ts`, `dto.ts`, `db.ts`;
+  identidad en `auth.ts`/`db-auth.ts` (usuarios) y `admin-auth.ts` (panel, es
+  OTRA superficie); mensajería en `db-delivery.ts`, `delivery-dto.ts`,
+  `delivery-client.ts`, `delivery-validate.ts`, `pricing.ts`.
 - `MapLibreMap` se importa SIEMPRE con `dynamic(..., { ssr: false })` (requiere
   `window`) y envuelto en `MapErrorBoundary`.
-- Vector tiles (Sprint 5): `GET /api/tiles/[z]/[x]/[y]` sirve MVT vía
-  `queryBusinessesMvt` (`lib/db.ts`) y la función `get_businesses_mvt(z,x,y)`
-  de `db/schema.sql` (PostGIS puro, solo negocios `active`). La frontend aún
-  consume GeoJSON+clusters; no romper los dos caminos si se corta a MVT.
+- Vector tiles: el cutover **ya está hecho**. `MapLibreMap` consume un source
+  `vector` contra `GET /api/tiles/[z]/[x]/[y]`, que sirve MVT vía
+  `queryBusinessesMvt` (`lib/db.ts`) y `get_businesses_mvt(z,x,y)` de
+  `db/schema.sql` (PostGIS puro, solo negocios `active`). Ya no hay camino
+  GeoJSON+clusters de negocios en el cliente; el GeoJSON que queda en
+  `MapLibreMap` es solo para las capas de delivery.
 - Path alias `@/*` → raíz del proyecto.
 
 ## Código
@@ -53,6 +82,12 @@ Regla: tras cualquier cambio de código, correr `bun run lint` y si es posible
 - Registro nuevo → `pending` → requiere aprobación admin.
 - Servicios externos Nominatim/OSRM: máximo 1 req/s, con `User-Agent`
   identificatorio. No abusar.
+- Migraciones en `db/`, idempotentes. El orden importa y **no es alfabético**:
+  `schema.sql` → `migrate_auth.sql` → `migrate_delivery.sql` →
+  `migrate_promotions_index.sql` → `migrate_delivery_phase6.sql` →
+  `migrate_has_delivery.sql`. (`migrate_v2.sql` y `migrate_1_9_drop_legacy.sql`
+  son históricos, solo para bases anteriores a 1.9.) Un cambio de esquema añade
+  migración **y** actualiza `schema.sql`.
 - Persistencia: `localStorage` clave `transfercuba_businesses_v2` como cache
   offline del frontend; fuente real es Postgres/Neon vía `lib/db.ts`
   (tablas normalizadas V2 desde el DAO — ver `db/schema.sql`; `hours` y los
@@ -64,4 +99,7 @@ Regla: tras cualquier cambio de código, correr `bun run lint` y si es posible
 - No añadir dependencias sin necesidad (proyecto deliberadamente libre de
   librerías de estado/UI pesadas).
 - No usar Leaflet ni `motion` ni Firebase (eliminados por dead code).
-- No introducir API keys: el diseño es 100% OSM/gratuito.
+- **Mapas y rutas siguen sin API keys**: OpenFreeMap, OSM, OSRM y Nominatim son
+  gratuitos y así se quedan. La única excepción es **Cloudinary** para las fotos
+  de negocios (`CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`,
+  `NEXT_PUBLIC_CLOUDINARY_*`); no añadir proveedores de pago más allá de ese.
