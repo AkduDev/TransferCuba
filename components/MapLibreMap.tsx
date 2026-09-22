@@ -851,9 +851,27 @@ const map = mapInstanceRef.current;
 
     if (map.isStyleLoaded()) {
       void attempt();
-    } else {
-      map.once('style.load', () => void attempt());
+      return;
     }
+
+    // `style.load` dispara UNA vez y pronto, pero `isStyleLoaded()` sigue en
+    // false mientras queden teselas en vuelo. Esperar solo a `style.load`
+    // significaba que una actualización posterior del tablón —una solicitud
+    // nueva llegando por el stream— se quedaba aguardando un evento ya pasado
+    // y el mapa no la pintaba nunca. `idle` sí vuelve a dispararse cada vez
+    // que el mapa se asienta, así que sirve de red.
+    const alEstarListo = () => {
+      map.off('style.load', alEstarListo);
+      map.off('idle', alEstarListo);
+      void attempt();
+    };
+    map.on('style.load', alEstarListo);
+    map.on('idle', alEstarListo);
+
+    return () => {
+      map.off('style.load', alEstarListo);
+      map.off('idle', alEstarListo);
+    };
   }, [deliveryRequests, activeDeliveryTrip]);
 
   // Render OSRM Route Layer

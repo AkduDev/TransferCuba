@@ -526,17 +526,23 @@ function HistoryView({
             {/* Formulario inline de review */}
             {isReviewing && (
               <div className="rounded-md border border-amber-200 bg-amber-50 p-2.5 space-y-2">
-                <div className="flex items-center gap-0.5">
+                <div className="flex items-center gap-0.5" role="group" aria-label="Puntuación">
                   {Array.from({ length: 5 }, (_, i) => (
                     <button
                       key={i}
                       type="button"
+                      // Sin nombre accesible eran cinco botones idénticos: un
+                      // lector de pantalla no podía distinguirlos y no había
+                      // forma de saber cuál estaba elegido.
+                      aria-label={i === 0 ? '1 estrella' : `${i + 1} estrellas`}
+                      aria-pressed={rating === i + 1}
                       onClick={() => setRating(i + 1)}
                       onMouseEnter={() => setHoverRating(i + 1)}
                       onMouseLeave={() => setHoverRating(0)}
-                      className="p-0"
+                      className="flex h-11 w-9 items-center justify-center rounded p-0"
                     >
                       <Star
+                        aria-hidden="true"
                         className={`w-5 h-5 transition-colors ${
                           i < (hoverRating || rating) ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
                         }`}
