@@ -7,11 +7,26 @@ export const dynamic = 'force-dynamic';
 
 // Sprint 5 (Cuba-first): sin fotos → placeholder local SVG por categoría
 // (BusinessCover). No se tocan CDNs externos (lentos/inaccesibles en Cuba).
-const EXTERNAL_PHOTO_PATTERN = /unsplash|picsum|pexels|shutterstock/i;
+//
+// El POST es PÚBLICO, así que antes se podía mandar cualquier URL como foto:
+// una lista negra de cuatro bancos de imágenes dejaba pasar todo lo demás y la
+// ficha acababa con una foto que nunca se pintaría, porque `next/image` solo
+// acepta los hosts de `remotePatterns`. Ahora es lista blanca, y la única
+// entrada es la misma que declara next.config.ts.
+const ALLOWED_PHOTO_HOST = 'res.cloudinary.com';
+
+function isAllowedPhotoUrl(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length > 500) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && url.hostname === ALLOWED_PHOTO_HOST;
+  } catch {
+    return false;
+  }
+}
+
 const sanitizePhotos = (photos: unknown): string[] =>
-  Array.isArray(photos)
-    ? photos.filter((p): p is string => typeof p === 'string' && !EXTERNAL_PHOTO_PATTERN.test(p))
-    : [];
+  Array.isArray(photos) ? photos.filter(isAllowedPhotoUrl) : [];
 
 // GET /api/businesses — filtros + spatial queries (viewport bbox / nearby).
 // Sprint 2: PostGIS con ST_MakeEnvelope && / ST_DWithin / ST_Distance;

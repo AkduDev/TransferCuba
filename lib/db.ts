@@ -124,7 +124,22 @@ function shouldAttemptDb(): boolean {
   return Date.now() >= dbUnavailableUntil;
 }
 
+/**
+ * Un error con `code` lo emitió PostgreSQL: la base respondió, o sea que está
+ * viva. Tratarlo como caída abría el cortacircuitos 60 s y degradaba a memoria
+ * operaciones sanas que no tenían nada que ver. Mismo criterio que
+ * `lib/db-delivery.ts`, que sí lo distinguía.
+ */
+export function isDataError(err: unknown): boolean {
+  return typeof (err as { code?: unknown } | null)?.code === 'string';
+}
+
 function markDbUnavailable(err: unknown): void {
+  if (isDataError(err)) {
+    // No es una caída: no se abre el cortacircuitos ni se miente en el log.
+    console.error('[db] error de datos (PostgreSQL respondió):', (err as Error)?.message ?? err);
+    return;
+  }
   if (dbUnavailableUntil <= Date.now()) {
     console.error(
       '[db] PostgreSQL inalcanzable; usando fallback in-memory y reintentando en 60s:',
@@ -224,6 +239,9 @@ const businessToInsert = (b: Business) => [
   b.rating,
   b.reviewsCount,
   b.lastStatusUpdate,
+  // `last_updated_date` es NOT NULL sin default en db/schema.sql y NO estaba en
+  // el INSERT: cada alta de negocio moría con una violación de restricción.
+  b.lastUpdatedDate || new Date().toISOString(),
   b.hasDelivery ?? false,
   b.lat,
   b.lng
@@ -235,10 +253,10 @@ const INSERT_SQL = `
     neighborhood, address, whatsapp, phone, hours,
     accepts_transfer, transfer_active_now, transfer_verified, status,
     confirmations_count, reports_count, rating, reviews_count,
-    last_status_update, has_delivery, geom
+    last_status_update, last_updated_date, has_delivery, geom
   ) VALUES (
     $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-    $21, $22, ST_SetSRID(ST_MakePoint($24, $23), 4326)::geography
+    $21, $22, $23, ST_SetSRID(ST_MakePoint($25, $24), 4326)::geography
   )
   ON CONFLICT (id) DO NOTHING
 `;
@@ -552,6 +570,9 @@ export async function insertBusiness(b: Business): Promise<void> {
     markDbAvailable();
   } catch (err) {
     markDbUnavailable(err);
+    // Un alta rechazada por la base NO se disfraza de éxito guardándola en
+    // memoria: se propaga para que la ruta responda 503 en vez de un 201 falso.
+    if (isDataError(err)) throw err;
     if (!canFallbackToMemory()) throw new Error('Database unavailable');
     memoryEnsure().unshift({ ...b });
   }
