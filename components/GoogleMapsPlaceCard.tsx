@@ -4,31 +4,29 @@ import React from 'react';
 import {
   Star,
   Navigation,
-  MessageCircle,
-  Phone,
-  ShieldCheck,
-  BadgeCheck
+  BadgeCheck,
+  Bike
 } from 'lucide-react';
-import { Business, formatDistance } from '@/lib/cuba-data';
+import { Business, formatDistance, CATEGORY_EMOJI } from '@/lib/cuba-data';
 import { getCategoryStyle } from '@/lib/category-style';
 import BusinessCover from '@/components/BusinessCover';
 
 export { getCategoryStyle };
 export type { CategoryStyle } from '@/lib/category-style';
 
-/* Badges de pago — tokens del design system Stitch */
+/* Badges de pago — labels completos para claridad comercial */
 function PaymentBadge({ kind }: { kind: 'tm' | 'ez' | 'qr' | 'cash' }) {
   const styles = {
-    tm: { cls: 'bg-tm-bg text-tm-text border-tm-border', label: 'TM', title: 'Transfermóvil' },
-    ez: { cls: 'bg-ez-bg text-ez-text border-ez-border', label: 'EZ', title: 'EnZona' },
+    tm: { cls: 'bg-tm-bg text-tm-text border-tm-border', label: 'Transfermóvil', title: 'Transfermóvil' },
+    ez: { cls: 'bg-ez-bg text-ez-text border-ez-border', label: 'EnZona', title: 'EnZona' },
     qr: { cls: 'bg-qr-bg text-qr-text border-border-subtle', label: 'QR', title: 'Código QR' },
-    cash: { cls: 'bg-ash-bg text-ash-text border-emerald-200', label: 'CUP', title: 'Efectivo' }
+    cash: { cls: 'bg-ash-bg text-ash-text border-emerald-200', label: 'Efectivo', title: 'Efectivo' }
   }[kind];
 
   return (
     <span
       title={styles.title}
-      className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide ${styles.cls}`}
+      className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-bold ${styles.cls}`}
     >
       {styles.label}
     </span>
@@ -49,6 +47,7 @@ export default function GoogleMapsPlaceCard({
   isSelected = false
 }: GoogleMapsPlaceCardProps) {
   const catStyle = getCategoryStyle(business.category);
+  const emoji = CATEGORY_EMOJI[business.category] ?? '🏪';
 
   return (
     <article
@@ -57,19 +56,36 @@ export default function GoogleMapsPlaceCard({
         isSelected ? 'ring-2 ring-cerulean/40 border-cerulean' : ''
       }`}
     >
-      {/* Top: nombre + verificación + miniatura */}
+      {/* Top: nombre + badge de estado a la derecha + miniatura */}
       <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <h4 className="text-[15px] font-bold text-text-primary truncate leading-snug group-hover:text-cerulean-dark transition-colors">
-              {business.name}
-            </h4>
-            {business.transferVerified && (
-              <BadgeCheck className="w-4 h-4 text-emerald-brand flex-shrink-0" aria-label="Verificado" />
-            )}
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <h4 className="text-[15px] font-bold text-text-primary truncate leading-snug group-hover:text-cerulean-dark transition-colors">
+                {business.name}
+              </h4>
+              {business.transferVerified && (
+                <BadgeCheck className="w-4 h-4 text-emerald-brand flex-shrink-0" aria-label="Verificado" />
+              )}
+            </div>
+            {/* Badge de estado transfer — protagonista arriba a la derecha */}
+            <span
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 ${
+                business.transferActiveNow
+                  ? 'bg-emerald-brand/10 text-emerald-brand'
+                  : 'bg-saffron/10 text-saffron'
+              }`}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  business.transferActiveNow ? 'bg-emerald-brand animate-pulse' : 'bg-saffron'
+                }`}
+              />
+              {business.transferActiveNow ? 'Activa' : 'Sin transfer'}
+            </span>
           </div>
 
-          {/* Ubicación + distancia en una línea */}
+          {/* Ubicación + distancia */}
           <p className="text-xs text-text-muted mt-1 truncate">
             {business.distanceMeters !== undefined && (
               <>
@@ -83,15 +99,16 @@ export default function GoogleMapsPlaceCard({
             {business.neighborhood ? `, ${business.neighborhood}` : ''}
           </p>
 
-          {/* Rating discreto */}
-          <div className="flex items-center gap-1 mt-1.5 text-xs">
+          {/* Categoría con emoji + rating */}
+          <div className="flex items-center gap-1.5 mt-1.5 text-xs">
+            <span>{emoji}</span>
+            <span className="text-text-muted">{catStyle.label}</span>
+            <span className="mx-1 text-slate-300">·</span>
             <Star className="w-3.5 h-3.5 text-saffron fill-saffron" />
             <span className="font-bold text-text-primary">
               {business.rating ? business.rating.toFixed(1) : '4.8'}
             </span>
             <span className="text-text-muted">({business.reviewsCount || 16})</span>
-            <span className="mx-1 text-slate-300">·</span>
-            <span className="text-text-muted">{catStyle.label}</span>
           </div>
         </div>
 
@@ -104,70 +121,38 @@ export default function GoogleMapsPlaceCard({
         />
       </div>
 
-      {/* Divider + badges de pago (código de color nacional) */}
+      {/* Badges de pago con labels completos */}
       <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-border-subtle flex-wrap">
-        <span
-          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-            business.transferActiveNow
-              ? 'bg-emerald-brand/10 text-emerald-brand'
-              : 'bg-saffron/10 text-saffron'
-          }`}
-        >
-          <span
-            className={`w-1.5 h-1.5 rounded-full ${
-              business.transferActiveNow ? 'bg-emerald-brand animate-pulse' : 'bg-saffron'
-            }`}
-          />
-          {business.transferActiveNow ? '🟢 Activa' : '⚠ Sin transferencia'}
-        </span>
-
         {business.transferDetails?.transfermovil && <PaymentBadge kind="tm" />}
         {business.transferDetails?.enzona && <PaymentBadge kind="ez" />}
         {business.transferDetails?.qrPayment && <PaymentBadge kind="qr" />}
         {business.transferDetails?.cash && <PaymentBadge kind="cash" />}
+      </div>
 
-        {/* Acciones esenciales alineadas a la derecha */}
-        <div className="ml-auto flex items-center gap-1">
+      {/* CTAs explícitos */}
+      <div className="flex items-center gap-2 mt-2.5">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onCalculateRoute?.(business);
+          }}
+          className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-lg bg-slate-50 border border-border-subtle text-xs font-bold text-slate-600 hover:bg-slate-100 hover:border-border-strong active:scale-[0.98] transition-all"
+        >
+          <Navigation className="w-3.5 h-3.5" />
+          Cómo llegar
+        </button>
+        {business.hasDelivery && (
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onCalculateRoute?.(business);
+              onSelect(business);
             }}
-            aria-label="Cómo llegar"
-            title="Cómo llegar"
-            className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-500 hover:text-cerulean-dark hover:bg-slate-100 active:scale-95 transition-all"
+            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-lg bg-emerald-brand/10 border border-emerald-brand/30 text-xs font-bold text-emerald-brand hover:bg-emerald-brand/20 active:scale-[0.98] transition-all"
           >
-            <Navigation className="w-4 h-4" />
+            <Bike className="w-3.5 h-3.5" />
+            Delivery
           </button>
-          {business.whatsapp && (
-            <a
-              href={`https://wa.me/${
-                business.whatsapp.replace(/[^0-9]/g, '').startsWith('53')
-                  ? business.whatsapp.replace(/[^0-9]/g, '')
-                  : `53${business.whatsapp.replace(/[^0-9]/g, '')}`
-              }`}
-              target="_blank"
-              rel="noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              aria-label="WhatsApp"
-              title="Escribir por WhatsApp"
-              className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-500 hover:text-emerald-brand hover:bg-slate-100 active:scale-95 transition-all"
-            >
-              <MessageCircle className="w-4 h-4" />
-            </a>
-          )}
-          {business.phone && (
-            <a
-              href={`tel:${business.phone}`}
-              onClick={(e) => e.stopPropagation()}
-              aria-label="Llamar"
-              title="Llamar al negocio"
-              className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-500 hover:text-navy hover:bg-slate-100 active:scale-95 transition-all"
-            >
-              <Phone className="w-4 h-4" />
-            </a>
-          )}
-        </div>
+        )}
       </div>
     </article>
   );

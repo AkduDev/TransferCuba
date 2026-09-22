@@ -31,6 +31,7 @@ export interface Business {
   rating: number;
   reviewsCount: number;
   photos: string[];
+  hasDelivery?: boolean;
   featured: boolean;
   status: 'active' | 'pending' | 'rejected';
   distanceMeters?: number; // Calculated dynamically if user location is set
