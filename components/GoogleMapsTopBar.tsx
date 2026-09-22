@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Search,
   Menu,
@@ -30,8 +30,6 @@ interface GoogleMapsTopBarProps {
   onToggleOnlyActiveNow: () => void;
   onlyTransfer: boolean;
   onToggleOnlyTransfer: () => void;
-  filterVerification: string;
-  onFilterVerificationChange: (v: string) => void;
   selectedProvince: string;
   onProvinceClick: () => void;
   onToggleFiltersModal: () => void;
@@ -61,8 +59,6 @@ export default function GoogleMapsTopBar({
   onToggleOnlyActiveNow,
   onlyTransfer,
   onToggleOnlyTransfer,
-  filterVerification,
-  onFilterVerificationChange,
   selectedProvince,
   onProvinceClick,
   onToggleFiltersModal,
@@ -78,6 +74,23 @@ export default function GoogleMapsTopBar({
   onSelectPlace,
   onSelectBusiness
 }: GoogleMapsTopBarProps) {
+  const PLACEHOLDER_EXAMPLES = [
+    '¿Qué estás buscando?',
+    'Busca "pizza"...',
+    'Busca "farmacia"...',
+    'Busca "zapatos"...',
+    'Busca "reparación de teléfonos"...',
+    'Busca "Transfermóvil"...'
+  ];
+  const [placeholderIdx, setPlaceholderIdx] = useState(0);
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setPlaceholderIdx((i) => (i + 1) % PLACEHOLDER_EXAMPLES.length);
+    }, 3500);
+    return () => clearInterval(t);
+  }, []);
+
   const chipBase =
     'inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-[13px] font-semibold whitespace-nowrap border transition-all active:scale-95 flex-shrink-0 min-h-[44px]';
   const chipIdle =
@@ -131,7 +144,7 @@ export default function GoogleMapsTopBar({
                   e.currentTarget.blur();
                 }
               }}
-              placeholder="¿Qué estás buscando?"
+              placeholder={PLACEHOLDER_EXAMPLES[placeholderIdx]}
               className="flex-1 min-w-0 text-sm bg-transparent text-text-primary font-medium placeholder:text-slate-400 focus:outline-none"
             />
             {searchQuery && (
@@ -268,7 +281,7 @@ export default function GoogleMapsTopBar({
 
       {/* Row 2: Chips — fila única, orden lógico, sin saturar */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none select-none max-w-[calc(100vw-24px)] md:max-w-[calc(100vw-48px)] touch-pan-x scroll-smooth">
-        {/* Chip clave: Activo AHORA (verde = transferencia viva) */}
+        {/* Chip clave: Transferencia activa */}
         <button
           onClick={onToggleOnlyActiveNow}
           className={`${chipBase} ${
@@ -282,7 +295,7 @@ export default function GoogleMapsTopBar({
               onlyActiveNow ? 'bg-white animate-pulse' : 'bg-emerald-brand animate-beacon'
             }`}
           />
-          <span>Activo ahora</span>
+          <span>🟢 Transferencia activa</span>
         </button>
 
         {/* Categorías (una sola fila, emoji + nombre corto) */}
@@ -295,7 +308,7 @@ export default function GoogleMapsTopBar({
               className={`${chipBase} ${isSelected ? chipActive : chipIdle}`}
             >
               <span>{CATEGORY_EMOJI[cat.id] ?? '🏪'}</span>
-              <span>{cat.label.split('&')[0].trim()}</span>
+              <span>{cat.label}</span>
             </button>
           );
         })}
@@ -311,30 +324,6 @@ export default function GoogleMapsTopBar({
           </span>
         </button>
 
-        {/* Verificación como chip único cíclico (menos ruido visual) */}
-        {(['verified', 'pending', 'reported'] as const).map((v) => {
-          const isActive = filterVerification === v;
-          const label = v === 'verified' ? 'Verificados' : v === 'pending' ? 'Pendientes' : 'Reportados';
-          const dot =
-            v === 'verified'
-              ? 'bg-emerald-brand'
-              : v === 'pending'
-                ? 'bg-saffron'
-                : 'bg-crimson';
-          return (
-            <button
-              key={v}
-              onClick={() =>
-                onFilterVerificationChange(isActive ? 'all' : v)
-              }
-              className={`${chipBase} ${isActive ? chipActive : chipIdle}`}
-            >
-              <span className={`w-2 h-2 rounded-full ${dot} ${isActive ? '' : ''}`} />
-              <span>{label}</span>
-            </button>
-          );
-        })}
-
         {/* Reset */}
         {hasActiveFilters && (
           <button
@@ -347,7 +336,7 @@ export default function GoogleMapsTopBar({
           </button>
         )}
 
-        {/* Cuenta de usuario (identidad teléfono + PIN) */}
+        {/* Cuenta de usuario — icono solo en mobile, con texto en desktop */}
         {onAccountClick && (
           <button
             onClick={onAccountClick}
@@ -355,11 +344,11 @@ export default function GoogleMapsTopBar({
             title="Mi cuenta"
           >
             <User className="w-3.5 h-3.5" />
-            <span>Cuenta</span>
+            <span className="hidden sm:inline">Cuenta</span>
           </button>
         )}
 
-        {/* Admin discreto al final */}
+        {/* Admin discreto al final — icono solo en mobile */}
         {onAdminClick && (
           <button
             onClick={onAdminClick}
@@ -367,7 +356,7 @@ export default function GoogleMapsTopBar({
             title="Panel de Administración"
           >
             <Lock className="w-3.5 h-3.5" />
-            <span>Admin</span>
+            <span className="hidden sm:inline">Admin</span>
           </button>
         )}
       </div>
