@@ -120,8 +120,8 @@ export default function GoogleMapsMobileBottomSheet({
   const handleShare = (biz: Business) => {
     if (navigator.share) {
       navigator.share({
-        title: `${biz.name} | ¿Dónde Pago? Cuba`,
-        text: `Consulta ${biz.name} en ${biz.municipality}, pagos digitales en Cuba.`,
+        title: `${biz.name} | TransferCuba`,
+        text: `Consulta ${biz.name} en ${biz.municipality} en TransferCuba.`,
         url: window.location.href
       }).catch(() => {});
     } else {
@@ -230,7 +230,7 @@ export default function GoogleMapsMobileBottomSheet({
             {/* WhatsApp */}
             <a
               href={`https://wa.me/${selectedBusiness.whatsapp.replace(/[^0-9]/g, '').startsWith('53') ? selectedBusiness.whatsapp.replace(/[^0-9]/g, '') : `53${selectedBusiness.whatsapp.replace(/[^0-9]/g, '')}`}?text=${encodeURIComponent(
-                `Hola ${selectedBusiness.name}, los vi en ¿Dónde Pago? Cuba. Quisiera consultar si aceptan transferencia hoy.`
+                `Hola ${selectedBusiness.name}, los vi en TransferCuba. ¿Están recibiendo pago por transferencia hoy?`
               )}`}
               target="_blank"
               rel="noreferrer"
@@ -346,10 +346,36 @@ export default function GoogleMapsMobileBottomSheet({
                 </div>
               </div>
 
+              {/* Delivery block */}
+              {selectedBusiness.hasDelivery && (
+                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🚚</span>
+                    <p className="text-sm font-extrabold text-emerald-950">
+                      ¿Quieres recibir tu compra?
+                    </p>
+                  </div>
+                  <p className="text-xs text-emerald-800 leading-relaxed">
+                    Solicita un mensajero desde TransferCuba.
+                  </p>
+                  <button
+                    onClick={() => onSelectBusiness(null)}
+                    className="w-full py-2.5 rounded-xl bg-emerald-brand text-white text-xs font-extrabold active:scale-[0.98] transition-all"
+                  >
+                    Solicitar delivery
+                  </button>
+                </div>
+              )}
+
               {/* Community voting */}
               <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/90 text-center space-y-2">
                 <p className="text-xs font-bold text-slate-800 font-display">
-                  ¿Aceptan transferencia hoy?
+                  La comunidad dice
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  👍 {selectedBusiness.confirmationsCount + (votedType === 'yes' ? 1 : 0)} confirmaciones
+                  {' · '}
+                  👎 {selectedBusiness.reportsCount + (votedType === 'no' ? 1 : 0)} reportes
                 </p>
                 <div className="flex items-center justify-center gap-2">
                   <button
@@ -360,7 +386,7 @@ export default function GoogleMapsMobileBottomSheet({
                     }`}
                   >
                     <ThumbsUp className="w-3.5 h-3.5" />
-                    <span>Sí ({selectedBusiness.confirmationsCount + (votedType === 'yes' ? 1 : 0)})</span>
+                    <span>Confirmar</span>
                   </button>
 
                   <button
@@ -371,7 +397,7 @@ export default function GoogleMapsMobileBottomSheet({
                     }`}
                   >
                     <ThumbsDown className="w-3.5 h-3.5" />
-                    <span>No ({selectedBusiness.reportsCount + (votedType === 'no' ? 1 : 0)})</span>
+                    <span>Reportar</span>
                   </button>
                 </div>
               </div>
@@ -391,7 +417,7 @@ export default function GoogleMapsMobileBottomSheet({
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-brand animate-pulse" />
               <span className="text-xs font-extrabold text-text-primary">
-                {businesses.length} {businesses.length === 1 ? 'negocio' : 'negocios'}
+                {businesses.length} {businesses.length === 1 ? 'negocio cerca' : 'negocios cerca'}
               </span>
               <span className="text-[10px] text-emerald-brand font-bold bg-emerald-brand/10 px-2 py-0.5 rounded-full">
                 {businesses.filter((b) => b.transferActiveNow).length} activos
@@ -412,8 +438,8 @@ export default function GoogleMapsMobileBottomSheet({
                   <div className="w-12 h-12 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto text-slate-400">
                     <Store className="w-6 h-6" />
                   </div>
-                  <p className="text-xs font-bold text-slate-800 font-display">No hay negocios en esta zona</p>
-                  <p className="text-[11px] text-slate-500">Prueba cambiando la provincia en la barra superior.</p>
+                  <p className="text-xs font-bold text-slate-800 font-display">No encontramos negocios cerca</p>
+                  <p className="text-[11px] text-slate-500">Prueba cambiando la categoría o ampliando el área de búsqueda.</p>
                 </div>
               ) : (
                 businesses.map((biz) => (
