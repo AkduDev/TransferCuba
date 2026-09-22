@@ -76,6 +76,20 @@ antes de dar por tuyo un error.
 - Commits estilo conventional: `feat:`, `fix:`, `docs:`, `chore:` (repo usa
   inglés en histórico pero es apto español).
 
+## Despliegue y entornos
+
+Producción va en Vercel (`transfercuba`) con integración a GitHub sobre `main`:
+**un push a `main` despliega**. La base es Neon (`soft-shape-61529281`), con una
+rama `preview` a la que apuntan los entornos Preview y Development para que una
+vista previa no escriba en producción.
+
+Runbook completo —orden de las migraciones, deriva entre `schema.sql` y la base
+real, cómo aplicar SQL cuando el puerto 5432 está bloqueado, y las rarezas del
+CLI de Vercel— en [`docs/operaciones.md`](docs/operaciones.md).
+
+Pendiente: **las variables de Cloudinary no están configuradas en ningún
+entorno**, así que la subida de fotos del registro no funciona.
+
 ## Reglas del dominio
 
 - Solo negocios `status === 'active'` se muestran en mapa/listas.
