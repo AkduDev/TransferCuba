@@ -5,14 +5,26 @@ import * as maplibregl from 'maplibre-gl';
 import type { GeoJSONSource, MapMouseEvent } from 'maplibre-gl';
 import type { Feature, FeatureCollection, LineString, Point } from 'geojson';
 import { Protocol, PMTiles } from 'pmtiles';
-import { Business } from '@/lib/cuba-data';
+import { Business, CATEGORIES, CATEGORY_EMOJI } from '@/lib/cuba-data';
 import type { AvailableDeliveryDTO, DeliveryStatus } from '@/lib/delivery-client';
 
 export interface ClusterInfo {
   businesses: Business[];
   center: [number, number]; // [lat, lng]
-  clusterId?: number; // para escalar el conteo mostrado (8+)
-  expansionZoom?: number; // zoom al que el cluster se disuelve en pins
+  clusterId?: number;
+  expansionZoom?: number;
+}
+
+export interface PinFilters {
+  searchQuery: string;
+  selectedProvince: string;
+  selectedMunicipality: string;
+  selectedCategory: string;
+  onlyTransfer: boolean;
+  onlyActiveNow: boolean;
+  filterVerification: string;
+  filterQr: boolean;
+  filterOnline: boolean;
 }
 
 interface MapLibreMapProps {
@@ -41,15 +53,12 @@ interface MapLibreMapProps {
   onViewportChange?: (bbox: [number, number, number, number], zoom: number) => void;
   mapRef?: React.RefObject<maplibregl.Map | null>;
   onMapReady?: () => void;
+  pinFilters?: PinFilters;
 }
 
-// Basemap: PMTiles de Cuba propio (Sprint 4). Por defecto se sirve desde
-// /map/cuba.pmtiles (estático, mismo origen, soporta Range). Puede pasarse
-// NEXT_PUBLIC_PMTILES_URL para apuntar a otro host (p.ej. R2) sin usar API key.
 const PMTILES_URL = process.env.NEXT_PUBLIC_PMTILES_URL || '/map/cuba.pmtiles';
 const FALLBACK_STYLE = 'https://tiles.openfreemap.org/styles/positron';
 
-// Registra el protocolo pmtiles:// una sola vez, con el archivo de Cuba.
 let pmtilesProtocol: Protocol | null = null;
 function ensurePmtilesProtocol(): void {
   if (pmtilesProtocol) return;
@@ -58,10 +67,6 @@ function ensurePmtilesProtocol(): void {
   pmtilesProtocol.add(new PMTiles(PMTILES_URL));
 }
 
-// MapLibre v6 corre el parseo de tiles en Web Workers. El bundler de Next no
-// empaqueta el worker (new Worker(URL relativa)) y queda 404 — el mapa carga
-// el estilo pero nunca pide tiles. Se sirve el worker desde /public y se
-// fija config.WORKER_URL (mecanismo oficial de MapLibre).
 let workerUrlFixed = false;
 function ensureWorkerUrl(): void {
   if (workerUrlFixed) return;
@@ -75,14 +80,18 @@ function ensureWorkerUrl(): void {
 }
 
 const MVT_SOURCE_ID = 'businesses-mvt';
+const SOURCE_GEO_ID = 'businesses-geo';
 const SOURCE_SELECTION_ID = 'selected-business-source';
 const SOURCE_CLUSTER_HOVER_ID = 'cluster-hover-source';
 const LAYER_SELECTED_HALO_ID = 'selected-business-halo';
-const LAYER_UNCLUSTERED_ID = 'unclustered-layer';
-const LAYER_UNCLUSTERED_SEL_ID = 'unclustered-selected-layer';
+const LAYER_MVT_PINS_ID = 'unclustered-layer';
+const LAYER_MVT_LABELS_ID = 'unclustered-label-layer';
+const LAYER_GEO_PINS_ID = 'geo-pins-layer';
+const LAYER_GEO_LABELS_ID = 'geo-labels-layer';
+const LAYER_CLUSTERS_ID = 'clusters-layer';
+const LAYER_CLUSTER_COUNT_ID = 'cluster-count-layer';
 const LAYER_CLUSTER_HOVER_ID = 'cluster-hover-halo';
 
-// Delivery layers (Fase 4): solicitudes PENDING del tablón y carrera activa.
 const SOURCE_DELIVERY_REQUESTS_ID = 'deliveries-requests-source';
 const LAYER_DELIVERY_REQUESTS_ID = 'deliveries-requests-layer';
 const SOURCE_DELIVERY_ACTIVE_ID = 'active-delivery-source';
@@ -91,11 +100,243 @@ const LAYER_DELIVERY_ACTIVE_A_ID = 'active-delivery-a-layer';
 const LAYER_DELIVERY_ACTIVE_B_ID = 'active-delivery-b-layer';
 const LAYER_DELIVERY_ACTIVE_LABEL_ID = 'active-delivery-label-layer';
 
-// Pin badge colors (design system)
-const COLOR_VERIFIED = '#10b981';
+const COLOR_TRANSFER_ACTIVE = '#10b981';
 const COLOR_REPORTED = '#e11d48';
-const COLOR_PENDING = '#f59e0b';
-const COLOR_SELECTED = '#0f2942';
+const COLOR_DEFAULT = '#0f2942';
+const COLOR_SELECTED_HALO = '#10b981';
+const COLOR_CERULEAN = '#0284c7';
+
+const CLUSTER_MAX_ZOOM = 14;
+const LABEL_MIN_ZOOM = 11;
+const MVT_MAX_ZOOM = 14;
+
+type FilterSpec = maplibregl.FilterSpecification;
+type Cond = boolean | maplibregl.ExpressionSpecification;
+
+function esc(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function businessStatus(b: Business): string {
+  if (b.reportsCount > 0) return 'reported';
+  if (b.transferVerified) return 'verified';
+  return 'pending';
+}
+
+function businessesToGeoJSON(list: Business[]): FeatureCollection<Point> {
+  return {
+    type: 'FeatureCollection',
+    features: list.map((b) => ({
+      type: 'Feature',
+      id: b.id,
+      geometry: { type: 'Point', coordinates: [b.lng, b.lat] },
+      properties: {
+        id: b.id,
+        name: b.name,
+        category: b.category,
+        province: b.province,
+        municipality: b.municipality,
+        accepts_transfer: b.acceptsTransfer,
+        transfer_active_now: b.transferActiveNow,
+        transfer_verified: b.transferVerified,
+        rating: b.rating,
+        has_delivery: Boolean(b.hasDelivery),
+        qr_payment: Boolean(b.transferDetails?.qrPayment),
+        online_payment: Boolean(b.transferDetails?.onlineGateway),
+        status: businessStatus(b)
+      }
+    }))
+  };
+}
+
+function pinColorExpr(): maplibregl.ExpressionSpecification {
+  return [
+    'case',
+    ['==', ['get', 'status'], 'reported'], COLOR_REPORTED,
+    ['==', ['get', 'transfer_active_now'], true], COLOR_TRANSFER_ACTIVE,
+    COLOR_DEFAULT
+  ] as unknown as maplibregl.ExpressionSpecification;
+}
+
+function pinStrokeColorExpr(): maplibregl.ExpressionSpecification {
+  return [
+    'case',
+    ['==', ['get', 'has_delivery'], true], COLOR_TRANSFER_ACTIVE,
+    '#ffffff'
+  ] as unknown as maplibregl.ExpressionSpecification;
+}
+
+function pinRadiusExpr(): maplibregl.ExpressionSpecification {
+  return [
+    'case',
+    ['coalesce', ['feature-state', 'selected'], false], 13,
+    ['interpolate', ['linear'], ['zoom'], 10, 5, 16, 9]
+  ] as unknown as maplibregl.ExpressionSpecification;
+}
+
+function pinStrokeWidthExpr(): maplibregl.ExpressionSpecification {
+  return [
+    'case',
+    ['coalesce', ['feature-state', 'selected'], false], 3,
+    1.5
+  ] as unknown as maplibregl.ExpressionSpecification;
+}
+
+function labelLayout(): Record<string, unknown> {
+  return {
+    'text-field': ['get', 'name'],
+    'text-font': ['Noto Sans Bold'],
+    'text-size': ['interpolate', ['linear'], ['zoom'], 11, 11, 15, 13, 18, 15],
+    'text-anchor': 'top',
+    'text-offset': [0, 1.5],
+    'text-allow-overlap': false,
+    'text-ignore-placement': false,
+    'text-optional': true,
+    'text-max-width': 7,
+    'text-line-height': 1.1,
+    'text-padding': 2
+  };
+}
+
+function labelPaint(): Record<string, unknown> {
+  return {
+    'text-color': COLOR_DEFAULT,
+    'text-halo-color': '#ffffff',
+    'text-halo-width': 1.4
+  };
+}
+
+function buildPopupHtml(biz: Business | undefined): string {
+  if (!biz) return '';
+  const emoji = CATEGORY_EMOJI[biz.category] ?? '🏪';
+  const catLabel = CATEGORIES.find((c) => c.id === biz.category)?.label ?? biz.category;
+  const photo = biz.photos?.[0];
+  const rating = biz.rating > 0 ? `★ ${biz.rating.toFixed(1)}` : '';
+  const payments: string[] = [];
+  if (biz.transferDetails?.transfermovil) payments.push('TM');
+  if (biz.transferDetails?.enzona) payments.push('EZ');
+  if (biz.transferDetails?.qrPayment) payments.push('QR');
+  if (biz.transferDetails?.onlineGateway) payments.push('Online');
+
+  const media = photo
+    ? `<img src="${esc(photo)}" alt="" style="width:100%;height:96px;object-fit:cover;display:block" referrerpolicy="no-referrer" loading="lazy" />`
+    : `<div style="width:100%;height:72px;background:linear-gradient(135deg,#0f2942,#1e3a5f);display:flex;align-items:center;justify-content:center;font-size:28px">${emoji}</div>`;
+
+  const badges: string[] = [];
+  if (biz.transferActiveNow) {
+    badges.push(
+      `<span style="display:inline-flex;align-items:center;gap:3px;background:#ecfdf5;color:#059669;border:1px solid #a7f3d0;border-radius:999px;padding:1px 7px;font-size:10px;font-weight:700">● Activa</span>`
+    );
+  }
+  if (biz.hasDelivery) {
+    badges.push(
+      `<span style="display:inline-flex;align-items:center;gap:3px;background:#eff6ff;color:#0284c7;border:1px solid #bfdbfe;border-radius:999px;padding:1px 7px;font-size:10px;font-weight:700">🚚 Delivery</span>`
+    );
+  }
+  if (biz.transferVerified) {
+    badges.push(
+      `<span style="display:inline-flex;align-items:center;gap:3px;background:#f1f5f9;color:#334155;border:1px solid #e2e8f0;border-radius:999px;padding:1px 7px;font-size:10px;font-weight:700">✓ Verificado</span>`
+    );
+  }
+
+  return `
+    <div class="tc-popup" style="font-family:inherit;width:220px;max-width:220px;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 12px 24px -6px rgba(15,41,66,.28);border:1px solid #e2e8f0">
+      ${media}
+      <div style="padding:9px 11px 11px">
+        <div style="font-weight:800;font-size:13px;color:#0f2942;line-height:1.25;margin-bottom:2px">${esc(biz.name)}</div>
+        <div style="font-size:11px;color:#64748b;display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+          <span>${emoji} ${esc(catLabel)}</span>
+          ${rating ? `<span style="color:#f59e0b;font-weight:700">${rating}</span>` : ''}
+        </div>
+        ${biz.address ? `<div style="font-size:11px;color:#64748b;margin-top:3px;line-height:1.35">${esc(biz.address)}</div>` : ''}
+        ${
+          payments.length
+            ? `<div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">${payments
+                .map(
+                  (p) =>
+                    `<span style="background:#f1f5f9;color:#334155;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700">${esc(p)}</span>`
+                )
+                .join('')}</div>`
+            : ''
+        }
+        ${badges.length ? `<div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">${badges.join('')}</div>` : ''}
+      </div>
+    </div>`;
+}
+
+function defaultPinFilters(): PinFilters {
+  return {
+    searchQuery: '',
+    selectedProvince: 'all',
+    selectedMunicipality: 'all',
+    selectedCategory: 'all',
+    onlyTransfer: false,
+    onlyActiveNow: false,
+    filterVerification: 'all',
+    filterQr: false,
+    filterOnline: false
+  };
+}
+
+function buildMvtPinFilter(f: PinFilters): FilterSpec {
+  const searchActive = f.searchQuery.trim() !== '';
+  const conds: Cond[] = [['>', ['zoom'], CLUSTER_MAX_ZOOM] as maplibregl.ExpressionSpecification];
+  if (searchActive) {
+    conds.push(['in', ['get', 'id'], ['literal', []]] as maplibregl.ExpressionSpecification);
+    return ['all', ...conds] as FilterSpec;
+  }
+  if (f.selectedProvince && f.selectedProvince !== 'all') {
+    conds.push([
+      '==',
+      ['downcase', ['get', 'province']],
+      f.selectedProvince.toLowerCase()
+    ] as maplibregl.ExpressionSpecification);
+  }
+  if (f.selectedMunicipality && f.selectedMunicipality !== 'all') {
+    conds.push([
+      '==',
+      ['downcase', ['get', 'municipality']],
+      f.selectedMunicipality.toLowerCase()
+    ] as maplibregl.ExpressionSpecification);
+  }
+  if (f.selectedCategory && f.selectedCategory !== 'all') {
+    conds.push(['==', ['get', 'category'], f.selectedCategory] as maplibregl.ExpressionSpecification);
+  }
+  if (f.onlyTransfer) conds.push(['==', ['get', 'accepts_transfer'], true] as maplibregl.ExpressionSpecification);
+  if (f.onlyActiveNow) conds.push(['==', ['get', 'transfer_active_now'], true] as maplibregl.ExpressionSpecification);
+  if (f.filterQr) conds.push(['==', ['get', 'qr_payment'], true] as maplibregl.ExpressionSpecification);
+  if (f.filterOnline) conds.push(['==', ['get', 'online_payment'], true] as maplibregl.ExpressionSpecification);
+  if (f.filterVerification && f.filterVerification !== 'all') {
+    conds.push(['==', ['get', 'status'], f.filterVerification] as maplibregl.ExpressionSpecification);
+  }
+  return ['all', ...conds] as FilterSpec;
+}
+
+function buildMvtLabelFilter(f: PinFilters): FilterSpec {
+  const base = buildMvtPinFilter(f);
+  const zoomCond: Cond = ['>=', ['zoom'], LABEL_MIN_ZOOM] as maplibregl.ExpressionSpecification;
+  if (Array.isArray(base) && base[0] === 'all') {
+    const rest = (base as unknown[]).slice(1);
+    return ['all', ...rest, zoomCond] as FilterSpec;
+  }
+  return ['all', base as Cond, zoomCond] as FilterSpec;
+}
+
+function buildGeoPinFilter(searchActive: boolean): FilterSpec | null {
+  if (searchActive) return null;
+  return ['<=', ['zoom'], CLUSTER_MAX_ZOOM] as unknown as FilterSpec;
+}
+
+function buildGeoLabelFilter(searchActive: boolean): FilterSpec | null {
+  const zoomHigh: Cond = ['>=', ['zoom'], LABEL_MIN_ZOOM] as maplibregl.ExpressionSpecification;
+  if (searchActive) return zoomHigh as FilterSpec;
+  return ['all', ['<=', ['zoom'], CLUSTER_MAX_ZOOM] as Cond, zoomHigh] as FilterSpec;
+}
 
 function deliveryRequestsToGeoJSON(list: AvailableDeliveryDTO[] | undefined): FeatureCollection {
   const features: Feature<Point>[] = (list ?? []).flatMap((d) => {
@@ -152,8 +393,6 @@ function activeTripToGeoJSON(
   return { type: 'FeatureCollection', features };
 }
 
-// --- Layer IDs ---
-
 export default function MapLibreMap({
   businesses,
   selectedBusiness,
@@ -175,7 +414,8 @@ export default function MapLibreMap({
   onDeliveryRequestClick,
   onViewportChange,
   mapRef,
-  onMapReady
+  onMapReady,
+  pinFilters
 }: MapLibreMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<maplibregl.Map | null>(null);
@@ -189,6 +429,8 @@ export default function MapLibreMap({
   const mapInteractiveRef = useRef(false);
   const deliveryInteractionsReadyRef = useRef(false);
   const setupLayersRef = useRef<(() => Promise<void>) | null>(null);
+  const selectedIdRef = useRef<string | null>(null);
+  const pinFiltersRef = useRef<PinFilters>(pinFilters ?? defaultPinFilters());
 
   const centerLat = center[0];
   const centerLng = center[1];
@@ -223,9 +465,49 @@ export default function MapLibreMap({
     businessesRef.current = businesses;
     onSelectBusinessRef.current = onSelectBusiness;
     selectedBusinessRef.current = selectedBusiness;
+    businessesByIdRef.current = new Map(businesses.map((b) => [b.id, b]));
+    const src = mapInstanceRef.current?.getSource(SOURCE_GEO_ID) as
+      | GeoJSONSource
+      | undefined;
+    if (src) src.setData(businessesToGeoJSON(businesses));
   });
 
-  // Initialize MapLibre GL instance
+  useEffect(() => {
+    pinFiltersRef.current = pinFilters ?? defaultPinFilters();
+  });
+
+  const applyPinFilters = (map: maplibregl.Map) => {
+    const f = pinFiltersRef.current;
+    const searchActive = f.searchQuery.trim() !== '';
+    const mvtFilter = buildMvtPinFilter(f);
+    const mvtLabelFilter = buildMvtLabelFilter(f);
+    const geoFilter = buildGeoPinFilter(searchActive);
+    const geoLabelFilter = buildGeoLabelFilter(searchActive);
+
+    if (map.getLayer(LAYER_MVT_PINS_ID)) map.setFilter(LAYER_MVT_PINS_ID, mvtFilter);
+    if (map.getLayer(LAYER_MVT_LABELS_ID)) map.setFilter(LAYER_MVT_LABELS_ID, mvtLabelFilter);
+    if (map.getLayer(LAYER_GEO_PINS_ID)) map.setFilter(LAYER_GEO_PINS_ID, geoFilter);
+    if (map.getLayer(LAYER_GEO_LABELS_ID)) map.setFilter(LAYER_GEO_LABELS_ID, geoLabelFilter);
+  };
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    const run = () => applyPinFilters(map);
+    if (map.isStyleLoaded()) run();
+    else map.once('style.load', run);
+  }, [
+    pinFilters?.searchQuery,
+    pinFilters?.selectedProvince,
+    pinFilters?.selectedMunicipality,
+    pinFilters?.selectedCategory,
+    pinFilters?.onlyTransfer,
+    pinFilters?.onlyActiveNow,
+    pinFilters?.filterVerification,
+    pinFilters?.filterQr,
+    pinFilters?.filterOnline
+  ]);
+
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
     const iconsCache = iconsCacheRef.current;
@@ -237,8 +519,6 @@ export default function MapLibreMap({
     const initMap = async () => {
       ensureWorkerUrl();
       ensurePmtilesProtocol();
-      // Basemap propio (PMTiles Cuba): estilo Google Maps propio, cae a
-      // Positron local y por último a OpenFreeMap (gratuito e ilimitado).
       let styleUrl: string | maplibregl.StyleSpecification = FALLBACK_STYLE;
       for (const path of ['/map/transfercuba-style.json', '/map/style.json']) {
         try {
@@ -267,7 +547,6 @@ export default function MapLibreMap({
         }
       });
 
-      // Gracefully handle benign tile loading cancellations or network aborts
       map.on('error', (e) => {
         const err = e?.error;
         const status = (err as unknown as { status?: number })?.status;
@@ -297,19 +576,16 @@ export default function MapLibreMap({
 
       mapInstanceRef.current = map;
       if (mapRef) mapRef.current = map;
-      // Debug bridge for Playwright (dev only)
       if (process.env.NODE_ENV !== 'production') {
         (window as unknown as { __MAP__?: maplibregl.Map }).__MAP__ = map;
       }
       lastViewRef.current = { lat: centerLat, lng: centerLng, zoom };
 
-      // Notifica a la UI (controladores de zoom custom) cuando el mapa está listo
       map.once('load', () => {
         callbacksRef.current.onMapReady?.();
         void setupLayersRef.current?.();
       });
 
-      // Container ResizeObserver for seamless responsiveness
       resizeObserver = new ResizeObserver(() => {
         if (resizeTimer) clearTimeout(resizeTimer);
         resizeTimer = setTimeout(() => {
@@ -321,7 +597,6 @@ export default function MapLibreMap({
 
       resizeObserver.observe(mapContainerRef.current);
 
-      // Map click handler (pinning / generic clicks)
       map.on('click', (e: MapMouseEvent) => {
         const current = callbacksRef.current;
         if (current.isPinningMode && current.onPinLocationChange) {
@@ -331,7 +606,6 @@ export default function MapLibreMap({
         }
       });
 
-      // Viewport change (debounced) — feeds Sprint 3 server queries
       map.on('moveend', () => {
         if (moveendTimer) clearTimeout(moveendTimer);
         moveendTimer = setTimeout(() => {
@@ -363,7 +637,6 @@ export default function MapLibreMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sync center and zoom — only when meaningfully different
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
@@ -385,92 +658,58 @@ export default function MapLibreMap({
     });
   }, [centerLat, centerLng, zoom]);
 
-  // Businesses MVT layer — vector tiles from server (no client clustering)
+  // Sources + layers: MVT (zoom alto), GeoJSON con clusters (zoom bajo), labels
   useEffect(() => {
-const map = mapInstanceRef.current;
-      businessesByIdRef.current = new Map(businesses.map((b) => [b.id, b]));
+    const map = mapInstanceRef.current;
+    businessesByIdRef.current = new Map(businesses.map((b) => [b.id, b]));
 
-      const setupLayers = async () => {
-        const map = mapInstanceRef.current;
-        if (!map) return;
+    const setupLayers = async () => {
+      const map = mapInstanceRef.current;
+      if (!map) return;
 
       try {
-        // ── MVT vector tile source (server-side rendering) ──
         if (!map.getSource(MVT_SOURCE_ID)) {
           map.addSource(MVT_SOURCE_ID, {
             type: 'vector',
             tiles: [`${typeof window !== 'undefined' ? window.location.origin : ''}/api/tiles/{z}/{x}/{y}`],
             minzoom: 0,
-            maxzoom: 14
+            maxzoom: MVT_MAX_ZOOM,
+            promoteId: { businesses: 'id' }
           });
+        }
+
+        if (!map.getSource(SOURCE_GEO_ID)) {
+          map.addSource(SOURCE_GEO_ID, {
+            type: 'geojson',
+            data: businessesToGeoJSON(businessesRef.current),
+            cluster: true,
+            clusterRadius: 50,
+            clusterMaxZoom: CLUSTER_MAX_ZOOM,
+            promoteId: 'id'
+          });
+        } else {
+          (map.getSource(SOURCE_GEO_ID) as GeoJSONSource).setData(
+            businessesToGeoJSON(businessesRef.current)
+          );
         }
 
         const ensureLayer = (layer: maplibregl.LayerSpecification) => {
           if (!map.getLayer(layer.id)) map.addLayer(layer);
         };
 
-        // Business pins from MVT: circle colored by status
-        ensureLayer({
-          id: LAYER_UNCLUSTERED_ID,
-          type: 'circle',
-          source: MVT_SOURCE_ID,
-          'source-layer': 'businesses',
-          paint: {
-            'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 5, 16, 9],
-            'circle-color': [
-              'case',
-              ['==', ['get', 'status'], 'verified'], COLOR_VERIFIED,
-              ['==', ['get', 'status'], 'reported'], COLOR_REPORTED,
-              COLOR_PENDING
-            ],
-            'circle-stroke-color': '#ffffff',
-            'circle-stroke-width': 1.5,
-            'circle-opacity': 0.92
-          }
-        });
-
-        // Category label on top of each pin
-        ensureLayer({
-          id: LAYER_UNCLUSTERED_SEL_ID,
-          type: 'symbol',
-          source: MVT_SOURCE_ID,
-          'source-layer': 'businesses',
-          layout: {
-            'text-field': ['get', 'category_icon'],
-            'text-font': ['Noto Sans Regular'],
-            'text-size': ['interpolate', ['linear'], ['zoom'], 10, 9, 16, 13],
-            'text-offset': [0, -1.8],
-            'text-allow-overlap': false,
-            'text-ignore-placement': true
-          },
-          paint: {
-            'text-color': COLOR_SELECTED
-          }
-        });
-
-        // ── Selection overlay (GeoJSON, small) ──
-        if (!map.getSource(SOURCE_SELECTION_ID)) {
-          map.addSource(SOURCE_SELECTION_ID, {
-            type: 'geojson',
-            data: { type: 'FeatureCollection', features: [] }
-          });
-        }
-
-        // Halo de selección (debajo del pin)
         ensureLayer({
           id: LAYER_SELECTED_HALO_ID,
           type: 'circle',
           source: SOURCE_SELECTION_ID,
           paint: {
             'circle-radius': ['interpolate', ['linear'], ['zoom'], 12, 16, 18, 22],
-            'circle-color': COLOR_VERIFIED,
+            'circle-color': COLOR_SELECTED_HALO,
             'circle-opacity': 0.28,
             'circle-blur': 0.55,
             'circle-translate': [0, 22]
           }
         });
 
-        // ── Cluster hover halo (kept for zoom-in behavior) ──
         if (!map.getSource(SOURCE_CLUSTER_HOVER_ID)) {
           map.addSource(SOURCE_CLUSTER_HOVER_ID, {
             type: 'geojson',
@@ -483,27 +722,157 @@ const map = mapInstanceRef.current;
           source: SOURCE_CLUSTER_HOVER_ID,
           paint: {
             'circle-radius': ['get', 'r'],
-            'circle-color': COLOR_VERIFIED,
+            'circle-color': COLOR_TRANSFER_ACTIVE,
             'circle-opacity': 0.3,
             'circle-blur': 0.5
           }
         });
 
-        // Interacción (click/cursor/popup) — se registra solo la primera vez
+        ensureLayer({
+          id: LAYER_CLUSTERS_ID,
+          type: 'circle',
+          source: SOURCE_GEO_ID,
+          filter: ['has', 'point_count'] as unknown as FilterSpec,
+          paint: {
+            'circle-color': [
+              'step',
+              ['get', 'point_count'],
+              '#0f2942',
+              10, '#1e3a5f',
+              30, '#0369a1',
+              50, '#0284c7'
+            ],
+            'circle-radius': [
+              'step',
+              ['get', 'point_count'],
+              16,
+              10, 20,
+              30, 24,
+              50, 28
+            ],
+            'circle-stroke-color': '#ffffff',
+            'circle-stroke-width': 2.5
+          }
+        });
+
+        ensureLayer({
+          id: LAYER_CLUSTER_COUNT_ID,
+          type: 'symbol',
+          source: SOURCE_GEO_ID,
+          filter: ['has', 'point_count'] as unknown as FilterSpec,
+          layout: {
+            'text-field': ['get', 'point_count_abbreviated'],
+            'text-font': ['Noto Sans Bold'],
+            'text-size': ['step', ['get', 'point_count'], 12, 10, 13, 30, 14]
+          },
+          paint: {
+            'text-color': '#ffffff'
+          }
+        });
+
+        ensureLayer({
+          id: LAYER_GEO_PINS_ID,
+          type: 'circle',
+          source: SOURCE_GEO_ID,
+          filter: ['!', ['has', 'point_count']] as unknown as FilterSpec,
+          paint: {
+            'circle-radius': pinRadiusExpr(),
+            'circle-color': pinColorExpr(),
+            'circle-stroke-color': pinStrokeColorExpr(),
+            'circle-stroke-width': pinStrokeWidthExpr(),
+            'circle-opacity': 0.95
+          }
+        });
+
+        ensureLayer({
+          id: LAYER_GEO_LABELS_ID,
+          type: 'symbol',
+          source: SOURCE_GEO_ID,
+          filter: [
+            'all',
+            ['!', ['has', 'point_count']] as Cond,
+            ['>=', ['zoom'], LABEL_MIN_ZOOM] as Cond
+          ] as FilterSpec,
+          layout: labelLayout(),
+          paint: labelPaint()
+        });
+
+        ensureLayer({
+          id: LAYER_MVT_PINS_ID,
+          type: 'circle',
+          source: MVT_SOURCE_ID,
+          'source-layer': 'businesses',
+          paint: {
+            'circle-radius': pinRadiusExpr(),
+            'circle-color': pinColorExpr(),
+            'circle-stroke-color': pinStrokeColorExpr(),
+            'circle-stroke-width': pinStrokeWidthExpr(),
+            'circle-opacity': 0.95
+          }
+        });
+
+        ensureLayer({
+          id: LAYER_MVT_LABELS_ID,
+          type: 'symbol',
+          source: MVT_SOURCE_ID,
+          'source-layer': 'businesses',
+          layout: labelLayout(),
+          paint: labelPaint()
+        });
+
+        if (!map.getSource(SOURCE_SELECTION_ID)) {
+          map.addSource(SOURCE_SELECTION_ID, {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
+          });
+        }
+
+        applyPinFilters(map);
+
         if (!mapInteractiveRef.current) {
           mapInteractiveRef.current = true;
 
           const onPinClick = (e: maplibregl.MapLayerMouseEvent) => {
             const feature = e.features?.[0];
             const id = feature?.properties?.id as string | undefined;
+            if (!id) return;
             const biz = businessesByIdRef.current.get(String(id));
             if (biz) onSelectBusinessRef.current?.(biz);
           };
-          map.on('click', LAYER_UNCLUSTERED_ID, onPinClick);
-          map.on('click', LAYER_UNCLUSTERED_SEL_ID, onPinClick);
+          const pinLayers = [
+            LAYER_MVT_PINS_ID,
+            LAYER_MVT_LABELS_ID,
+            LAYER_GEO_PINS_ID,
+            LAYER_GEO_LABELS_ID
+          ];
+          pinLayers.forEach((layerId) => {
+            map.on('click', layerId, onPinClick);
+          });
 
-          // Cursor pointers
-          const pinLayers = [LAYER_UNCLUSTERED_ID, LAYER_UNCLUSTERED_SEL_ID];
+          const popup = new maplibregl.Popup({
+            closeButton: false,
+            closeOnClick: false,
+            offset: 16,
+            anchor: 'bottom',
+            maxWidth: '260px',
+            className: 'tc-map-tooltip'
+          });
+
+          const onPinEnter = (e: maplibregl.MapLayerMouseEvent) => {
+            const feature = e.features?.[0];
+            if (!feature) return;
+            const geometry = feature.geometry;
+            if (geometry.type !== 'Point') return;
+            const id = String(feature.properties?.id ?? '');
+            const biz = businessesByIdRef.current.get(id);
+            const html = buildPopupHtml(biz);
+            if (!html) return;
+            popup
+              .setLngLat(geometry.coordinates as [number, number])
+              .setHTML(html)
+              .addTo(map);
+          };
+
           pinLayers.forEach((layerId) => {
             map.on('mouseenter', layerId, () => {
               map.getCanvas().style.cursor = 'pointer';
@@ -511,36 +880,50 @@ const map = mapInstanceRef.current;
             map.on('mouseleave', layerId, () => {
               map.getCanvas().style.cursor = '';
             });
-          });
-
-          // Hover popup: business name (desktop nicety)
-          const popup = new maplibregl.Popup({
-            closeButton: false,
-            closeOnClick: false,
-            offset: 14,
-            anchor: 'bottom'
-          });
-          const onPinEnter = (e: maplibregl.MapLayerMouseEvent) => {
-            const feature = e.features?.[0];
-            if (!feature) return;
-            const coords = feature.geometry;
-            if (coords.type !== 'Point') return;
-            popup
-              .setLngLat(coords.coordinates as [number, number])
-              .setHTML(
-                `<div style="font-family:'Plus Jakarta Sans',sans-serif;background:#0f2942;color:#fff;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 8px 16px -4px rgba(15,41,66,0.3)">
-                  ${feature.properties?.name ?? ''}
-                </div>`
-              )
-              .addTo(map);
-          };
-          pinLayers.forEach((layerId) => {
             map.on('mouseenter', layerId, onPinEnter);
             map.on('mouseleave', layerId, () => popup.remove());
           });
+
+          const onClusterClick = async (e: maplibregl.MapLayerMouseEvent) => {
+            const feature = e.features?.[0];
+            if (!feature || feature.geometry.type !== 'Point') return;
+            const clusterId = Number(feature.properties?.cluster_id);
+            if (!Number.isFinite(clusterId)) return;
+            const coords = feature.geometry.coordinates as [number, number];
+            const src = map.getSource(SOURCE_GEO_ID) as GeoJSONSource | undefined;
+            if (!src) return;
+            try {
+              const expansionZoom = await src.getClusterExpansionZoom(clusterId);
+              const leaves = await Promise.resolve(
+                src.getClusterLeaves(clusterId, 1000, 0)
+              );
+              const list = leaves
+                .map((leaf) => businessesByIdRef.current.get(String(leaf.properties?.id)))
+                .filter((b): b is Business => Boolean(b));
+              callbacksRef.current.onClusterClick?.({
+                businesses: list,
+                center: [coords[1], coords[0]],
+                clusterId,
+                expansionZoom
+              });
+            } catch {
+              map.easeTo({ center: coords, zoom: map.getZoom() + 2 });
+            }
+          };
+
+          map.on('click', LAYER_CLUSTERS_ID, onClusterClick);
+          map.on('click', LAYER_CLUSTER_COUNT_ID, onClusterClick);
+
+          [LAYER_CLUSTERS_ID, LAYER_CLUSTER_COUNT_ID].forEach((layerId) => {
+            map.on('mouseenter', layerId, () => {
+              map.getCanvas().style.cursor = 'pointer';
+            });
+            map.on('mouseleave', layerId, () => {
+              map.getCanvas().style.cursor = '';
+            });
+          });
         }
 
-        // Update selection overlay
         const selId = selectedBusinessRef.current?.id ?? null;
         const selBiz = selId ? businessesByIdRef.current.get(selId) : null;
         const selSrc = map.getSource(SOURCE_SELECTION_ID) as GeoJSONSource | undefined;
@@ -560,6 +943,41 @@ const map = mapInstanceRef.current;
               : { type: 'FeatureCollection' as const, features: [] }
           );
         }
+
+        const nextSelected = selectedBusinessRef.current?.id ?? null;
+        const prevSelected = selectedIdRef.current;
+        if (prevSelected && prevSelected !== nextSelected) {
+          try {
+            map.removeFeatureState({ source: SOURCE_GEO_ID, id: prevSelected });
+          } catch {
+            // fuente aún no tiene esa feature
+          }
+          try {
+            map.removeFeatureState({
+              source: MVT_SOURCE_ID,
+              id: prevSelected,
+              sourceLayer: 'businesses'
+            });
+          } catch {
+            // tile aún no tiene esa feature
+          }
+        }
+        if (nextSelected) {
+          try {
+            map.setFeatureState({ source: SOURCE_GEO_ID, id: nextSelected }, { selected: true });
+          } catch {
+            // ignore
+          }
+          try {
+            map.setFeatureState(
+              { source: MVT_SOURCE_ID, id: nextSelected, sourceLayer: 'businesses' },
+              { selected: true }
+            );
+          } catch {
+            // ignore
+          }
+        }
+        selectedIdRef.current = nextSelected;
       } catch (setupErr) {
         console.error('setupLayers failed:', setupErr);
       }
@@ -569,8 +987,6 @@ const map = mapInstanceRef.current;
 
     if (!map) return;
 
-    // Style puede tardar en estar listo (glyphs/sprites/PMTiles): reintenta
-    // hasta que source + capas queden montadas. Es idempotente (ensureLayer).
     const attempt = async () => {
       for (let i = 0; i < 3; i++) {
         try {
@@ -580,8 +996,10 @@ const map = mapInstanceRef.current;
         }
         const complete =
           map.getSource(MVT_SOURCE_ID) &&
-          map.getLayer(LAYER_UNCLUSTERED_ID) &&
-          map.getLayer(LAYER_UNCLUSTERED_SEL_ID) &&
+          map.getSource(SOURCE_GEO_ID) &&
+          map.getLayer(LAYER_MVT_PINS_ID) &&
+          map.getLayer(LAYER_GEO_PINS_ID) &&
+          map.getLayer(LAYER_CLUSTERS_ID) &&
           map.getLayer(LAYER_SELECTED_HALO_ID);
         if (complete) return;
         await new Promise((r) => setTimeout(r, 900));
@@ -596,14 +1014,13 @@ const map = mapInstanceRef.current;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Selection highlight: actualiza el overlay GeoJSON del pin seleccionado.
+  // Selección: halo + feature-state en ambos sources
   useEffect(() => {
     const map = mapInstanceRef.current;
-    if (!map || !map.getSource(SOURCE_SELECTION_ID)) return;
+    if (!map) return;
     void setupLayersRef.current?.();
   }, [selectedBusiness]);
 
-  // Render User Location GPS Marker
   useEffect(() => {
     if (!mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
@@ -633,7 +1050,6 @@ const map = mapInstanceRef.current;
     }
   }, [userLocation]);
 
-  // Handle Pinning Mode (Registration Pin)
   useEffect(() => {
     if (!mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
@@ -673,7 +1089,6 @@ const map = mapInstanceRef.current;
     }
   }, [isPinningMode, pinLocation, onPinLocationChange]);
 
-  // Marcadores del flujo de delivery: origen (verde) y destino (rojo).
   useEffect(() => {
     if (!mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
@@ -708,7 +1123,6 @@ const map = mapInstanceRef.current;
     renderPointMarker(dropoffMarkerRef, deliveryDropoff, 'Destino', 'bg-rose-500');
   }, [deliveryPickup, deliveryDropoff]);
 
-  // Fase 4 — Capas de delivery: solicitudes PENDING (tablón) + carrera activa.
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
@@ -730,7 +1144,7 @@ const map = mapInstanceRef.current;
         source: SOURCE_DELIVERY_REQUESTS_ID,
         paint: {
           'circle-radius': 9,
-          'circle-color': COLOR_VERIFIED,
+          'circle-color': COLOR_TRANSFER_ACTIVE,
           'circle-stroke-color': '#ffffff',
           'circle-stroke-width': 2,
           'circle-opacity': 0.95
@@ -749,7 +1163,7 @@ const map = mapInstanceRef.current;
         source: SOURCE_DELIVERY_ACTIVE_ID,
         filter: ['==', ['geometry-type'], 'LineString'],
         paint: {
-          'line-color': '#0284c7',
+          'line-color': COLOR_CERULEAN,
           'line-width': 4,
           'line-opacity': 0.7,
           'line-dasharray': [2, 2]
@@ -762,7 +1176,7 @@ const map = mapInstanceRef.current;
         filter: ['==', ['get', 'marker'], 'A'],
         paint: {
           'circle-radius': 11,
-          'circle-color': COLOR_VERIFIED,
+          'circle-color': COLOR_TRANSFER_ACTIVE,
           'circle-stroke-color': '#ffffff',
           'circle-stroke-width': 2.5
         }
@@ -823,7 +1237,7 @@ const map = mapInstanceRef.current;
             .setLngLat(geometry.coordinates as [number, number])
             .setHTML(
               `<div style="font-family:'Plus Jakarta Sans',sans-serif;background:#0f2942;color:#fff;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 8px 16px -4px rgba(15,41,66,0.3)">
-                ${String(p?.code ?? '')}${p?.fare != null ? ` · $${Math.round(Number(p?.fare))} CUP` : ''}
+                ${esc(p?.code ?? '')}${p?.fare != null ? ` · $${Math.round(Number(p?.fare))} CUP` : ''}
               </div>`
             )
             .addTo(map);
@@ -854,12 +1268,6 @@ const map = mapInstanceRef.current;
       return;
     }
 
-    // `style.load` dispara UNA vez y pronto, pero `isStyleLoaded()` sigue en
-    // false mientras queden teselas en vuelo. Esperar solo a `style.load`
-    // significaba que una actualización posterior del tablón —una solicitud
-    // nueva llegando por el stream— se quedaba aguardando un evento ya pasado
-    // y el mapa no la pintaba nunca. `idle` sí vuelve a dispararse cada vez
-    // que el mapa se asienta, así que sirve de red.
     const alEstarListo = () => {
       map.off('style.load', alEstarListo);
       map.off('idle', alEstarListo);
@@ -874,7 +1282,6 @@ const map = mapInstanceRef.current;
     };
   }, [deliveryRequests, activeDeliveryTrip]);
 
-  // Render OSRM Route Layer
   useEffect(() => {
     if (!mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
@@ -909,7 +1316,7 @@ const map = mapInstanceRef.current;
             'line-cap': 'round'
           },
           paint: {
-            'line-color': '#0284c7',
+            'line-color': COLOR_CERULEAN,
             'line-width': 5,
             'line-opacity': 0.85
           }

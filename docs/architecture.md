@@ -199,64 +199,47 @@ SO (no determinista). Fix con `font-faces` (style-spec de MapLibre ≥ 6.9):
   guardar cada `url(...)` secuencialmente como `emoji-{i}.woff2` y
   regenerar el bloque `font-faces` con los `unicode-range` del CSS.
 
-## Capas del mapa (Sprint 9 + MVT)
+## Capas del mapa (Sprint 9 + MVT + mejora Google Maps)
 
-`MapLibreMap` monta un source vectorial `businesses-mvt` apuntando a
-`/api/tiles/{z}/{x}/{y}` (MVT desde PostGIS), con capas circle + symbol
-para pins y emoji de categoría. La selección usa un overlay GeoJSON
-pequeño `selected-business-source` para el halo y pin seleccionado.
-Los datos de negocios se cargan bajo demanda al hacer pan/zoom;
-cache CDN con `s-maxage=300, stale-while-revalidate=3600`.
+`MapLibreMap` combina dos fuentes para pins de negocios:
 
-| Capa | Tipo | Filtro / nota |
-|---|---|---|
-| `clusters-layer` | circle | `point_count`; color data-driven: esmeralda si `active > 0` |
-| `cluster-count-layer` | symbol | `point_count_abbreviated` en blanco |
-| `unclustered-layer` | symbol | pins normales (`icon` property → id de imagen) |
-| `unclustered-selected-layer` | symbol | `selected == true`; icono sel a 1.18× |
-| `selected-business-halo` | circle | halo esmeralda difuminado bajo el pin sel |
+1. **`businesses-geo` (GeoJSON + `cluster: true`)** — alimentada por
+   `filteredBusinesses` del cliente. Clusters en zoom bajo (≤14), filtros de
+   búsqueda/filtros siempre correctos, funciona con fallback en memoria.
+2. **`businesses-mvt` (vector tiles)** — `GET /api/tiles/{z}/{x}/{y}` desde
+   PostGIS. Pins individuales en zoom alto (>14) cuando no hay búsqueda
+   activa; la capa se oculta con filter si `searchQuery` no está vacío.
 
-- **Iconos runtime**: canvas → `addImage` (pixelRatio 2), id
-  `pin-{categoryIcon}-{v|r|p|sel}-{on|off}`; la property `icon`/`iconSel` del
-  GeoJSON referencia el id exacto (evita re-construir el string en el layout).
-- **Selección**: el id seleccionado viaja como property `selected` del
-  GeoJSON (`businessesToGeoJSON(businesses, selectedId)`); al cambiar la
-  selección se relanza `setupLayers()` que hace `setData()` (barato).
-- **Setup resiliente**: `setupLayers` se dispara desde el effect de
-  negocios y desde el evento `load` del mapa, reintenta 3× hasta ver las 5
-  capas, y registra interacción (click/cursor/popup) una sola vez por
-  instancia (`mapInteractiveRef`).
-- **Limitación runtime (verificada en 6.9.0)**: en versiones antiguas del
-  bundle, las capas con expresiones `feature-state` se descartaban
-  silenciosamente (sin throw). Con el bundle actual self-hosted
-  (**maplibre-gl 6.9.0**) ya NO se descartan: la capa se añade, aparece en
-  `getStyle().layers`, `getLayer()` la devuelve y renderiza tras
-  `setFeatureState()`. Único residuo: warning benigno si se lee la `state`
-  sin valor previo ("Expected value to be of type number, but found null.
-  Falling back to 5") — se elimina con `['coalesce', ['feature-state', k],
-  dflt]`. El proyecto sigue usando selección data-driven por properties
-  (probado y eficiente); feature-state queda disponible si se quiere.
-  Reproducción headless documentada en `docs/roadmap.md`.
-- **Debug**: en dev, `window.__MAP__` expone la instancia (lo usan los tests
-  de Playwright para proyectar coordenadas y clickear pins/clusters).
+La selección usa overlay GeoJSON `selected-business-source` (halo) +
+`feature-state` en ambas fuentes (`promoteId: 'id'`).
 
-### Interacción con clusters (post-10, Sprint 10)
-- **Hover halo**: `cluster-hover-source` (GeoJSON vacío) + `cluster-hover-halo`
-  (circle con `circle-radius: ['get','r']`, COLOR_VERIFIED, blur 0.5,
-  opacity 0.3, colocada bajo `clusters-layer` en el orden de capas).
-  `mouseenter` en `clusters-layer` escribe un FeatureToPoint con radio
-  dinámico `clusterRadius(count) + 5`; `mouseleave` vacía la source.
-  Solo se pinta mientras el cursor está encima (verificado headless:
-  haloOn=1, haloOff=0).
-- **Click de cluster**: `getClusterLeaves(clusterId, Math.max(pointCount,8), 0)`
-  trae todas las hojas (max 8 necesarios para desagrupar con clusterMaxZoom
-  14, pero aquí pide todo el tamaño real para la paginación).
-- **Paginación en tarjeta**: la tarjeta de cluster muestra las primeras 9 filas
-  con un botón "Ver más negocios (N)" que expande al total y desaparece.
-- **Expansión**: el click de cluster captura `expansionZoom` (el zoom necesario
-  para desagrupar ese cluster concreto). "Ver mapa" cierra la tarjeta y hace
-  `easeTo({zoom: expansionZoom, duration: 900})` en vez del zoom fijo 15
-  anterior (verificado headless: z12.97 → z15, tarjeta cerrada).
+| Capa | Tipo | Fuente | Filtro / nota |
+|---|---|---|---|
+| `clusters-layer` | circle | geo | `point_count`; step color navy→cerulean |
+| `cluster-count-layer` | symbol | geo | `point_count_abbreviated` blanco bold |
+| `geo-pins-layer` | circle | geo | sin cluster; `zoom ≤ 14` (o todos si hay búsqueda) |
+| `geo-labels-layer` | symbol | geo | `['get','name']` estilo Google; `zoom ≥ 11` |
+| `unclustered-layer` | circle | mvt | `zoom > 14` + filtros REST en client |
+| `unclustered-label-layer` | symbol | mvt | nombre del negocio + halo blanco |
+| `selected-business-halo` | circle | geo sel | halo esmeralda bajo pin seleccionado |
+
+- **Colores de pin** (sin ámbar): reportado → crimson `#e11d48`; transfer
+  activa ahora → emerald `#10b981`; por defecto → navy `#0f2942`. Borde
+  esmeralda si `has_delivery`.
+- **Tooltip hover**: popup HTML `.tc-map-tooltip` con foto
+  (`photos[0]` o hero emoji), nombre, categoría+emoji, rating, dirección,
+  chips de pago y badges (Activa / Delivery / Verificado). Texto con `esc()`.
+  Responsive en `app/globals.css` (max-width 260px / 200px en móvil).
+- **Labels**: `Noto Sans Bold`, `text-anchor: top`, halo blanco 1.4,
+  size interpolado por zoom. No emoji en glifos del mapa (van en el popup).
+- **Filtros de capa**: `pinFilters` desde `page.tsx` → `buildMvtPinFilter`
+  replica la semántica REST (provincia/municipio con `downcase`, categoría,
+  onlyTransfer, onlyActiveNow, qr/online, verification). Con búsqueda activa
+  el MVT se oculta por completo (GeoJSON ya viene filtrado).
+- **Selección**: `feature-state` con `coalesce` (sin warning) + halo overlay.
+- **Setup resiliente**: `setupLayers` reintenta 3×; interacción una sola vez
+  (`mapInteractiveRef`).
+- **Debug**: en dev, `window.__MAP__` expone la instancia (Playwright).
 
 ## PostGIS (implementado — Sprint 10)
 

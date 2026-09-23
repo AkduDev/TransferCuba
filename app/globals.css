@@ -105,6 +105,39 @@
   outline: none;
 }
 
+/* Tooltip de negocio (hover en pins) — responsive */
+.tc-map-tooltip .maplibregl-popup-content {
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 24px -6px rgba(15, 41, 66, 0.28) !important;
+  overflow: hidden;
+  max-width: min(260px, calc(100vw - 32px)) !important;
+  width: max-content !important;
+  pointer-events: auto;
+}
+
+.tc-map-tooltip .maplibregl-popup-tip {
+  border-top-color: #ffffff !important;
+  border-bottom-color: #ffffff !important;
+  filter: drop-shadow(0 1px 1px rgba(15, 41, 66, 0.08));
+}
+
+.tc-map-tooltip .tc-popup img {
+  background: #f1f5f9;
+}
+
+@media (max-width: 640px) {
+  .tc-map-tooltip .maplibregl-popup-content {
+    max-width: min(200px, calc(100vw - 24px)) !important;
+  }
+
+  .tc-map-tooltip .tc-popup {
+    width: 200px !important;
+    max-width: 200px !important;
+  }
+}
+
 /* Beacon de estado en vivo */
 @keyframes beacon-ping {
   0% {

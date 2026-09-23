@@ -101,8 +101,9 @@ con gracia, pero deja el fichero huérfano en Cloudinary.
 - Migraciones en `db/`, idempotentes. El orden importa y **no es alfabético**:
   `schema.sql` → `migrate_auth.sql` → `migrate_delivery.sql` →
   `migrate_promotions_index.sql` → `migrate_delivery_phase6.sql` →
-  `migrate_has_delivery.sql`. (`migrate_v2.sql` y `migrate_1_9_drop_legacy.sql`
-  son históricos, solo para bases anteriores a 1.9.) Un cambio de esquema añade
+  `migrate_has_delivery.sql` → `migrate_mvt_enhance.sql`. (`migrate_v2.sql` y
+  `migrate_1_9_drop_legacy.sql` son históricos, solo para bases anteriores a
+  1.9.) Un cambio de esquema añade
   migración **y** actualiza `schema.sql`.
 - Persistencia: `localStorage` clave `transfercuba_businesses_v2` como cache
   offline del frontend; fuente real es Postgres/Neon vía `lib/db.ts`
