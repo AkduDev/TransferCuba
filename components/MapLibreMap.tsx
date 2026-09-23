@@ -138,6 +138,7 @@ function businessesToGeoJSON(list: Business[]): FeatureCollection<Point> {
       properties: {
         id: b.id,
         name: b.name,
+        label: `${b.name} ${CATEGORY_EMOJI[b.category] ?? '🏪'}`,
         category: b.category,
         province: b.province,
         municipality: b.municipality,
@@ -189,7 +190,7 @@ function pinStrokeWidthExpr(): maplibregl.ExpressionSpecification {
 
 function labelLayout(): Record<string, unknown> {
   return {
-    'text-field': ['get', 'name'],
+    'text-field': ['get', 'label'],
     'text-font': ['Noto Sans Bold'],
     'text-size': ['interpolate', ['linear'], ['zoom'], 11, 11, 15, 13, 18, 15],
     'text-anchor': 'top',
