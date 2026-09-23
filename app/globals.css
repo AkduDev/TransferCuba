@@ -113,7 +113,7 @@
   box-shadow: 0 12px 24px -6px rgba(15, 41, 66, 0.28) !important;
   overflow: hidden;
   max-width: min(260px, calc(100vw - 32px)) !important;
-  width: max-content !important;
+  width: auto !important;
   pointer-events: auto;
 }
 
@@ -123,18 +123,14 @@
   filter: drop-shadow(0 1px 1px rgba(15, 41, 66, 0.08));
 }
 
-.tc-map-tooltip .tc-popup img {
-  background: #f1f5f9;
+.tc-map-tooltip .tc-popup {
+  /* El contenido define el ancho natural; aquí solo limitamos el máximo */
+  max-width: 100%;
 }
 
 @media (max-width: 640px) {
   .tc-map-tooltip .maplibregl-popup-content {
     max-width: min(200px, calc(100vw - 24px)) !important;
-  }
-
-  .tc-map-tooltip .tc-popup {
-    width: 200px !important;
-    max-width: 200px !important;
   }
 }
 

@@ -352,6 +352,15 @@ function buildGeoLabelFilter(searchActive: boolean): FilterSpec | null {
   return ['all', ['<=', ['zoom'], CLUSTER_MAX_ZOOM] as Cond, zoomHigh] as FilterSpec;
 }
 
+function buildGeoPaymentFilter(searchActive: boolean): FilterSpec {
+  const notEmpty: Cond = ['!=', ['get', 'payment_codes'], ''] as maplibregl.ExpressionSpecification;
+  const notCluster: Cond = ['!', ['has', 'point_count']] as Cond;
+  if (searchActive) {
+    return ['all', notCluster, notEmpty, ['>=', ['zoom'], LABEL_MIN_ZOOM] as Cond] as FilterSpec;
+  }
+  return ['all', notCluster, notEmpty, ['>', ['zoom'], CLUSTER_MAX_ZOOM] as Cond] as FilterSpec;
+}
+
 function deliveryRequestsToGeoJSON(list: AvailableDeliveryDTO[] | undefined): FeatureCollection {
   const features: Feature<Point>[] = (list ?? []).flatMap((d) => {
     if (!d.pickup) return [];
@@ -497,11 +506,13 @@ export default function MapLibreMap({
     const mvtLabelFilter = buildMvtLabelFilter(f);
     const geoFilter = buildGeoPinFilter(searchActive);
     const geoLabelFilter = buildGeoLabelFilter(searchActive);
+    const geoPaymentFilter = buildGeoPaymentFilter(searchActive);
 
     if (map.getLayer(LAYER_MVT_PINS_ID)) map.setFilter(LAYER_MVT_PINS_ID, mvtFilter);
     if (map.getLayer(LAYER_MVT_LABELS_ID)) map.setFilter(LAYER_MVT_LABELS_ID, mvtLabelFilter);
     if (map.getLayer(LAYER_GEO_PINS_ID)) map.setFilter(LAYER_GEO_PINS_ID, geoFilter);
     if (map.getLayer(LAYER_GEO_LABELS_ID)) map.setFilter(LAYER_GEO_LABELS_ID, geoLabelFilter);
+    if (map.getLayer(LAYER_PAYMENT_ICONS_ID)) map.setFilter(LAYER_PAYMENT_ICONS_ID, geoPaymentFilter);
   };
 
   useEffect(() => {
@@ -818,6 +829,7 @@ export default function MapLibreMap({
           filter: [
             'all',
             ['!', ['has', 'point_count']] as Cond,
+            ['!=', ['get', 'payment_codes'], ''] as Cond,
             ['>', ['zoom'], CLUSTER_MAX_ZOOM] as Cond
           ] as FilterSpec,
           layout: {
@@ -882,7 +894,8 @@ export default function MapLibreMap({
             LAYER_MVT_PINS_ID,
             LAYER_MVT_LABELS_ID,
             LAYER_GEO_PINS_ID,
-            LAYER_GEO_LABELS_ID
+            LAYER_GEO_LABELS_ID,
+            LAYER_PAYMENT_ICONS_ID
           ];
           pinLayers.forEach((layerId) => {
             map.on('click', layerId, onPinClick);
@@ -1038,6 +1051,8 @@ export default function MapLibreMap({
           map.getSource(SOURCE_GEO_ID) &&
           map.getLayer(LAYER_MVT_PINS_ID) &&
           map.getLayer(LAYER_GEO_PINS_ID) &&
+          map.getLayer(LAYER_GEO_LABELS_ID) &&
+          map.getLayer(LAYER_PAYMENT_ICONS_ID) &&
           map.getLayer(LAYER_CLUSTERS_ID) &&
           map.getLayer(LAYER_SELECTED_HALO_ID);
         if (complete) return;
