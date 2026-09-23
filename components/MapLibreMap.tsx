@@ -90,6 +90,7 @@ const LAYER_GEO_PINS_ID = 'geo-pins-layer';
 const LAYER_GEO_LABELS_ID = 'geo-labels-layer';
 const LAYER_CLUSTERS_ID = 'clusters-layer';
 const LAYER_CLUSTER_COUNT_ID = 'cluster-count-layer';
+const LAYER_PAYMENT_ICONS_ID = 'payment-icons-layer';
 const LAYER_CLUSTER_HOVER_ID = 'cluster-hover-halo';
 
 const SOURCE_DELIVERY_REQUESTS_ID = 'deliveries-requests-source';
@@ -131,27 +132,39 @@ function businessStatus(b: Business): string {
 function businessesToGeoJSON(list: Business[]): FeatureCollection<Point> {
   return {
     type: 'FeatureCollection',
-    features: list.map((b) => ({
-      type: 'Feature',
-      id: b.id,
-      geometry: { type: 'Point', coordinates: [b.lng, b.lat] },
-      properties: {
+    features: list.map((b) => {
+      const codes: string[] = [];
+      if (b.transferDetails?.transfermovil) codes.push('TM');
+      if (b.transferDetails?.enzona) codes.push('EZ');
+      if (b.transferDetails?.qrPayment) codes.push('QR');
+      if (b.transferDetails?.onlineGateway) codes.push('Online');
+      if (b.transferDetails?.cash) codes.push('Cash');
+      const payment_codes = codes.length ? codes.join(' ') : '';
+
+      return ({
+        type: 'Feature',
         id: b.id,
-        name: b.name,
-        label: `${b.name} ${CATEGORY_EMOJI[b.category] ?? '🏪'}`,
-        category: b.category,
-        province: b.province,
-        municipality: b.municipality,
-        accepts_transfer: b.acceptsTransfer,
-        transfer_active_now: b.transferActiveNow,
-        transfer_verified: b.transferVerified,
-        rating: b.rating,
-        has_delivery: Boolean(b.hasDelivery),
-        qr_payment: Boolean(b.transferDetails?.qrPayment),
-        online_payment: Boolean(b.transferDetails?.onlineGateway),
-        status: businessStatus(b)
-      }
-    }))
+        geometry: { type: 'Point', coordinates: [b.lng, b.lat] },
+        properties: {
+          id: b.id,
+          name: b.name,
+          label: `${b.name} ${CATEGORY_EMOJI[b.category] ?? '🏪'}`,
+          payment_codes,
+          category: b.category,
+          province: b.province,
+          municipality: b.municipality,
+          accepts_transfer: b.acceptsTransfer,
+          transfer_active_now: b.transferActiveNow,
+          transfer_verified: b.transferVerified,
+          rating: b.rating,
+          has_delivery: Boolean(b.hasDelivery),
+          qr_payment: Boolean(b.transferDetails?.qrPayment),
+          online_payment: Boolean(b.transferDetails?.onlineGateway),
+          cash: Boolean(b.transferDetails?.cash),
+          status: businessStatus(b)
+        }
+      });
+    })
   };
 }
 
@@ -796,6 +809,31 @@ export default function MapLibreMap({
           ] as FilterSpec,
           layout: labelLayout(),
           paint: labelPaint()
+        });
+
+        ensureLayer({
+          id: LAYER_PAYMENT_ICONS_ID,
+          type: 'symbol',
+          source: SOURCE_GEO_ID,
+          filter: [
+            'all',
+            ['!', ['has', 'point_count']] as Cond,
+            ['>', ['zoom'], CLUSTER_MAX_ZOOM] as Cond
+          ] as FilterSpec,
+          layout: {
+            'text-field': ['get', 'payment_codes'],
+            'text-font': ['Noto Sans Regular'],
+            'text-size': 9,
+            'text-offset': [0, 1.8],
+            'text-anchor': 'top',
+            'text-allow-overlap': false,
+            'text-ignore-placement': false
+          },
+          paint: {
+            'text-color': '#334155',
+            'text-halo-color': '#ffffff',
+            'text-halo-width': 1
+          }
         });
 
         ensureLayer({
