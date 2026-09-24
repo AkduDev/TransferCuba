@@ -7,12 +7,12 @@ import {
   toPublicUser,
   DbUnavailableError
 } from '@/lib/db-auth';
-import { authCookie, hashPin, isValidName, isValidPin } from '@/lib/auth';
+import { authCookie, hashPin, isValidName, isValidPassword } from '@/lib/auth';
 import { createMessengerApplication } from '@/lib/db-delivery';
 
 export const dynamic = 'force-dynamic';
 
-// POST /api/account/register — alta de usuario con teléfono + PIN.
+// POST /api/account/register — alta de usuario con teléfono + contraseña.
 // Si wantsToBeMessenger es true, también crea perfil de mensajero y pago pendiente.
 // Emite sesión en cookie HttpOnly al completar el registro.
 export async function POST(req: NextRequest) {
@@ -48,9 +48,9 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  if (!isValidPin(pin)) {
+  if (!isValidPassword(pin)) {
     return NextResponse.json(
-      { success: false, error: 'PIN inválido (4 a 8 dígitos)' },
+      { success: false, error: 'Contraseña inválida (mínimo 8 caracteres)' },
       { status: 400 }
     );
   }

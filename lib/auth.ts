@@ -1,5 +1,5 @@
 /**
- * TransferCuba — identidad de usuarios (teléfono + PIN) y sesión por cookie.
+ * TransferCuba — identidad de usuarios (teléfono + contraseña) y sesión por cookie.
  *
  * Módulo SERVER-ONLY (usa node:crypto). Es independiente de lib/admin-auth.ts:
  * la sesión admin (cookie `tc_admin_session`, contra ADMIN_USERNAME/ADMIN_PASSWORD)
@@ -7,7 +7,7 @@
  * identidad real de la plataforma (roles USER / BUSINESS / MESSENGER / ADMIN).
  *
  * Decisiones:
- *  - PIN hasheado con scrypt + sal aleatoria (sin dependencias externas).
+ *  - Contraseña hasheada con scrypt + sal aleatoria (sin dependencias externas).
  *  - Sesión REVOCABLE: la cookie HttpOnly lleva solo el id de sesión; la
  *    validez vive en la tabla `sessions` (logout real, bloqueo de cuenta).
  */
@@ -20,7 +20,7 @@ const COOKIE_NAME = 'tc_session';
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 días
 const SCRYPT_KEYLEN = 64;
 
-/* ---------------- PIN ---------------- */
+/* ---------------- contraseña ---------------- */
 
 export function hashPin(pin: string): string {
   const salt = randomBytes(16).toString('hex');
@@ -38,8 +38,8 @@ export function verifyPin(pin: string, stored: string): boolean {
   return timingSafeEqual(expected, actual);
 }
 
-export function isValidPin(pin: string): boolean {
-  return /^\d{4,8}$/.test(pin);
+export function isValidPassword(password: string): boolean {
+  return password.length >= 8 && password.length <= 72;
 }
 
 export function isValidName(name: string): boolean {

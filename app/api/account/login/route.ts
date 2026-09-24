@@ -11,7 +11,7 @@ import { authCookie, verifyPin } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-// POST /api/account/login — sesión de usuario (teléfono + PIN).
+// POST /api/account/login — sesión de usuario (teléfono + contraseña).
 // Mensaje de error genérico: no revela si el teléfono existe.
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown>;
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
   if (!phone || !pin) {
     return NextResponse.json(
-      { success: false, error: 'Teléfono y PIN requeridos' },
+      { success: false, error: 'Teléfono y contraseña requeridos' },
       { status: 400 }
     );
   }
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     const user = await findUserByPhone(phone);
     if (!user || !verifyPin(pin, user.pin_hash)) {
       return NextResponse.json(
-        { success: false, error: 'Teléfono o PIN incorrectos' },
+        { success: false, error: 'Teléfono o contraseña incorrectos' },
         { status: 401 }
       );
     }

@@ -235,8 +235,8 @@ export default function AuthModal({ isOpen, onClose, auth }: AuthModalProps) {
                 </h3>
                 <p className="text-xs text-slate-500">
                   {isRegister
-                    ? 'Regístrate con tu teléfono y un PIN para solicitar servicios.'
-                    : 'Entra con tu teléfono y PIN.'}
+                    ? 'Regístrate con tu teléfono y una contraseña para solicitar servicios.'
+                    : 'Entra con tu teléfono y contraseña.'}
                 </p>
               </div>
 
@@ -286,7 +286,7 @@ export default function AuthModal({ isOpen, onClose, auth }: AuthModalProps) {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600 block">PIN</label>
+                    <label className="text-xs font-bold text-slate-600 block">Contraseña <span className="font-normal text-slate-400">(mínimo 8 caracteres)</span></label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                       <Lock className="w-4 h-4" />
@@ -294,17 +294,18 @@ export default function AuthModal({ isOpen, onClose, auth }: AuthModalProps) {
                     <input
                       type={showPin ? 'text' : 'password'}
                       required
-                      inputMode="numeric"
+                      minLength={8}
                       value={pin}
                       onChange={(e) => { setPin(e.target.value); setLocalError(''); }}
-                      placeholder="4 a 8 dígitos"
-                      className="w-full text-sm pl-9 pr-10 py-2.5 rounded-lg border border-border-subtle focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/50 font-mono"
+                      placeholder="Mínimo 8 caracteres"
+                      autoComplete={isRegister ? 'new-password' : 'current-password'}
+                      className="w-full text-sm pl-9 pr-10 py-2.5 rounded-lg border border-border-subtle focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50/50"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPin(!showPin)}
                       className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
-                      title={showPin ? 'Ocultar PIN' : 'Ver PIN'}
+                      title={showPin ? 'Ocultar contraseña' : 'Ver contraseña'}
                     >
                       {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -384,7 +385,7 @@ export default function AuthModal({ isOpen, onClose, auth }: AuthModalProps) {
               </form>
 
               <p className="text-center text-[11px] text-slate-400">
-                Tu teléfono y PIN identifican tu cuenta. No compartas tu PIN con nadie.
+                Tu teléfono y contraseña identifican tu cuenta. No compartas tu contraseña con nadie.
               </p>
             </div>
           </div>

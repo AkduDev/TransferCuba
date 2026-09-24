@@ -17,7 +17,7 @@ const SECCIONES: { titulo: string; cuerpo: string[] }[] = [
   {
     titulo: '2. Datos que recogemos',
     cuerpo: [
-      'Cuenta: número de teléfono, nombre y PIN de acceso. El PIN se guarda cifrado y nunca se muestra ni se comparte.',
+      'Cuenta: número de teléfono, nombre y contraseña de acceso (mínimo 8 caracteres). La contraseña se guarda cifrada y nunca se muestra ni se comparte.',
       'Negocios que registras: nombre comercial, categoría, descripción, dirección, horarios, métodos de pago aceptados, WhatsApp, teléfono y fotografías.',
       'Ubicación: solo cuando usas funciones que la requieren (buscar cerca de ti o fijar el punto de tu negocio en el mapa). Puedes escribir la dirección manualmente sin compartir tu GPS.',
       'Actividad en la plataforma: votos, reportes, valoraciones y solicitudes de delivery asociadas a tu cuenta.',

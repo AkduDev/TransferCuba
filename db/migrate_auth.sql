@@ -4,7 +4,7 @@
 --
 -- Contexto: antes de esta migración solo existía la sesión admin (cookie
 -- firmada contra ADMIN_USERNAME/ADMIN_PASSWORD, lib/admin-auth.ts). Aquí se
--- crea la identidad REAL de usuarios (teléfono + PIN) que sostendrá los roles
+-- crea la identidad REAL de usuarios (teléfono + contraseña) que sostendrá los roles
 -- USER / BUSINESS / MESSENGER / ADMIN y el ownership de negocios.
 
 -- Usuarios de la plataforma. El teléfono se guarda normalizado (solo dígitos).

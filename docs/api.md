@@ -140,7 +140,7 @@ curl -X PATCH http://localhost:3000/api/businesses \
 
 # Autenticación de usuarios — `/api/account/*`
 
-Registro/login/cierre de sesión de usuarios reales (identidad teléfono + PIN,
+Registro/login/cierre de sesión de usuarios reales (identidad teléfono + contraseña,
 Fase 0). Namespace separado de la auth admin (`/api/auth/*`). Cookie de
 sesión HttpOnly `tc_session` (30 días). BD caída → `503` (sin fallback).
 
@@ -157,7 +157,7 @@ sesión HttpOnly `tc_session` (30 días). BD caída → `503` (sin fallback).
 
 ```json
 POST /api/account/register
-{ "name": "Ana Pérez", "phone": "5355551234", "pin": "1234", "acceptsTerms": true }
+{ "name": "Ana Pérez", "phone": "5355551234", "pin": "Segura-2026", "acceptsTerms": true }
 ```
 
 - Errores comunes: `400` (validación, incluido no aceptar los Términos con
@@ -170,7 +170,7 @@ POST /api/account/register
 ```bash
 curl -X POST http://localhost:3000/api/account/login \
   -H "Content-Type: application/json" -c cookies.txt \
-  -d '{"phone":"5355551234","pin":"1234"}'
+  -d '{"phone":"5355551234","pin":"Segura-2026"}'
 curl -b cookies.txt http://localhost:3000/api/account/me
 curl -b cookies.txt -X POST http://localhost:3000/api/account/logout
 ```
@@ -340,7 +340,7 @@ Estructura pública de una carrera (campos condicionales por opciones):
 ```bash
 # login
 curl -c jar.txt -b jar.txt -X POST http://localhost:3000/api/account/login \
-  -H 'Content-Type: application/json' -d '{"phone":"5355551234","pin":"1234"}'
+  -H 'Content-Type: application/json' -d '{"phone":"5355551234","pin":"Segura-2026"}'
 
 # estimar
 curl -b jar.txt 'http://localhost:3000/api/deliveries/estimate?fromLat=23.11&fromLng=-82.37&toLat=23.14&toLng=-82.38'

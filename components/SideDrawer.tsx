@@ -19,7 +19,8 @@ import {
   Info,
   User,
   Package,
-  Bike
+  Bike,
+  Lock
 } from 'lucide-react';
 import { CUBAN_PROVINCES } from '@/lib/cuba-data';
 
@@ -103,7 +104,7 @@ export default function SideDrawer({
                 onClose();
                 onNearMeClick();
               }}
-              className="w-full p-3.5 rounded-lg bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200/80 text-emerald-950 flex items-center justify-between group transition-all text-left shadow-level-1"
+              className="w-full p-3.5 rounded-xl bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200/80 text-emerald-950 flex items-center justify-between group transition-all text-left shadow-level-1 active:scale-[0.99]"
             >
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-emerald-brand text-white flex items-center justify-center shadow-level-2">
@@ -122,7 +123,7 @@ export default function SideDrawer({
                 onClose();
                 onRegisterClick();
               }}
-              className="w-full p-3.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-between group transition-all text-left shadow-level-2"
+              className="w-full p-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-between group transition-all text-left shadow-level-2 active:scale-[0.99]"
             >
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-emerald-500 text-navy flex items-center justify-center font-bold">
@@ -144,7 +145,7 @@ export default function SideDrawer({
                 onClose();
                 onDeliveryClick();
               }}
-              className="w-full p-3.5 rounded-lg bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200/80 text-emerald-950 flex items-center justify-between group transition-all text-left shadow-level-1"
+              className="w-full p-3.5 rounded-xl bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200/80 text-emerald-950 flex items-center justify-between group transition-all text-left shadow-level-1 active:scale-[0.99]"
             >
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-emerald-brand text-white flex items-center justify-center shadow-level-2">
@@ -164,7 +165,7 @@ export default function SideDrawer({
                   onClose();
                   onMessengerClick();
                 }}
-                className="w-full p-3.5 rounded-lg bg-cerulean/5 hover:bg-cerulean/10 border border-cerulean/20 text-slate-800 flex items-center justify-between group transition-all text-left"
+                className="w-full p-3.5 rounded-xl bg-cerulean/5 hover:bg-cerulean/10 border border-cerulean/20 text-slate-800 flex items-center justify-between group transition-all text-left active:scale-[0.99]"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-cerulean text-white flex items-center justify-center shadow-level-1">
@@ -191,6 +192,7 @@ export default function SideDrawer({
 
             <div className="space-y-1 bg-slate-50 p-1.5 rounded-lg border border-border-subtle/90">
               <button
+                aria-current={selectedProvince === 'all' ? 'true' : undefined}
                 onClick={() => {
                   onProvinceChange('all');
                   onClose();
@@ -225,6 +227,7 @@ export default function SideDrawer({
               {showProvinces && CUBAN_PROVINCES.map((prov) => (
                 <button
                   key={prov.name}
+                  aria-current={selectedProvince === prov.name ? 'true' : undefined}
                   onClick={() => {
                     onProvinceChange(prov.name);
                     onClose();
@@ -245,14 +248,17 @@ export default function SideDrawer({
             </div>
           </div>
 
-          {/* Cuenta de usuario (identidad teléfono + PIN) */}
-          <div className="pt-2 border-t border-border-subtle">
+          {/* Cuenta de usuario (identidad teléfono + contraseña) */}
+          <div className="pt-2 border-t border-border-subtle space-y-2">
+            <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 font-display px-1">
+              Cuenta
+            </p>
             <button
               onClick={() => {
                 onClose();
                 onAccountClick();
               }}
-              className="w-full p-3.5 rounded-lg bg-white hover:bg-slate-50 border border-border-subtle text-slate-700 flex items-center justify-between text-xs font-bold transition-all shadow-level-1 group"
+              className="w-full p-3.5 rounded-xl bg-white hover:bg-slate-50 border border-border-subtle text-slate-700 flex items-center justify-between text-xs font-bold transition-all shadow-level-1 group active:scale-[0.99]"
             >
               <div className="flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-xl bg-emerald-brand/10 border border-emerald-brand/30 text-emerald-brand flex items-center justify-center">
@@ -263,7 +269,7 @@ export default function SideDrawer({
                     {authUser ? authUser.name : 'Mi cuenta'}
                   </p>
                   <p className="text-[10px] text-slate-400 font-normal">
-                    {authUser ? 'Ver perfil y sesión' : 'Entrar con teléfono y PIN'}
+                    {authUser ? 'Ver perfil y sesión' : 'Entrar con teléfono y contraseña'}
                   </p>
                 </div>
               </div>
@@ -272,13 +278,16 @@ export default function SideDrawer({
           </div>
 
           {/* Admin center shortcut */}
-          <div className="pt-2 border-t border-border-subtle">
+          <div className="pt-2 border-t border-border-subtle space-y-2">
+            <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 font-display px-1">
+              Administración
+            </p>
             <button
               onClick={() => {
                 onClose();
                 onAdminClick();
               }}
-              className="w-full p-3.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-between text-xs font-bold transition-all shadow-level-2 group"
+              className="w-full p-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-between text-xs font-bold transition-all shadow-level-2 group active:scale-[0.99]"
             >
               <div className="flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-xl bg-cerulean/30 border border-blue-400/40 text-blue-300 flex items-center justify-center">
@@ -289,8 +298,8 @@ export default function SideDrawer({
                   <p className="text-[10px] text-slate-400 font-normal">Acceso restringido</p>
                 </div>
               </div>
-              <span className="text-[10px] font-mono uppercase tracking-wider bg-tm-bg0/20 text-blue-300 border border-blue-400/30 px-2 py-0.5 rounded-md flex items-center gap-1">
-                <span>🔐</span>
+              <span className="text-[10px] font-mono uppercase tracking-wider bg-blue-400/20 text-blue-300 border border-blue-400/30 px-2 py-0.5 rounded-md flex items-center gap-1">
+                <Lock className="w-3 h-3" aria-hidden="true" />
                 <span>Admin</span>
               </span>
             </button>

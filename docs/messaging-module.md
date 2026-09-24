@@ -9,7 +9,7 @@ dependencias.
 
 | Fase | Descripción | Backend | UI | Estado |
 |---|---|---|---|---|
-| 0 | **Identidad teléfono + PIN** (`users`/`sessions`) | — | — | ✅ completo (Sprint 10) |
+| 0 | **Identidad teléfono + contraseña** (`users`/`sessions`) | — | — | ✅ completo (Sprint 10) |
 | 1 | **Modelo delivery** (mensajeros, pricing, plataforma, carreras, pagos) | — | — | ✅ completo (Sprint 11) |
 | 2 | Solicitud de carrera: estimate, crear, historial, GET [id] | ✅ backend | ✅ UI | ✅ completo (Sprint 13) |
 | 3 | Matching mensajero: available, accept, steps, cancel, trust | ✅ backend | ✅ UI | ✅ completo (Sprint 13) |
@@ -43,7 +43,7 @@ dependencias.
 
 - `lib/db-auth.ts` — DAO (pool compartido + circuit breaker 60 s, sin
   fallback in-memory: sin BD → 503).
-- `lib/auth.ts` — `hashPin`/`verifyPin`/`isValidPin`/`isValidName`, cookies,
+- `lib/auth.ts` — `hashPin`/`verifyPin`/`isValidPassword`/`isValidName`, cookies,
   `requireAuth`/`requireRole`.
 - `lib/hooks/useAuth.ts` — estado de sesión en el cliente (hidrata con `/me`).
 - `components/GoogleMapsAuthModal.tsx` — login/registro/perfil; acceso desde

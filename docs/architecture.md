@@ -300,7 +300,7 @@ unsigned, sin exponer API keys). El servidor guarda la URL en la tabla
 
 ## Identidad de usuarios (Fase 0 — módulo mensajería)
 
-- **Registro por teléfono + PIN**, sin email. PIN hasheado con `scrypt`
+- **Registro por teléfono + contraseña** (mínimo 8 caracteres), sin email. Contraseña hasheada con `scrypt`
   (`node:crypto`, sal aleatoria); `normalizePhone` elimina espacios/guiones/`+`.
 - **Dos auths separadas**: la admin del panel es `lib/admin-auth.ts`
   (cookie `tc_admin_session`, HMAC). La de usuarios es `lib/auth.ts` +

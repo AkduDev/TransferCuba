@@ -29,7 +29,7 @@ import { Client } from 'pg';
 
 /** Marca los datos de prueba para poder reconocer y barrer restos. */
 const PREFIJO_TELEFONO = '5550';
-const PIN = '246810';
+const PIN = '24681012';
 
 export type Rol = 'USER' | 'BUSINESS' | 'MESSENGER' | 'ADMIN';
 

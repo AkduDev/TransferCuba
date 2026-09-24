@@ -219,7 +219,7 @@ export default function DeliveryModal({
               </div>
               <div>
                 <p className="font-bold text-slate-800">Inicia sesión para pedir un envío</p>
-                <p className="text-xs text-slate-500 mt-1">Usa tu teléfono y PIN para solicitar el servicio de mensajería.</p>
+                <p className="text-xs text-slate-500 mt-1">Usa tu teléfono y contraseña para solicitar el servicio de mensajería.</p>
               </div>
               <button
                 onClick={() => {
@@ -228,7 +228,7 @@ export default function DeliveryModal({
                 }}
                 className="px-4 py-2.5 rounded-lg bg-emerald-brand hover:bg-emerald-700 text-white text-xs font-extrabold shadow-level-2"
               >
-                Entrar con teléfono + PIN
+                Entrar con teléfono + contraseña
               </button>
             </div>
           ) : view === 'success' && deliveries.lastDelivery ? (
