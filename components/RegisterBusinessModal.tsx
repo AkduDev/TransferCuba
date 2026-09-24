@@ -197,6 +197,14 @@ export function validateWhatsAppNumber(input: string): WhatsAppValidationResult 
   };
 }
 
+const STEPS = [
+  { title: 'Negocio', icon: Store },
+  { title: 'Ubicación', icon: MapPin },
+  { title: 'Pagos', icon: ShieldCheck },
+  { title: 'Contacto', icon: MessageCircle },
+  { title: 'Fotos y envío', icon: ImagePlus },
+];
+
 export default function RegisterBusinessModal({
   isOpen,
   onClose,
@@ -244,6 +252,11 @@ export default function RegisterBusinessModal({
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [step, setStep] = useState(0);
+  const [highestStep, setHighestStep] = useState(0);
+  const [stepDirection, setStepDirection] = useState<'forward' | 'backward'>('forward');
+  const formRef = useRef<HTMLFormElement>(null);
 
   // Helper to mark a field as touched on blur or change
   const markTouched = (field: string) => {
@@ -364,11 +377,49 @@ export default function RegisterBusinessModal({
   }, [phone]);
 
   // Form Overall Validity
-  const isFormValid = nameValidation.isValid && 
-                       addressValidation.isValid && 
-                       waValidation.isValid && 
-                       paymentValidation.isValid && 
+  const isFormValid = nameValidation.isValid &&
+                       addressValidation.isValid &&
+                       waValidation.isValid &&
+                       paymentValidation.isValid &&
                        phoneValidation.isValid;
+
+  // Validez por paso del asistente: el botón Siguiente solo se habilita
+  // cuando la sección actual está completa
+  const stepValid = [
+    nameValidation.isValid,
+    addressValidation.isValid,
+    paymentValidation.isValid,
+    waValidation.isValid && phoneValidation.isValid,
+    isFormValid,
+  ];
+
+  const goToStep = (i: number) => {
+    if (i < 0 || i >= STEPS.length || i > highestStep) return;
+    setStepDirection(i >= step ? 'forward' : 'backward');
+    setStep(i);
+    formRef.current?.scrollTo({ top: 0 });
+  };
+
+  const goNext = () => {
+    if (!stepValid[step] || step >= STEPS.length - 1) return;
+    const next = step + 1;
+    setStepDirection('forward');
+    setStep(next);
+    setHighestStep((h) => Math.max(h, next));
+    formRef.current?.scrollTo({ top: 0 });
+  };
+
+  const goBack = () => {
+    if (step <= 0) return;
+    setStepDirection('backward');
+    setStep(step - 1);
+    formRef.current?.scrollTo({ top: 0 });
+  };
+
+  const stepAnimation =
+    stepDirection === 'forward'
+      ? 'animate-in fade-in slide-in-from-right-4 duration-300'
+      : 'animate-in fade-in slide-in-from-left-4 duration-300';
 
   const currentProvinceData = CUBAN_PROVINCES.find(p => p.name === province) || CUBAN_PROVINCES[0];
 
@@ -393,9 +444,21 @@ export default function RegisterBusinessModal({
     markTouched('whatsapp');
   };
 
+  const handleClose = () => {
+    setStep(0);
+    setHighestStep(0);
+    setShowAllErrors(false);
+    onClose();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setShowAllErrors(true);
+
+    if (step < STEPS.length - 1) {
+      if (step === 3) markTouched('phone');
+      return;
+    }
 
     if (!isFormValid || isSubmitting) {
       // Find first error element and scroll/focus
@@ -439,19 +502,19 @@ export default function RegisterBusinessModal({
       });
     } finally {
       setIsSubmitting(false);
-      onClose();
+      handleClose();
     }
   };
 
   return (
     <ModalShell
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       labelledBy="register-modal-title"
       describedBy="register-modal-subtitle"
       backdropClassName="bg-navy-deep/60 backdrop-blur-sm"
       overlayClassName="z-50 p-3 sm:p-5"
-      panelClassName="bg-white rounded-lg shadow-level-4 border border-border-subtle w-full max-w-xl max-h-[94vh] animate-in fade-in zoom-in-95 duration-200"
+      panelClassName="bg-white rounded-xl sm:rounded-lg shadow-level-4 border border-border-subtle w-full max-w-xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[94vh] animate-in fade-in zoom-in-95 duration-200"
     >
         {/* Header */}
         <div className="px-5 py-4 bg-navy text-white flex items-center justify-between flex-shrink-0">
@@ -467,7 +530,7 @@ export default function RegisterBusinessModal({
             </p>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             aria-label="Cerrar"
             className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
           >
@@ -476,10 +539,71 @@ export default function RegisterBusinessModal({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} noValidate className="flex-1 overflow-y-auto p-5 space-y-5">
-          
+        <form ref={formRef} onSubmit={handleSubmit} noValidate className="flex-1 overflow-y-auto p-5 space-y-5">
+
+          {/* Wizard stepper: progreso visual por secciones */}
+          <div className="flex-shrink-0" aria-label="Progreso del registro">
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-[11px] font-bold text-slate-500">
+                Paso {step + 1} de {STEPS.length}: <span className="text-navy">{STEPS[step].title}</span>
+              </p>
+              <p className="text-[11px] font-mono text-slate-400">
+                {Math.round(((step + 1) / STEPS.length) * 100)}%
+              </p>
+            </div>
+            <div
+              className="h-1.5 rounded-full bg-slate-100 overflow-hidden mb-2.5"
+              role="progressbar"
+              aria-valuenow={step + 1}
+              aria-valuemin={1}
+              aria-valuemax={STEPS.length}
+              aria-label={`Paso ${step + 1} de ${STEPS.length}`}
+            >
+              <div
+                className="h-full rounded-full bg-emerald-brand transition-all duration-300"
+                style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
+              />
+            </div>
+            <ol className="flex items-center gap-1">
+              {STEPS.map((s, i) => {
+                const Icon = s.icon;
+                const done = i < step || (i <= highestStep && stepValid[i]);
+                const current = i === step;
+                const reachable = i <= highestStep;
+                return (
+                  <li key={s.title} className="flex-1 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => goToStep(i)}
+                      disabled={!reachable}
+                      aria-label={`Ir al paso ${i + 1}: ${s.title}`}
+                      aria-current={current ? 'step' : undefined}
+                      className={`w-full flex items-center justify-center gap-1 px-1 py-1.5 rounded-lg text-[10px] font-bold transition-colors ${
+                        current
+                          ? 'bg-navy text-white shadow-level-1'
+                          : done
+                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                          : reachable
+                          ? 'bg-white text-slate-500 border border-border-subtle hover:bg-slate-50'
+                          : 'bg-white text-slate-300 border border-border-subtle cursor-not-allowed'
+                      }`}
+                    >
+                      {done && !current ? (
+                        <Check className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+                      ) : (
+                        <Icon className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+                      )}
+                      <span className="truncate hidden min-[420px]:inline">{s.title}</span>
+                      <span className="min-[420px]:hidden">{i + 1}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+
           {/* Section 1: Business Info */}
-          <div className="space-y-3">
+          <div className={step === 0 ? `space-y-3 ${stepAnimation}` : 'hidden'}>
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
                 1. Datos del Negocio
@@ -577,7 +701,7 @@ export default function RegisterBusinessModal({
           </div>
 
           {/* Section 2: Location details */}
-          <div className="space-y-3 pt-3 border-t border-slate-100">
+          <div className={step === 1 ? `space-y-3 pt-3 border-t border-slate-100 ${stepAnimation}` : 'hidden'}>
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
               2. Ubicación Exacta en Cuba
             </h3>
@@ -783,7 +907,7 @@ export default function RegisterBusinessModal({
           </div>
 
           {/* Section 3: Payment Methods */}
-          <div className="space-y-3 pt-3 border-t border-slate-100">
+          <div className={step === 2 ? `space-y-3 pt-3 border-t border-slate-100 ${stepAnimation}` : 'hidden'}>
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
                 3. Métodos de Pago Aceptados
@@ -924,7 +1048,7 @@ export default function RegisterBusinessModal({
           </div>
 
           {/* Section 4: Contact and WhatsApp Validation (HIGHLIGHT FEATURE) */}
-          <div className="space-y-3 pt-3 border-t border-slate-100">
+          <div className={step === 3 ? `space-y-3 pt-3 border-t border-slate-100 ${stepAnimation}` : 'hidden'}>
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
                 4. Contacto Directo & WhatsApp
@@ -1094,7 +1218,7 @@ export default function RegisterBusinessModal({
           </div>
 
           {/* Photo upload */}
-          <div className="space-y-2 pt-3 border-t border-slate-100">
+          <div className={step === 4 ? `space-y-2 pt-3 border-t border-slate-100 ${stepAnimation}` : 'hidden'}>
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
               5. Fotos del Negocio
             </h3>
@@ -1109,7 +1233,8 @@ export default function RegisterBusinessModal({
                     <button
                       type="button"
                       onClick={() => removePhoto(i)}
-                      className="absolute top-1 right-1 p-1 rounded-full bg-red-500/80 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                      aria-label={`Eliminar ${photo.alt}`}
+                      className="absolute top-1 right-1 p-1 rounded-full bg-red-500/80 text-white opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                     >
                       <Trash2 className="w-3 h-3" />
                     </button>
@@ -1155,7 +1280,7 @@ export default function RegisterBusinessModal({
           </div>
 
           {/* Validation summary banner if submit attempted with errors */}
-          {showAllErrors && !isFormValid && (
+          {step === 4 && showAllErrors && !isFormValid && (
             <div className="p-3 rounded-xl bg-ez-bg/50 border border-ez-border text-xs text-crimson space-y-1 animate-in fade-in">
               <p className="font-bold flex items-center gap-1.5">
                 <AlertCircle className="w-4 h-4 text-crimson flex-shrink-0" />
@@ -1182,7 +1307,18 @@ export default function RegisterBusinessModal({
 
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="text-xs text-slate-500 hidden sm:block">
-                {isFormValid ? (
+                {step < STEPS.length - 1 ? (
+                  stepValid[step] ? (
+                    <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-brand" />
+                      Sección completa, puedes continuar
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">
+                      Completa los campos obligatorios para continuar
+                    </span>
+                  )
+                ) : isFormValid ? (
                   <span className="text-emerald-700 font-semibold flex items-center gap-1">
                     <CheckCircle2 className="w-4 h-4 text-emerald-brand" />
                     Formulario listo para enviar
@@ -1195,37 +1331,70 @@ export default function RegisterBusinessModal({
               </div>
 
               <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 text-sm text-slate-600 hover:text-text-primary font-medium"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  id="btn-submit-biz"
-                  disabled={isSubmitting}
-                  className={`px-6 py-2.5 rounded-xl text-white font-bold text-sm shadow-level-2 transition-all flex items-center justify-center gap-2 w-full sm:w-auto ${
-                    isFormValid 
-                      ? 'bg-emerald-brand hover:bg-emerald-brand shadow-emerald-600/20 hover:shadow-level-2' 
-                      : 'bg-emerald-brand hover:bg-emerald-brand opacity-90'
-                  } ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Enviando…</span>
-                    </>
-                  ) : (
-                    <>
-                      <Check className="w-4 h-4" />
-                      <span>Enviar para Aprobación</span>
-                    </>
-                  )}
-                </button>
+                {step === 0 ? (
+                  <button
+                    type="button"
+                    onClick={handleClose}
+                    className="flex-1 sm:flex-none px-3 py-2.5 text-sm text-slate-600 hover:text-text-primary font-medium"
+                  >
+                    Cancelar
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={goBack}
+                    className="flex-1 sm:flex-none px-3 py-2.5 text-sm text-slate-600 hover:text-text-primary font-semibold border border-border-subtle rounded-xl hover:bg-slate-50 transition-colors"
+                  >
+                    ← Atrás
+                  </button>
+                )}
+                {step < STEPS.length - 1 ? (
+                  <button
+                    type="button"
+                    onClick={goNext}
+                    disabled={!stepValid[step]}
+                    title={stepValid[step] ? `Continuar a ${STEPS[step + 1].title}` : 'Completa los campos obligatorios de esta sección para continuar'}
+                    className={`flex-[1.5] sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl text-white font-bold text-sm shadow-level-2 transition-all flex items-center justify-center gap-2 w-full ${
+                      stepValid[step]
+                        ? 'bg-navy hover:bg-navy-hover'
+                        : 'bg-slate-300 cursor-not-allowed'
+                    }`}
+                  >
+                    <span className="sm:hidden">Siguiente</span>
+                    <span className="hidden sm:inline">Siguiente: {STEPS[step + 1].title}</span>
+                    <span aria-hidden="true">→</span>
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    id="btn-submit-biz"
+                    disabled={isSubmitting}
+                    className={`flex-[1.5] sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl text-white font-bold text-sm shadow-level-2 transition-all flex items-center justify-center gap-2 w-full ${
+                      isFormValid
+                        ? 'bg-emerald-brand hover:bg-emerald-brand shadow-emerald-600/20 hover:shadow-level-2'
+                        : 'bg-emerald-brand hover:bg-emerald-brand opacity-90'
+                    } ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Enviando…</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>Enviar para Aprobación</span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
+            {step < STEPS.length - 1 && !stepValid[step] && (
+              <p className="text-[11px] text-slate-400 sm:hidden">
+                Completa los campos obligatorios para continuar
+              </p>
+            )}
           </div>
         </form>
     </ModalShell>

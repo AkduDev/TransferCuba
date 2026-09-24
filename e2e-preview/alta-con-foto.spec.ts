@@ -94,16 +94,27 @@ test('un negocio se registra con foto pulsando el formulario', async ({ page }) 
   await expect(modal).toBeVisible();
   await expect(modal).toHaveAccessibleName(/Registrar Negocio/);
 
-  // 2. Rellenar lo imprescindible. La ubicación no se toca: sin pin, el
-  //    formulario usa el centro de la provincia.
+  // 2. Paso 1/5 (Negocio): nombre. La categoría queda por defecto.
   await modal.getByPlaceholder('ej. Café & Market Habana').fill(NOMBRE);
+  await modal.getByRole('button', { name: /^Siguiente/ }).click();
+
+  // 3. Paso 2/5 (Ubicación): dirección. Sin pin, el formulario usa el
+  //    centro de la provincia.
   await modal.getByPlaceholder('ej. Calle 23 #456 e/ J e I').fill('Calle 23 #456 e/ J e I, Vedado');
+  await modal.getByRole('button', { name: /^Siguiente/ }).click();
+
+  // 4. Paso 3/5 (Pagos): los valores por defecto ya son válidos.
+  await expect(modal.getByText(/¿Están recibiendo transferencia/)).toBeVisible();
+  await modal.getByRole('button', { name: /^Siguiente/ }).click();
+
+  // 5. Paso 4/5 (Contacto): WhatsApp obligatorio + fijo opcional.
   await modal.getByPlaceholder(/5284 9102/).first().fill('+53 5284 9102');
   await modal.getByPlaceholder(/7830 1234/).first().fill('+53 7830 1234');
+  await modal.getByRole('button', { name: /^Siguiente/ }).click();
 
-  // 3. La prueba de fuego: subir una foto de verdad desde el navegador.
-  //    Si las NEXT_PUBLIC_CLOUDINARY_* no hubieran llegado al bundle, aquí
-  //    saldría "Fotos no configuradas" y no se subiría nada.
+  // 6. Paso 5/5 (Fotos): la prueba de fuego es subir una foto de verdad
+  //    desde el navegador. Si las NEXT_PUBLIC_CLOUDINARY_* no hubieran
+  //    llegado al bundle, aquí saldría "Fotos no configuradas".
   await expect(modal.getByText(/Fotos no configuradas/)).toBeHidden();
   await modal.locator('input[type="file"]').setInputFiles(pngDePrueba());
 
@@ -129,7 +140,7 @@ test('un negocio se registra con foto pulsando el formulario', async ({ page }) 
   const urlFoto = await miniatura.getAttribute('src');
   expect(urlFoto).toContain('res.cloudinary.com');
 
-  // 4. Enviar.
+  // 7. Enviar.
   await modal.getByRole('button', { name: /Enviar para Aprobación/ }).click();
 
   // El modal se cierra al registrarse; si la validación fallara seguiría abierto.
