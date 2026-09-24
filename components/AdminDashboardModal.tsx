@@ -1,6 +1,7 @@
 'use client';
-
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
+
 import ModalShell from '@/components/ModalShell';
 import { 
   X, 
@@ -283,8 +284,14 @@ export default function AdminDashboardModal({
             {/* Header */}
             <div className="px-4 sm:px-6 py-3 sm:py-4 bg-navy text-white flex items-center justify-between flex-shrink-0 border-b border-slate-800">
               <div className="flex items-center gap-2.5 sm:gap-3">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-cerulean/20 border border-blue-500/40 text-blue-400 flex items-center justify-center font-black text-xs sm:text-sm font-display shadow-inner flex-shrink-0">
-                  TC
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white p-1 shadow-inner flex-shrink-0">
+                  <Image
+                    src="/tc-icon-512.png"
+                    alt="TransferCuba"
+                    width={40}
+                    height={40}
+                    className="w-full h-full object-contain"
+                  />
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">

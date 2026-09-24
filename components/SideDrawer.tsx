@@ -1,6 +1,7 @@
 'use client';
-
 import React, { useState } from 'react';
+import Image from 'next/image';
+
 import ModalShell from '@/components/ModalShell';
 import { 
   X, 
@@ -65,12 +66,14 @@ export default function SideDrawer({
         {/* Header with TransferCuba Brand Banner */}
         <div className="p-5 bg-navy text-white flex items-start justify-between border-b border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-emerald-400 via-teal-500 to-blue-600 p-[1.5px] shadow-level-2 shadow-emerald-950/50">
-              <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
-                <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-tr from-emerald-300 to-white text-lg font-display">
-                  TC
-                </span>
-              </div>
+            <div className="w-11 h-11 rounded-lg bg-white p-1 shadow-level-2 shadow-emerald-950/50 flex-shrink-0">
+              <Image
+                src="/tc-icon-512.png"
+                alt="TransferCuba"
+                width={44}
+                height={44}
+                className="w-full h-full object-contain"
+              />
             </div>
             <div>
               <h2 id="side-drawer-title" className="text-base font-extrabold text-white font-display flex items-center gap-1.5">

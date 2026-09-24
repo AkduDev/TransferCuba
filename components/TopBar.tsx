@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import {
   Search,
   Menu,
@@ -113,8 +114,15 @@ export default function TopBar({
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-1.5 border-l border-white/15 pl-3">
-            <span className="text-sm font-extrabold tracking-tight">
-              Transfer<span className="text-cerulean-light">Cuba</span>
+            <span className="flex items-center bg-white rounded-md px-2 py-1">
+              <Image
+                src="/TransferCubaLogo.png"
+                alt="TransferCuba"
+                width={110}
+                height={24}
+                className="h-6 w-auto"
+                priority
+              />
             </span>
           </div>
         </div>
