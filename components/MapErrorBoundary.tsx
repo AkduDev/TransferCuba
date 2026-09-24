@@ -36,9 +36,9 @@ export default class MapErrorBoundary extends React.Component<
 
     if (isChunkError && typeof window !== 'undefined') {
       const now = Date.now();
-      const lastReload = sessionStorage.getItem('dondepago_chunk_autoreload');
+      const lastReload = sessionStorage.getItem('transfercuba_chunk_autoreload');
       if (!lastReload || now - parseInt(lastReload, 10) > 15000) {
-        sessionStorage.setItem('dondepago_chunk_autoreload', now.toString());
+        sessionStorage.setItem('transfercuba_chunk_autoreload', now.toString());
         console.warn('Auto-reloading page to fetch latest compiled chunk...');
         window.location.reload();
       }
@@ -47,7 +47,7 @@ export default class MapErrorBoundary extends React.Component<
 
   handleReload = () => {
     if (typeof window !== 'undefined') {
-      sessionStorage.removeItem('dondepago_chunk_autoreload');
+      sessionStorage.removeItem('transfercuba_chunk_autoreload');
       window.location.reload();
     }
   };

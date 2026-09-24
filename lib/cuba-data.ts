@@ -19,7 +19,7 @@ export interface Business {
     onlineGateway: boolean;
     cash: boolean;
   };
-  transferVerified: boolean; // Verificado por DevParadise
+  transferVerified: boolean; // Verificado por TransferCuba
   lastStatusUpdate: string; // e.g. "Hace 15 min", "Hace 2 horas"
   lastUpdatedDate: string; // ISO date
   confirmationsCount: number; // 👍 Votos confirmados

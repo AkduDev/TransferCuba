@@ -284,11 +284,11 @@ export default function AdminDashboardModal({
             <div className="px-4 sm:px-6 py-3 sm:py-4 bg-navy text-white flex items-center justify-between flex-shrink-0 border-b border-slate-800">
               <div className="flex items-center gap-2.5 sm:gap-3">
                 <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-cerulean/20 border border-blue-500/40 text-blue-400 flex items-center justify-center font-black text-xs sm:text-sm font-display shadow-inner flex-shrink-0">
-                  DP
+                  TC
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                    <h2 id="admin-modal-title" className="text-base sm:text-lg font-extrabold font-display text-white">DevParadise Control Center</h2>
+                    <h2 id="admin-modal-title" className="text-base sm:text-lg font-extrabold font-display text-white">TransferCuba · Administración</h2>
                     <span className="px-1.5 sm:px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                       Sesión Activa
                     </span>
@@ -706,7 +706,7 @@ export default function AdminDashboardModal({
                                 </button>
                               </td>
 
-                              {/* Sello DevParadise */}
+                              {/* Sello TransferCuba */}
                               <td className="py-3.5 px-3">
                                 <button
                                   onClick={() => onToggleVerify(biz.id)}

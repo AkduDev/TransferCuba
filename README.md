@@ -1,4 +1,4 @@
-# TransferCuba — ¿Dónde Pago? Cuba
+# TransferCuba
 
 [![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org)
 [![React](https://img.shields.io/badge/React-19-blue)](https://react.dev)

@@ -33,7 +33,7 @@ export async function searchNominatimAddress(query: string, province?: string): 
     const res = await fetch(url, {
       headers: {
         'Accept-Language': 'es',
-        'User-Agent': 'TransferCuba-Applet/1.0 (devparadise-cuba)'
+        'User-Agent': 'TransferCuba-App/1.0 (transfercuba)'
       }
     });
 
@@ -78,7 +78,7 @@ export async function reverseNominatimCoords(lat: number, lng: number): Promise<
     const res = await fetch(url, {
       headers: {
         'Accept-Language': 'es',
-        'User-Agent': 'TransferCuba-Applet/1.0 (devparadise-cuba)'
+        'User-Agent': 'TransferCuba-App/1.0 (transfercuba)'
       }
     });
 

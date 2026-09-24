@@ -14,16 +14,16 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: '¿Dónde Pago? Cuba — TransferCuba | Negocios con Transferencia',
+  title: 'TransferCuba | Negocios con Transferencia en Cuba',
   description: 'TransferCuba: El mapa y directorio de negocios que aceptan transferencia en Cuba (MapLibre GL JS + OpenStreetMap + Nominatim + PostGIS).',
   openGraph: {
-    title: '¿Dónde Pago? Cuba — TransferCuba | Negocios con Transferencia',
+    title: 'TransferCuba | Negocios con Transferencia en Cuba',
     description: 'TransferCuba: El mapa y directorio de negocios que aceptan transferencia en Cuba (MapLibre GL JS + OpenStreetMap + Nominatim + PostGIS).',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: '¿Dónde Pago? Cuba — TransferCuba | Negocios con Transferencia',
+    title: 'TransferCuba | Negocios con Transferencia en Cuba',
     description: 'TransferCuba: El mapa y directorio de negocios que aceptan transferencia en Cuba.',
   },
 };

@@ -1,5 +1,5 @@
 {
-  "name": "¿Dónde Pago? Cuba",
+  "name": "TransferCuba",
   "description": "TransferCuba: El mapa y directorio de negocios que aceptan transferencia en Cuba (MapLibre GL JS + OpenStreetMap + Nominatim + OSRM).",
   "requestFramePermissions": ["geolocation"]
 }

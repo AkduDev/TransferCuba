@@ -62,13 +62,13 @@ export default function SideDrawer({
       alignClassName="items-stretch justify-start"
       panelClassName="w-80 sm:w-96 bg-white h-full shadow-level-4 animate-in slide-in-from-left duration-300 border-r border-border-subtle"
     >
-        {/* Header with DevParadise Brand Banner */}
+        {/* Header with TransferCuba Brand Banner */}
         <div className="p-5 bg-navy text-white flex items-start justify-between border-b border-slate-800">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-emerald-400 via-teal-500 to-blue-600 p-[1.5px] shadow-level-2 shadow-emerald-950/50">
               <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
                 <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-tr from-emerald-300 to-white text-lg font-display">
-                  DP
+                  TC
                 </span>
               </div>
             </div>
