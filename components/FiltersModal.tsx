@@ -12,7 +12,7 @@ import {
   Globe, 
   SlidersHorizontal 
 } from 'lucide-react';
-import { CUBAN_PROVINCES, CATEGORIES } from '@/lib/cuba-data';
+import { CUBAN_PROVINCES, CATEGORIES, CATEGORY_EMOJI } from '@/lib/cuba-data';
 
 interface FiltersModalProps {
   isOpen: boolean;
@@ -145,7 +145,7 @@ export default function FiltersModal({
                         : 'bg-slate-50 border-border-subtle text-slate-600 hover:bg-slate-100'
                     }`}
                   >
-                    <span>{cat.icon === 'Store' ? '🏬' : cat.icon === 'Utensils' ? '🍕' : cat.icon === 'ShoppingBag' ? '🛒' : cat.icon === 'Pill' ? '💊' : cat.icon === 'Coffee' ? '☕' : cat.icon === 'Smartphone' ? '📱' : cat.icon === 'Wrench' ? '🔧' : '👕'}</span>
+                    <span>{CATEGORY_EMOJI[cat.id] ?? '🏪'}</span>
                     <span className="truncate">{cat.label}</span>
                   </button>
                 );

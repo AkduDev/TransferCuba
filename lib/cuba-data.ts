@@ -274,6 +274,7 @@ export const CATEGORIES = [
 ];
 
 export const CATEGORY_EMOJI: Record<string, string> = {
+  all: '🏬',
   comida: '🍔',
   tiendas: '🛒',
   farmacias: '💊',

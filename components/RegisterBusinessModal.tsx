@@ -467,7 +467,7 @@ export default function RegisterBusinessModal({
       await onSubmit({
         name: name.trim(),
         category,
-        categoryIcon: category === 'comida' ? 'Utensils' : category === 'farmacias' ? 'Pill' : 'ShoppingBag',
+        categoryIcon: CATEGORIES.find((c) => c.id === category)?.icon ?? 'ShoppingBag',
         description: description.trim() || `Negocio con atención de calidad en ${municipality}, ${province}.`,
         province,
         municipality,

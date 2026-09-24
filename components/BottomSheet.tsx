@@ -23,7 +23,7 @@ import {
   Sparkles,
   Star
 } from 'lucide-react';
-import { Business, formatDistance } from '@/lib/cuba-data';
+import { Business, formatDistance, CATEGORY_EMOJI } from '@/lib/cuba-data';
 import BusinessCard from '@/components/BusinessCard';
 import BusinessCover from '@/components/BusinessCover';
 
@@ -183,7 +183,7 @@ export default function BottomSheet({
           <div className="flex items-start justify-between gap-2 pb-2 border-b border-slate-100 flex-shrink-0">
             <div className="flex-1 min-w-0" onClick={toggleExpand}>
               <div className="flex items-center gap-1.5 mb-0.5">
-                <span className="text-xs">{selectedBusiness.categoryIcon}</span>
+                <span className="text-xs">{CATEGORY_EMOJI[selectedBusiness.category] ?? '🏪'}</span>
                 <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   {selectedBusiness.category}
                 </span>

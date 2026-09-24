@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { queryBusinesses, queryBusinessesMap, insertBusiness, patchBusiness, PatchAction } from '@/lib/db';
-import { Business, CUBAN_PROVINCES } from '@/lib/cuba-data';
+import { Business, CUBAN_PROVINCES, CATEGORIES } from '@/lib/cuba-data';
 import { sessionValidFromRequest } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
     details.qrPayment === true ||
     details.onlineGateway === true ||
     body.acceptsTransfer === true;
-  const VALID_ICONS = ['ShoppingBag', 'Utensils', 'Smartphone', 'Pill', 'Coffee', 'Wrench', 'Shirt'];
+  const VALID_ICONS = CATEGORIES.filter((c) => c.id !== 'all').map((c) => c.icon);
   const newBusiness: Business = {
     id: crypto.randomUUID(),
     name: rawName,
