@@ -1,6 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 
 import ModalShell from '@/components/ModalShell';
 import { 
@@ -311,6 +312,15 @@ export default function SideDrawer({
         <div className="p-4 bg-slate-50 border-t border-border-subtle/90 text-center text-xs text-slate-500">
           <p className="font-semibold text-slate-600">TransferCuba</p>
           <p className="text-[11px] text-slate-400 mt-0.5">Encuentra. Compra. Recibe. © 2026</p>
+          <p className="text-[11px] mt-1.5 flex items-center justify-center gap-3">
+            <Link href="/privacidad" onClick={onClose} className="font-semibold text-cerulean-dark hover:text-cerulean transition-colors">
+              Privacidad
+            </Link>
+            <span aria-hidden="true" className="text-slate-300">·</span>
+            <Link href="/terminos" onClick={onClose} className="font-semibold text-cerulean-dark hover:text-cerulean transition-colors">
+              Términos
+            </Link>
+          </p>
         </div>
     </ModalShell>
   );
