@@ -19,6 +19,10 @@ export async function POST(
   if (!auth.ok) return err('Autenticación requerida', auth.status);
 
   const { id: businessId } = await params;
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!UUID.test(businessId)) {
+    return err('Identificador de negocio inválido', 400);
+  }
   const body = await req.json().catch(() => null) as {
     url?: string;
     publicId?: string;
@@ -29,10 +33,20 @@ export async function POST(
     return err('url y publicId requeridos', 400);
   }
 
-  // Validar que la URL es de Cloudinary
-  if (!body.url.includes('res.cloudinary.com')) {
+  // Solo HTTPS de Cloudinary; publicId con formato de asset y alt acotado
+  let parsed: URL;
+  try {
+    parsed = new URL(body.url);
+  } catch {
     return err('URL no válida', 400);
   }
+  if (parsed.protocol !== 'https:' || parsed.hostname !== 'res.cloudinary.com' || body.url.length > 500) {
+    return err('URL no válida', 400);
+  }
+  if (!/^[A-Za-z0-9/_-]+$/.test(body.publicId) || body.publicId.length > 200) {
+    return err('publicId no válido', 400);
+  }
+  const alt = typeof body.alt === 'string' ? body.alt.trim().slice(0, 200) : null;
 
   const pool = getDbPool();
   if (!pool) return err('Base de datos no disponible', 503);
@@ -41,7 +55,7 @@ export async function POST(
     await pool.query(
       `INSERT INTO business_images (id, business_id, url, alt, sort_order, is_cover)
        VALUES ($1, $2, $3, $4, 0, FALSE)`,
-      [randomUUID(), businessId, body.url, body.alt ?? null]
+      [randomUUID(), businessId, body.url, alt]
     );
     return NextResponse.json({ success: true });
   } catch (error) {

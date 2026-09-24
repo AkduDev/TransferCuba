@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { queryBusinesses, queryBusinessesMap, insertBusiness, patchBusiness, PatchAction } from '@/lib/db';
-import { Business } from '@/lib/cuba-data';
+import { Business, CUBAN_PROVINCES } from '@/lib/cuba-data';
 import { sessionValidFromRequest } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
@@ -137,11 +137,20 @@ export async function POST(req: NextRequest) {
   if (typeof body.category !== 'string' || !validCategories.includes(body.category)) {
     return NextResponse.json({ success: false, error: 'category inválida' }, { status: 400 });
   }
-  if (typeof body.province !== 'string' || body.province.trim().length < 2) {
+  const rawProvince = typeof body.province === 'string' ? body.province.trim() : '';
+  if (rawProvince.length < 2) {
     return NextResponse.json({ success: false, error: 'province requerida' }, { status: 400 });
   }
-  if (typeof body.municipality !== 'string' || body.municipality.trim().length < 2) {
+  const provinceData = CUBAN_PROVINCES.find((p) => p.name === rawProvince);
+  if (!provinceData) {
+    return NextResponse.json({ success: false, error: 'province inválida' }, { status: 400 });
+  }
+  const rawMunicipality = typeof body.municipality === 'string' ? body.municipality.trim() : '';
+  if (rawMunicipality.length < 2) {
     return NextResponse.json({ success: false, error: 'municipality requerido' }, { status: 400 });
+  }
+  if (!provinceData.municipalities.includes(rawMunicipality)) {
+    return NextResponse.json({ success: false, error: 'municipality no pertenece a la province' }, { status: 400 });
   }
   const rawAddress = typeof body.address === 'string' ? body.address.trim() : '';
   if (rawAddress.length < 3) {
@@ -157,26 +166,35 @@ export async function POST(req: NextRequest) {
     body.transferDetails && typeof body.transferDetails === 'object'
       ? (body.transferDetails as Record<string, unknown>)
       : {};
+  const acceptsTransfer = details.transfermovil === true ||
+    details.enzona === true ||
+    details.qrPayment === true ||
+    details.onlineGateway === true ||
+    body.acceptsTransfer === true;
+  const VALID_ICONS = ['ShoppingBag', 'Utensils', 'Smartphone', 'Pill', 'Coffee', 'Wrench', 'Shirt'];
   const newBusiness: Business = {
     id: crypto.randomUUID(),
     name: rawName,
     category: body.category,
-    categoryIcon: typeof body.categoryIcon === 'string' ? body.categoryIcon : '🏪',
+    categoryIcon:
+      typeof body.categoryIcon === 'string' && VALID_ICONS.includes(body.categoryIcon)
+        ? body.categoryIcon
+        : 'ShoppingBag',
     description: capped(body.description, 2000),
-    province: body.province.trim(),
-    municipality: body.municipality.trim(),
+    province: rawProvince,
+    municipality: rawMunicipality,
     neighborhood: capped(body.neighborhood, 120),
     address: rawAddress,
     lat,
     lng,
-    acceptsTransfer: body.acceptsTransfer !== false,
-    transferActiveNow: body.transferActiveNow !== false,
+    acceptsTransfer,
+    transferActiveNow: acceptsTransfer && body.transferActiveNow !== false,
     transferDetails: {
-      transfermovil: true,
+      transfermovil: details.transfermovil === true,
       enzona: details.enzona === true,
       qrPayment: details.qrPayment === true,
       onlineGateway: details.onlineGateway === true,
-      cash: true
+      cash: details.cash === true
     },
     transferVerified: false,
     lastStatusUpdate: 'Registrado hoy (Pendiente de aprobación)',
