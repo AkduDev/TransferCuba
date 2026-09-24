@@ -65,19 +65,22 @@ export default function SideDrawer({
     >
         {/* Header with TransferCuba Brand Banner */}
         <div className="p-5 bg-navy text-white flex items-start justify-between border-b border-slate-800">
-          <div className="flex flex-col gap-2">
-            <h2 id="side-drawer-title" className="sr-only">TransferCuba</h2>
-            <span className="inline-flex items-center self-start bg-white rounded-xl px-3 py-2">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 flex-shrink-0">
               <Image
-                src="/tc-lockup.png"
+                src="/tc-icon-512.png"
                 alt="TransferCuba"
-                width={190}
-                height={140}
-                className="h-12 w-auto"
-                priority
+                width={44}
+                height={44}
+                className="w-full h-full object-contain"
               />
-            </span>
-            <p className="text-xs text-slate-300">Tu mapa para pagar sin efectivo</p>
+            </div>
+            <div>
+              <h2 id="side-drawer-title" className="text-base font-extrabold text-white font-display flex items-center gap-1.5">
+                <span>Transfer</span>
+                <span className="text-cerulean-light">Cuba</span>
+              </h2>
+            </div>
           </div>
 
           <button
