@@ -779,6 +779,7 @@ export default function RegisterBusinessModal({
                 <input
                   type="text"
                   value={neighborhood}
+                  maxLength={120}
                   onChange={(e) => setNeighborhood(e.target.value)}
                   placeholder="ej. Vedado / Miramar / Santos Suárez"
                   className="w-full min-h-11 text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-lg border border-border-subtle focus:outline-none focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean"
@@ -802,6 +803,7 @@ export default function RegisterBusinessModal({
                 <input
                   type="text"
                   value={nominatimQuery}
+                  maxLength={120}
                   onChange={(e) => setNominatimQuery(e.target.value)}
                   placeholder={address.trim() ? address : 'ej. Calle 23 e/ L y M, Vedado'}
                   className="flex-1 min-h-11 text-base sm:text-sm px-2.5 py-2 rounded-lg border border-border-strong bg-white focus:outline-none focus:ring-1 focus:ring-cerulean/25"
@@ -1200,6 +1202,7 @@ export default function RegisterBusinessModal({
                 <input
                   type="text"
                   value={hours}
+                  maxLength={120}
                   onChange={(e) => setHours(e.target.value)}
                   placeholder="08:00 — 20:00 (Lunes a Sábado)"
                   className="w-full min-h-11 text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-lg border border-border-subtle focus:outline-none focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean"

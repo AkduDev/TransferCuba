@@ -437,6 +437,7 @@ export default function ExplorePanel({
                       <p className="text-xs font-bold text-crimson">Reportar a moderación</p>
                       <textarea
                         value={reportText}
+                        maxLength={500}
                         onChange={(e) => setReportText(e.target.value)}
                         placeholder="Indica qué cambió (no aceptan transfer, teléfono cambiado…)"
                         className="w-full text-xs p-2 rounded-md border border-ez-border bg-white focus:outline-none focus:ring-2 focus:ring-crimson/20"

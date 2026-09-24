@@ -69,6 +69,21 @@ export default function AuthModal({ isOpen, onClose, auth }: AuthModalProps) {
       setLocalError('Debes aceptar los Términos y Condiciones para crear tu cuenta.');
       return;
     }
+    const phoneDigits = phone.replace(/\D/g, '');
+    if (phoneDigits.length < 7 || phoneDigits.length > 15) {
+      setLocalError('Revisa el teléfono: debe tener entre 7 y 15 dígitos.');
+      return;
+    }
+    if (mode === 'register') {
+      if (name.trim().length < 3 || name.trim().length > 80) {
+        setLocalError('El nombre debe tener entre 3 y 80 caracteres.');
+        return;
+      }
+      if (pin.length < 8 || pin.length > 72) {
+        setLocalError('La contraseña debe tener entre 8 y 72 caracteres.');
+        return;
+      }
+    }
     setIsSubmitting(true);
     setLocalError('');
     try {
@@ -258,6 +273,7 @@ export default function AuthModal({ isOpen, onClose, auth }: AuthModalProps) {
                       <input
                         type="text"
                         required
+                        maxLength={80}
                         value={name}
                         onChange={(e) => { setName(e.target.value); setLocalError(''); }}
                         placeholder="Tu nombre"
@@ -277,6 +293,7 @@ export default function AuthModal({ isOpen, onClose, auth }: AuthModalProps) {
                       type="tel"
                       required
                       inputMode="tel"
+                      maxLength={20}
                       value={phone}
                       onChange={(e) => { setPhone(e.target.value); setLocalError(''); }}
                       placeholder="ej. 5355551234"

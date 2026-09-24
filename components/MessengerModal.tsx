@@ -251,6 +251,7 @@ function ApplicationForm({
           </span>
           <input
             value={reference}
+            maxLength={80}
             onChange={(e) => setReference(e.target.value)}
             placeholder={esEfectivo ? 'Ej. entregado en mano el 12/09' : 'Ej. alta-mensajero-042'}
             className="w-full min-h-11 rounded-lg border border-border-subtle bg-white px-3 py-2 text-sm font-semibold"
@@ -262,6 +263,7 @@ function ApplicationForm({
         <span className="text-[11px] font-bold text-slate-600">Zonas de servicio</span>
         <textarea
           value={serviceAreas}
+          maxLength={700}
           onChange={(e) => setServiceAreas(e.target.value)}
           placeholder="La Habana, Playa, Centro Habana"
           rows={2}
@@ -271,7 +273,8 @@ function ApplicationForm({
 
       <button
         type="submit"
-        disabled={isSubmitting}
+        disabled={isSubmitting || (!esEfectivo && reference.trim().length < 3)}
+        title={!esEfectivo && reference.trim().length < 3 ? 'Escribe la referencia de tu transferencia (mínimo 3 caracteres)' : undefined}
         className="w-full inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-emerald-brand px-4 py-2.5 text-xs font-extrabold text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
       >
         {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Send className="w-4 h-4" aria-hidden="true" />}

@@ -126,8 +126,12 @@ export async function POST(req: NextRequest) {
   if (typeof lng !== 'number' || lng < -180 || lng > 180 || Number.isNaN(lng)) {
     return NextResponse.json({ success: false, error: 'lng inválida (debe ser -180..180)' }, { status: 400 });
   }
-  if (typeof body.name !== 'string' || body.name.trim().length < 3) {
+  const rawName = typeof body.name === 'string' ? body.name.trim() : '';
+  if (rawName.length < 3) {
     return NextResponse.json({ success: false, error: 'name requerido (mínimo 3 caracteres)' }, { status: 400 });
+  }
+  if (rawName.length > 120) {
+    return NextResponse.json({ success: false, error: 'name demasiado largo (máximo 120 caracteres)' }, { status: 400 });
   }
   const validCategories = ['tiendas', 'comida', 'farmacias', 'cafeterias', 'servicios', 'ferreteria', 'ropa'];
   if (typeof body.category !== 'string' || !validCategories.includes(body.category)) {
@@ -139,9 +143,15 @@ export async function POST(req: NextRequest) {
   if (typeof body.municipality !== 'string' || body.municipality.trim().length < 2) {
     return NextResponse.json({ success: false, error: 'municipality requerido' }, { status: 400 });
   }
-  if (typeof body.address !== 'string' || body.address.trim().length < 3) {
+  const rawAddress = typeof body.address === 'string' ? body.address.trim() : '';
+  if (rawAddress.length < 3) {
     return NextResponse.json({ success: false, error: 'address requerida (mínimo 3 caracteres)' }, { status: 400 });
   }
+  if (rawAddress.length > 500) {
+    return NextResponse.json({ success: false, error: 'address demasiado larga (máximo 500 caracteres)' }, { status: 400 });
+  }
+  const capped = (v: unknown, max: number) =>
+    typeof v === 'string' ? v.trim().slice(0, max) : '';
 
   const details =
     body.transferDetails && typeof body.transferDetails === 'object'
@@ -149,14 +159,14 @@ export async function POST(req: NextRequest) {
       : {};
   const newBusiness: Business = {
     id: crypto.randomUUID(),
-    name: body.name.trim(),
+    name: rawName,
     category: body.category,
     categoryIcon: typeof body.categoryIcon === 'string' ? body.categoryIcon : '🏪',
-    description: typeof body.description === 'string' ? body.description : '',
+    description: capped(body.description, 2000),
     province: body.province.trim(),
     municipality: body.municipality.trim(),
-    neighborhood: typeof body.neighborhood === 'string' ? body.neighborhood : '',
-    address: body.address.trim(),
+    neighborhood: capped(body.neighborhood, 120),
+    address: rawAddress,
     lat,
     lng,
     acceptsTransfer: body.acceptsTransfer !== false,
@@ -173,9 +183,9 @@ export async function POST(req: NextRequest) {
     lastUpdatedDate: new Date().toISOString(),
     confirmationsCount: 1,
     reportsCount: 0,
-    hours: typeof body.hours === 'string' ? body.hours : '',
-    whatsapp: typeof body.whatsapp === 'string' ? body.whatsapp : '',
-    phone: typeof body.phone === 'string' ? body.phone : '',
+    hours: capped(body.hours, 120),
+    whatsapp: capped(body.whatsapp, 32),
+    phone: capped(body.phone, 32),
     rating: 5.0,
     reviewsCount: 1,
     photos: sanitizePhotos(body.photos),

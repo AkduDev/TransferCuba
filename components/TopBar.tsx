@@ -144,6 +144,7 @@ export default function TopBar({
             <input
               type="text"
               value={searchQuery}
+              maxLength={120}
               onChange={(e) => onSearchChange(e.target.value)}
               onFocus={() => onSearchFocusChange(true)}
               onBlur={() => setTimeout(() => onSearchFocusChange(false), 150)}

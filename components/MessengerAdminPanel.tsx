@@ -247,6 +247,7 @@ export default function MessengerAdminPanel() {
               <input
                 type="number"
                 min="0"
+                max="1000000"
                 step="1"
                 value={form.messengerFeeCup}
                 onChange={(e) => setForm({ ...form, messengerFeeCup: e.target.value })}
@@ -269,6 +270,7 @@ export default function MessengerAdminPanel() {
               <span className="text-[11px] font-bold text-slate-600">Tarjeta o cuenta destino</span>
               <input
                 value={form.messengerPayCard}
+                maxLength={80}
                 onChange={(e) => setForm({ ...form, messengerPayCard: e.target.value })}
                 className="w-full min-h-11 rounded-lg border border-border-subtle bg-slate-50 px-3 py-2 text-sm font-semibold"
               />
@@ -277,6 +279,8 @@ export default function MessengerAdminPanel() {
               <span className="text-[11px] font-bold text-slate-600">WhatsApp de comprobantes</span>
               <input
                 value={form.messengerWhatsapp}
+                maxLength={80}
+                inputMode="tel"
                 onChange={(e) => setForm({ ...form, messengerWhatsapp: e.target.value })}
                 className="w-full min-h-11 rounded-lg border border-border-subtle bg-slate-50 px-3 py-2 text-sm font-semibold"
               />
