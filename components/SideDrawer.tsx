@@ -80,6 +80,7 @@ export default function SideDrawer({
                 <span>Transfer</span>
                 <span className="text-cerulean-light">Cuba</span>
               </h2>
+              <p className="text-xs text-slate-400">Tu plataforma de confianza</p>
             </div>
           </div>
 
