@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     title: 'TransferCuba | Negocios con Transferencia en Cuba',
     description: 'TransferCuba: El mapa y directorio de negocios que aceptan transferencia en Cuba (MapLibre GL JS + OpenStreetMap + Nominatim + PostGIS).',
     type: 'website',
-    images: ['/TransferCubaLogo.png'],
+    images: ['/TransferCubaLogo-removebg-preview.png'],
   },
   twitter: {
     card: 'summary_large_image',

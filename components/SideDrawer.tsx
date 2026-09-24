@@ -66,7 +66,7 @@ export default function SideDrawer({
         {/* Header with TransferCuba Brand Banner */}
         <div className="p-5 bg-navy text-white flex items-start justify-between border-b border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-lg bg-white p-1 shadow-level-2 shadow-emerald-950/50 flex-shrink-0">
+            <div className="w-11 h-11 flex-shrink-0">
               <Image
                 src="/tc-icon-512.png"
                 alt="TransferCuba"

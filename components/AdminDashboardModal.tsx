@@ -284,7 +284,7 @@ export default function AdminDashboardModal({
             {/* Header */}
             <div className="px-4 sm:px-6 py-3 sm:py-4 bg-navy text-white flex items-center justify-between flex-shrink-0 border-b border-slate-800">
               <div className="flex items-center gap-2.5 sm:gap-3">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white p-1 shadow-inner flex-shrink-0">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 flex-shrink-0">
                   <Image
                     src="/tc-icon-512.png"
                     alt="TransferCuba"
