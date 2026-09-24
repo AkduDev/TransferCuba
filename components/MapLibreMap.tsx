@@ -90,7 +90,6 @@ const LAYER_GEO_PINS_ID = 'geo-pins-layer';
 const LAYER_GEO_LABELS_ID = 'geo-labels-layer';
 const LAYER_CLUSTERS_ID = 'clusters-layer';
 const LAYER_CLUSTER_COUNT_ID = 'cluster-count-layer';
-const LAYER_PAYMENT_ICONS_ID = 'payment-icons-layer';
 const LAYER_CLUSTER_HOVER_ID = 'cluster-hover-halo';
 
 const SOURCE_DELIVERY_REQUESTS_ID = 'deliveries-requests-source';
@@ -168,6 +167,28 @@ function businessesToGeoJSON(list: Business[]): FeatureCollection<Point> {
   };
 }
 
+function businessesSignature(list: Business[]): string {
+  return list
+    .map((b) =>
+      [
+        b.id,
+        b.name,
+        b.category,
+        b.province,
+        b.municipality,
+        b.acceptsTransfer ? 1 : 0,
+        b.transferActiveNow ? 1 : 0,
+        b.transferVerified ? 1 : 0,
+        b.reportsCount,
+        b.hasDelivery ? 1 : 0,
+        b.transferDetails?.qrPayment ? 1 : 0,
+        b.transferDetails?.onlineGateway ? 1 : 0,
+        b.rating
+      ].join('|')
+    )
+    .join(';');
+}
+
 function pinColorExpr(): maplibregl.ExpressionSpecification {
   return [
     'case',
@@ -203,7 +224,12 @@ function pinStrokeWidthExpr(): maplibregl.ExpressionSpecification {
 
 function labelLayout(): Record<string, unknown> {
   return {
-    'text-field': ['get', 'label'],
+    'text-field': [
+      'case',
+      ['==', ['get', 'payment_codes'], ''],
+      ['get', 'label'],
+      ['concat', ['get', 'label'], '\n', ['get', 'payment_codes']]
+    ],
     'text-font': ['Noto Sans Bold'],
     'text-size': ['interpolate', ['linear'], ['zoom'], 11, 11, 15, 13, 18, 15],
     'text-anchor': 'top',
@@ -352,15 +378,6 @@ function buildGeoLabelFilter(searchActive: boolean): FilterSpec | null {
   return ['all', ['<=', ['zoom'], CLUSTER_MAX_ZOOM] as Cond, zoomHigh] as FilterSpec;
 }
 
-function buildGeoPaymentFilter(searchActive: boolean): FilterSpec {
-  const notEmpty: Cond = ['!=', ['get', 'payment_codes'], ''] as maplibregl.ExpressionSpecification;
-  const notCluster: Cond = ['!', ['has', 'point_count']] as Cond;
-  if (searchActive) {
-    return ['all', notCluster, notEmpty, ['>=', ['zoom'], LABEL_MIN_ZOOM] as Cond] as FilterSpec;
-  }
-  return ['all', notCluster, notEmpty, ['>', ['zoom'], CLUSTER_MAX_ZOOM] as Cond] as FilterSpec;
-}
-
 function deliveryRequestsToGeoJSON(list: AvailableDeliveryDTO[] | undefined): FeatureCollection {
   const features: Feature<Point>[] = (list ?? []).flatMap((d) => {
     if (!d.pickup) return [];
@@ -483,12 +500,16 @@ export default function MapLibreMap({
   const businessesRef = useRef(businesses);
   const onSelectBusinessRef = useRef(onSelectBusiness);
   const selectedBusinessRef = useRef(selectedBusiness);
+  const geoSignatureRef = useRef<string | null>(null);
 
   useEffect(() => {
     businessesRef.current = businesses;
     onSelectBusinessRef.current = onSelectBusiness;
     selectedBusinessRef.current = selectedBusiness;
     businessesByIdRef.current = new Map(businesses.map((b) => [b.id, b]));
+    const sig = businessesSignature(businesses);
+    if (sig === geoSignatureRef.current) return;
+    geoSignatureRef.current = sig;
     const src = mapInstanceRef.current?.getSource(SOURCE_GEO_ID) as
       | GeoJSONSource
       | undefined;
@@ -506,13 +527,11 @@ export default function MapLibreMap({
     const mvtLabelFilter = buildMvtLabelFilter(f);
     const geoFilter = buildGeoPinFilter(searchActive);
     const geoLabelFilter = buildGeoLabelFilter(searchActive);
-    const geoPaymentFilter = buildGeoPaymentFilter(searchActive);
 
     if (map.getLayer(LAYER_MVT_PINS_ID)) map.setFilter(LAYER_MVT_PINS_ID, mvtFilter);
     if (map.getLayer(LAYER_MVT_LABELS_ID)) map.setFilter(LAYER_MVT_LABELS_ID, mvtLabelFilter);
     if (map.getLayer(LAYER_GEO_PINS_ID)) map.setFilter(LAYER_GEO_PINS_ID, geoFilter);
     if (map.getLayer(LAYER_GEO_LABELS_ID)) map.setFilter(LAYER_GEO_LABELS_ID, geoLabelFilter);
-    if (map.getLayer(LAYER_PAYMENT_ICONS_ID)) map.setFilter(LAYER_PAYMENT_ICONS_ID, geoPaymentFilter);
   };
 
   useEffect(() => {
@@ -566,7 +585,7 @@ export default function MapLibreMap({
         zoom: zoom,
         attributionControl: false,
         fadeDuration: 0,
-        maxTileCacheSize: 400,
+        maxTileCacheSize: 128,
         transformRequest: (url: string) => {
           return { url };
         }
@@ -823,32 +842,6 @@ export default function MapLibreMap({
         });
 
         ensureLayer({
-          id: LAYER_PAYMENT_ICONS_ID,
-          type: 'symbol',
-          source: SOURCE_GEO_ID,
-          filter: [
-            'all',
-            ['!', ['has', 'point_count']] as Cond,
-            ['!=', ['get', 'payment_codes'], ''] as Cond,
-            ['>', ['zoom'], CLUSTER_MAX_ZOOM] as Cond
-          ] as FilterSpec,
-          layout: {
-            'text-field': ['get', 'payment_codes'],
-            'text-font': ['Noto Sans Regular'],
-            'text-size': 9,
-            'text-offset': [0, 1.8],
-            'text-anchor': 'top',
-            'text-allow-overlap': false,
-            'text-ignore-placement': false
-          },
-          paint: {
-            'text-color': '#334155',
-            'text-halo-color': '#ffffff',
-            'text-halo-width': 1
-          }
-        });
-
-        ensureLayer({
           id: LAYER_MVT_PINS_ID,
           type: 'circle',
           source: MVT_SOURCE_ID,
@@ -894,8 +887,7 @@ export default function MapLibreMap({
             LAYER_MVT_PINS_ID,
             LAYER_MVT_LABELS_ID,
             LAYER_GEO_PINS_ID,
-            LAYER_GEO_LABELS_ID,
-            LAYER_PAYMENT_ICONS_ID
+            LAYER_GEO_LABELS_ID
           ];
           pinLayers.forEach((layerId) => {
             map.on('click', layerId, onPinClick);
@@ -1052,7 +1044,6 @@ export default function MapLibreMap({
           map.getLayer(LAYER_MVT_PINS_ID) &&
           map.getLayer(LAYER_GEO_PINS_ID) &&
           map.getLayer(LAYER_GEO_LABELS_ID) &&
-          map.getLayer(LAYER_PAYMENT_ICONS_ID) &&
           map.getLayer(LAYER_CLUSTERS_ID) &&
           map.getLayer(LAYER_SELECTED_HALO_ID);
         if (complete) return;

@@ -94,6 +94,7 @@ db/migrate_delivery_phase6.sql
 db/migrate_has_delivery.sql
 db/migrate_business_last_updated_default.sql
 db/migrate_mvt_enhance.sql
+db/migrate_mvt_perf.sql
 ```
 
 `migrate_v2.sql` y `migrate_1_9_drop_legacy.sql` son históricos: solo para bases

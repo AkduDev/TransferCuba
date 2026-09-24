@@ -105,11 +105,28 @@ export function useBusinessesData({ filters, viewportBbox, userLocation }: UseBu
     onlyTransfer, onlyActiveNow, filterQr, filterOnline, filterVerification, userLocation
   ]);
 
-  // Persist to localStorage (offline cache)
+  const lastPersistAtRef = useRef(0);
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
-    if (typeof window !== 'undefined' && !isSyncingFromApi) {
-      localStorage.setItem('transfercuba_businesses_v2', JSON.stringify(businesses));
+    if (typeof window === 'undefined' || isSyncingFromApi) return;
+    const write = () => {
+      lastPersistAtRef.current = Date.now();
+      try {
+        localStorage.setItem('transfercuba_businesses_v2', JSON.stringify(businesses));
+      } catch {
+        // cuota llena o storage bloqueado: la app sigue con memoria
+      }
+    };
+    if (Date.now() - lastPersistAtRef.current >= 5000) {
+      write();
+      return;
     }
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = setTimeout(write, 5000 - (Date.now() - lastPersistAtRef.current));
+    return () => {
+      if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    };
   }, [businesses, isSyncingFromApi]);
 
   // Server sync helper — envía mutations a la API best-effort.
