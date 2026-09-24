@@ -92,25 +92,25 @@ test('un negocio se registra con foto pulsando el formulario', async ({ page }) 
 
   const modal = page.getByRole('dialog');
   await expect(modal).toBeVisible();
-  await expect(modal).toHaveAccessibleName(/Registrar Negocio/);
+  await expect(modal).toHaveAccessibleName(/Haz visible tu negocio/);
 
   // 2. Paso 1/5 (Negocio): nombre. La categoría queda por defecto.
   await modal.getByPlaceholder('ej. Café & Market Habana').fill(NOMBRE);
-  await modal.getByRole('button', { name: /^Siguiente/ }).click();
+  await modal.getByRole('button', { name: /^Continuar/ }).click();
 
   // 3. Paso 2/5 (Ubicación): dirección. Sin pin, el formulario usa el
   //    centro de la provincia.
   await modal.getByPlaceholder('ej. Calle 23 #456 e/ J e I').fill('Calle 23 #456 e/ J e I, Vedado');
-  await modal.getByRole('button', { name: /^Siguiente/ }).click();
+  await modal.getByRole('button', { name: /^Continuar/ }).click();
 
   // 4. Paso 3/5 (Pagos): los valores por defecto ya son válidos.
   await expect(modal.getByText(/¿Están recibiendo transferencia/)).toBeVisible();
-  await modal.getByRole('button', { name: /^Siguiente/ }).click();
+  await modal.getByRole('button', { name: /^Continuar/ }).click();
 
   // 5. Paso 4/5 (Contacto): WhatsApp obligatorio + fijo opcional.
   await modal.getByPlaceholder(/5284 9102/).first().fill('+53 5284 9102');
   await modal.getByPlaceholder(/7830 1234/).first().fill('+53 7830 1234');
-  await modal.getByRole('button', { name: /^Siguiente/ }).click();
+  await modal.getByRole('button', { name: /^Continuar/ }).click();
 
   // 6. Paso 5/5 (Fotos): la prueba de fuego es subir una foto de verdad
   //    desde el navegador. Si las NEXT_PUBLIC_CLOUDINARY_* no hubieran
@@ -141,7 +141,7 @@ test('un negocio se registra con foto pulsando el formulario', async ({ page }) 
   expect(urlFoto).toContain('res.cloudinary.com');
 
   // 7. Enviar.
-  await modal.getByRole('button', { name: /Enviar para Aprobación/ }).click();
+  await modal.getByRole('button', { name: /Enviar para revisión/ }).click();
 
   // El modal se cierra al registrarse; si la validación fallara seguiría abierto.
   await expect(modal, 'el formulario no se cerró: el alta no se completó').toBeHidden({

@@ -8,14 +8,12 @@ import {
   MapPin, 
   Check, 
   MessageCircle, 
-  ShieldCheck, 
+  ShieldCheck,
   Crosshair,
   AlertCircle,
   CheckCircle2,
   Phone,
   Clock,
-  Sparkles,
-  HelpCircle,
   ExternalLink,
   Search as SearchIcon,
   Compass,
@@ -60,7 +58,7 @@ export function validateWhatsAppNumber(input: string): WhatsAppValidationResult 
       isCubanMobile: false,
       isInternational: false,
       digitsCount: 0,
-      errorMessage: 'El número de WhatsApp es obligatorio para que los clientes puedan contactarte.'
+      errorMessage: 'Añade un WhatsApp para que tus clientes puedan contactarte directamente.'
     };
   }
 
@@ -87,7 +85,7 @@ export function validateWhatsAppNumber(input: string): WhatsAppValidationResult 
         isCubanMobile: false,
         isInternational: true,
         digitsCount: digitsOnly.length,
-        errorMessage: 'Número internacional incompleto. Debe tener entre 8 y 15 dígitos con código de país.'
+        errorMessage: 'Incluye el código del país y entre 8 y 15 dígitos, por ejemplo +34 612 345 678.'
       };
     }
   }
@@ -120,7 +118,7 @@ export function validateWhatsAppNumber(input: string): WhatsAppValidationResult 
         isCubanMobile: false,
         isInternational: false,
         digitsCount: digitsOnly.length,
-        errorMessage: 'El número 7... corresponde a un teléfono fijo de La Habana. WhatsApp requiere un número móvil celular cubano que comience con 5.'
+        errorMessage: 'Los números que empiezan por 7 son fijos en La Habana. Usa un móvil para WhatsApp.'
       };
     }
 
@@ -131,7 +129,7 @@ export function validateWhatsAppNumber(input: string): WhatsAppValidationResult 
       isCubanMobile: false,
       isInternational: false,
       digitsCount: digitsOnly.length,
-      errorMessage: 'En Cuba, los teléfonos móviles para WhatsApp deben comenzar con 5 (ej: +53 5284 9102).'
+      errorMessage: 'Usa un móvil cubano que empiece por 5 o 6, por ejemplo +53 5284 9102.'
     };
   }
 
@@ -146,7 +144,7 @@ export function validateWhatsAppNumber(input: string): WhatsAppValidationResult 
         isCubanMobile: true,
         isInternational: false,
         digitsCount: cubanNationalMobile.length,
-        errorMessage: 'Los móviles cubanos inician con 5 (ej: 5284 9102). Revisa el primer dígito.'
+        errorMessage: 'Los móviles cubanos empiezan por 5 o 6. Revisa el primer dígito.'
       };
     }
 
@@ -171,7 +169,7 @@ export function validateWhatsAppNumber(input: string): WhatsAppValidationResult 
         isCubanMobile: true,
         isInternational: false,
         digitsCount: cubanNationalMobile.length,
-        errorMessage: `Faltan ${remaining} dígito${remaining > 1 ? 's' : ''} (llevas ${cubanNationalMobile.length} de 8 dígitos del móvil cubano).`
+        errorMessage: `Añade ${remaining} dígito${remaining > 1 ? 's' : ''} para completar tu número.`
       };
     } else {
       return {
@@ -181,7 +179,7 @@ export function validateWhatsAppNumber(input: string): WhatsAppValidationResult 
         isCubanMobile: true,
         isInternational: false,
         digitsCount: cubanNationalMobile.length,
-        errorMessage: `El número móvil cubano tiene solo 8 dígitos (+53). Has ingresado ${cubanNationalMobile.length} dígitos.`
+        errorMessage: `El móvil cubano debe tener 8 dígitos. Has escrito ${cubanNationalMobile.length}.`
       };
     }
   }
@@ -193,14 +191,14 @@ export function validateWhatsAppNumber(input: string): WhatsAppValidationResult 
     isCubanMobile: false,
     isInternational: false,
     digitsCount: digitsOnly.length,
-    errorMessage: 'Ingresa un número móvil cubano válido (ej: +53 5284 9102 o 52849102).'
+    errorMessage: 'Escribe un móvil válido: +53 5284 9102 o 52849102.'
   };
 }
 
 const STEPS = [
-  { title: 'Negocio', icon: Store },
+  { title: 'Tu negocio', icon: Store },
   { title: 'Ubicación', icon: MapPin },
-  { title: 'Pagos', icon: ShieldCheck },
+  { title: 'Formas de pago', icon: ShieldCheck },
   { title: 'Contacto', icon: MessageCircle },
   { title: 'Fotos y envío', icon: ImagePlus },
 ];
@@ -327,13 +325,13 @@ export default function RegisterBusinessModal({
   const nameValidation = useMemo(() => {
     const trimmed = name.trim();
     if (!trimmed) {
-      return { isValid: false, message: 'El nombre comercial es obligatorio.' };
+      return { isValid: false, message: 'Escribe el nombre con el que te reconocen tus clientes.' };
     }
     if (trimmed.length < 3) {
-      return { isValid: false, message: 'El nombre debe tener al menos 3 caracteres.' };
+      return { isValid: false, message: 'Escribe al menos 3 caracteres para identificar tu negocio.' };
     }
     if (trimmed.length > 60) {
-      return { isValid: false, message: 'El nombre no debe superar los 60 caracteres.' };
+      return { isValid: false, message: 'Reduce el nombre a 60 caracteres o menos.' };
     }
     return { isValid: true };
   }, [name]);
@@ -342,10 +340,10 @@ export default function RegisterBusinessModal({
   const addressValidation = useMemo(() => {
     const trimmed = address.trim();
     if (!trimmed) {
-      return { isValid: false, message: 'La dirección exacta es obligatoria.' };
+      return { isValid: false, message: 'Añade la dirección donde atiendes a tus clientes.' };
     }
     if (trimmed.length < 5) {
-      return { isValid: false, message: 'Especifica al menos calle, número y entrecalles (mínimo 5 caracteres).' };
+      return { isValid: false, message: 'Incluye calle, número y al menos una entrecalle.' };
     }
     return { isValid: true };
   }, [address]);
@@ -359,7 +357,7 @@ export default function RegisterBusinessModal({
     if (!hasAtLeastOneMethod) {
       return { 
         isValid: false, 
-        message: 'Has indicado que aceptas transferencia. Selecciona al menos una vía (Transfermóvil, EnZona, QR o En Línea).' 
+        message: 'Selecciona al menos una forma de pago digital: Transfermóvil, EnZona, QR o pago en línea.'
       };
     }
     return { isValid: true };
@@ -371,7 +369,7 @@ export default function RegisterBusinessModal({
     if (!trimmed) return { isValid: true };
     const digitsOnly = trimmed.replace(/\D/g, '');
     if (digitsOnly.length < 6 || digitsOnly.length > 12) {
-      return { isValid: false, message: 'Teléfono fijo o adicional inválido (debe tener entre 6 y 10 dígitos).' };
+      return { isValid: false, message: 'Revisa el teléfono: debe tener entre 6 y 12 dígitos.' };
     }
     return { isValid: true };
   }, [phone]);
@@ -383,8 +381,6 @@ export default function RegisterBusinessModal({
                        paymentValidation.isValid &&
                        phoneValidation.isValid;
 
-  // Validez por paso del asistente: el botón Siguiente solo se habilita
-  // cuando la sección actual está completa
   const stepValid = [
     nameValidation.isValid,
     addressValidation.isValid,
@@ -395,7 +391,9 @@ export default function RegisterBusinessModal({
 
   const goToStep = (i: number) => {
     if (i < 0 || i >= STEPS.length || i > highestStep) return;
-    setStepDirection(i >= step ? 'forward' : 'backward');
+    if (i > step && stepValid.slice(step, i).some((valid) => !valid)) return;
+    if (i === step) return;
+    setStepDirection(i > step ? 'forward' : 'backward');
     setStep(i);
     formRef.current?.scrollTo({ top: 0 });
   };
@@ -437,11 +435,6 @@ export default function RegisterBusinessModal({
       setWhatsapp(waValidation.formatted);
       markTouched('whatsapp');
     }
-  };
-
-  const handleApplyPresetWhatsApp = () => {
-    setWhatsapp('+53 5284 9102');
-    markTouched('whatsapp');
   };
 
   const handleClose = () => {
@@ -513,20 +506,20 @@ export default function RegisterBusinessModal({
       labelledBy="register-modal-title"
       describedBy="register-modal-subtitle"
       backdropClassName="bg-navy-deep/60 backdrop-blur-sm"
-      overlayClassName="z-50 p-3 sm:p-5"
+      overlayClassName="z-50 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:p-5 sm:pb-5"
       panelClassName="bg-white rounded-xl sm:rounded-lg shadow-level-4 border border-border-subtle w-full max-w-xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[94vh] animate-in fade-in zoom-in-95 duration-200"
     >
         {/* Header */}
-        <div className="px-5 py-4 bg-navy text-white flex items-center justify-between flex-shrink-0">
+        <div className="px-4 sm:px-5 py-3.5 sm:py-4 bg-navy text-white flex items-start justify-between gap-3 flex-shrink-0">
           <div>
             <div className="flex items-center gap-2">
               <span className="p-1.5 rounded-lg bg-emerald-brand text-white text-xs">
                 <Store className="w-4 h-4" aria-hidden="true" />
               </span>
-              <h2 id="register-modal-title" className="text-lg font-bold">Registrar Negocio en TransferCuba</h2>
+              <h2 id="register-modal-title" className="text-base sm:text-lg font-extrabold">Haz visible tu negocio</h2>
             </div>
-            <p id="register-modal-subtitle" className="text-xs text-slate-400 mt-0.5">
-              Envía tu negocio para revisión. Un administrador lo aprobará para publicarlo en el mapa.
+            <p id="register-modal-subtitle" className="text-[11px] sm:text-xs text-slate-300 mt-1 max-w-md leading-relaxed">
+              Crea tu ficha, muestra cómo aceptan pagos y ayuda a más clientes a encontrarte.
             </p>
           </div>
           <button
@@ -539,9 +532,8 @@ export default function RegisterBusinessModal({
         </div>
 
         {/* Form Body */}
-        <form ref={formRef} onSubmit={handleSubmit} noValidate className="flex-1 overflow-y-auto p-5 space-y-5">
+        <form ref={formRef} onSubmit={handleSubmit} noValidate className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5">
 
-          {/* Wizard stepper: progreso visual por secciones */}
           <div className="flex-shrink-0" aria-label="Progreso del registro">
             <div className="flex items-center justify-between mb-1.5">
               <p className="text-[11px] font-bold text-slate-500">
@@ -569,7 +561,7 @@ export default function RegisterBusinessModal({
                 const Icon = s.icon;
                 const done = i < step || (i <= highestStep && stepValid[i]);
                 const current = i === step;
-                const reachable = i <= highestStep;
+                const reachable = i <= highestStep && (i <= step || stepValid.slice(step, i).every(Boolean));
                 return (
                   <li key={s.title} className="flex-1 min-w-0">
                     <button
@@ -578,7 +570,7 @@ export default function RegisterBusinessModal({
                       disabled={!reachable}
                       aria-label={`Ir al paso ${i + 1}: ${s.title}`}
                       aria-current={current ? 'step' : undefined}
-                      className={`w-full flex items-center justify-center gap-1 px-1 py-1.5 rounded-lg text-[10px] font-bold transition-colors ${
+                      className={`min-h-11 w-full flex items-center justify-center gap-1 px-1 py-1.5 rounded-lg text-[10px] font-bold transition-colors ${
                         current
                           ? 'bg-navy text-white shadow-level-1'
                           : done
@@ -604,13 +596,11 @@ export default function RegisterBusinessModal({
 
           {/* Section 1: Business Info */}
           <div className={step === 0 ? `space-y-3 ${stepAnimation}` : 'hidden'}>
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                1. Datos del Negocio
-              </h3>
-              <span className="text-[11px] text-slate-400">
-                * Campos obligatorios
-              </span>
+            <div>
+              <h3 className="text-base sm:text-lg font-extrabold text-navy">Haz que te encuentren desde el primer vistazo</h3>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1 mb-4 leading-relaxed">
+                Empieza con lo esencial. Podrás completar el resto antes de enviar tu solicitud.
+              </p>
             </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -618,7 +608,7 @@ export default function RegisterBusinessModal({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-semibold text-slate-600">
-                    Nombre comercial *
+                    Nombre que verán tus clientes *
                   </label>
                   {name.length > 0 && (
                     <span className="text-[10px] text-slate-400 font-mono">
@@ -636,8 +626,8 @@ export default function RegisterBusinessModal({
                       markTouched('name');
                     }}
                     onBlur={() => markTouched('name')}
-                    placeholder="ej. Café & Market Habana"
-                    className={`w-full text-sm px-3 py-2 pr-9 rounded-lg border transition-all ${
+                    placeholder="Ej. Café & Market Habana"
+                    className={`w-full min-h-11 text-base sm:text-sm px-3 py-2.5 sm:py-2 pr-9 rounded-lg border transition-all ${
                       (touched.name || showAllErrors) && !nameValidation.isValid
                         ? 'border-crimson/50 focus:ring-2 focus:ring-crimson/25 bg-ez-bg/40'
                         : touched.name && nameValidation.isValid
@@ -665,12 +655,12 @@ export default function RegisterBusinessModal({
               {/* Category */}
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  Categoría principal
+                  ¿Qué vendes o prestas?
                 </label>
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="w-full text-sm px-3 py-2 rounded-lg border border-border-subtle focus:outline-none focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean bg-white"
+                  className="w-full min-h-11 text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-lg border border-border-subtle focus:outline-none focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean bg-white"
                 >
                   {CATEGORIES.filter(c => c.id !== 'all').map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.label}</option>
@@ -683,7 +673,7 @@ export default function RegisterBusinessModal({
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="text-xs font-semibold text-slate-600">
-                  Breve descripción de productos o servicios
+                  En una frase, ¿qué vendes o prestas?
                 </label>
                 <span className="text-[10px] text-slate-400 font-mono">
                   {description.length}/200
@@ -693,18 +683,21 @@ export default function RegisterBusinessModal({
                 value={description}
                 maxLength={200}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="ej. Pan recién salido del horno, pizzas, refrescos fríos y pagos directos por QR..."
+                placeholder="Ej. Pan recién hecho, pizzas, refrescos fríos y pago directo por QR."
                 rows={2}
-                className="w-full text-sm px-3 py-2 rounded-lg border border-border-subtle focus:outline-none focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean"
+                className="w-full min-h-11 text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-lg border border-border-subtle focus:outline-none focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean"
               />
             </div>
           </div>
 
           {/* Section 2: Location details */}
           <div className={step === 1 ? `space-y-3 pt-3 border-t border-slate-100 ${stepAnimation}` : 'hidden'}>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              2. Ubicación Exacta en Cuba
-            </h3>
+            <div>
+              <h3 className="text-base sm:text-lg font-extrabold text-navy">Una ubicación precisa hace más fácil llegar</h3>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1 mb-4 leading-relaxed">
+                Así tus clientes podrán encontrarte y llegar sin pedir indicaciones.
+              </p>
+            </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
@@ -712,7 +705,7 @@ export default function RegisterBusinessModal({
                 <select
                   value={province}
                   onChange={(e) => handleProvinceChange(e.target.value)}
-                  className="w-full text-sm px-3 py-2 rounded-lg border border-border-subtle focus:outline-none focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean bg-white"
+                  className="w-full min-h-11 text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-lg border border-border-subtle focus:outline-none focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean bg-white"
                 >
                   {CUBAN_PROVINCES.map(p => (
                     <option key={p.name} value={p.name}>{p.name}</option>
@@ -725,7 +718,7 @@ export default function RegisterBusinessModal({
                 <select
                   value={municipality}
                   onChange={(e) => setMunicipality(e.target.value)}
-                  className="w-full text-sm px-3 py-2 rounded-lg border border-border-subtle focus:outline-none focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean bg-white"
+                  className="w-full min-h-11 text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-lg border border-border-subtle focus:outline-none focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean bg-white"
                 >
                   {currentProvinceData.municipalities.map(m => (
                     <option key={m} value={m}>{m}</option>
@@ -738,7 +731,7 @@ export default function RegisterBusinessModal({
               {/* Address */}
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  Dirección textual (Calle y números) *
+                  Dirección donde pueden encontrarte *
                 </label>
                 <div className="relative">
                   <input
@@ -750,8 +743,8 @@ export default function RegisterBusinessModal({
                       markTouched('address');
                     }}
                     onBlur={() => markTouched('address')}
-                    placeholder="ej. Calle 23 #456 e/ J e I"
-                    className={`w-full text-sm px-3 py-2 pr-9 rounded-lg border transition-all ${
+                    placeholder="Ej. Calle 23 #456 e/ J e I"
+                    className={`w-full min-h-11 text-base sm:text-sm px-3 py-2.5 sm:py-2 pr-9 rounded-lg border transition-all ${
                       (touched.address || showAllErrors) && !addressValidation.isValid
                         ? 'border-crimson/50 focus:ring-2 focus:ring-crimson/25 bg-ez-bg/40'
                         : touched.address && addressValidation.isValid
@@ -779,14 +772,14 @@ export default function RegisterBusinessModal({
               {/* Neighborhood */}
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  Reparto o Zona (opcional)
+                  Reparto o zona (opcional)
                 </label>
                 <input
                   type="text"
                   value={neighborhood}
                   onChange={(e) => setNeighborhood(e.target.value)}
                   placeholder="ej. Vedado / Miramar / Santos Suárez"
-                  className="w-full text-sm px-3 py-2 rounded-lg border border-border-subtle focus:outline-none focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean"
+                  className="w-full min-h-11 text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-lg border border-border-subtle focus:outline-none focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean"
                 />
               </div>
             </div>
@@ -796,12 +789,12 @@ export default function RegisterBusinessModal({
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
                   <Compass className="w-3.5 h-3.5 text-cerulean-dark" />
-                  <span>Asistente de Calles con Nominatim OSM</span>
+                  <span>Encuentra tu dirección más rápido</span>
                 </span>
-                <span className="text-[10px] text-slate-400 font-semibold">OpenStreetMap Cuba</span>
+                <span className="text-[10px] text-slate-400 font-semibold">OpenStreetMap</span>
               </div>
               <p className="text-[11px] text-slate-500">
-                Escribe la dirección para obtener automáticamente las coordenadas geográficas de Cuba:
+                Escribe la dirección y selecciona el resultado para colocar el pin automáticamente.
               </p>
               <div className="flex gap-2">
                 <input
@@ -809,7 +802,7 @@ export default function RegisterBusinessModal({
                   value={nominatimQuery}
                   onChange={(e) => setNominatimQuery(e.target.value)}
                   placeholder={address.trim() ? address : 'ej. Calle 23 e/ L y M, Vedado'}
-                  className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-border-strong bg-white focus:outline-none focus:ring-1 focus:ring-cerulean/25"
+                  className="flex-1 min-h-11 text-base sm:text-sm px-2.5 py-2 rounded-lg border border-border-strong bg-white focus:outline-none focus:ring-1 focus:ring-cerulean/25"
                 />
                 <button
                   type="button"
@@ -823,16 +816,16 @@ export default function RegisterBusinessModal({
                     setIsSearchingNominatim(false);
                   }}
                   disabled={isSearchingNominatim}
-                  className="px-3 py-1.5 bg-cerulean hover:bg-cerulean-dark text-white text-xs font-bold rounded-lg shadow-level-1 flex items-center gap-1 transition-colors flex-shrink-0"
+                  className="min-h-11 px-3 py-2 bg-cerulean hover:bg-cerulean-dark text-white text-xs font-bold rounded-lg shadow-level-1 flex items-center justify-center gap-1 transition-colors flex-shrink-0"
                 >
                   <SearchIcon className="w-3 h-3" />
-                  <span>{isSearchingNominatim ? 'Buscando...' : 'Buscar OSM'}</span>
+                  <span>{isSearchingNominatim ? 'Buscando…' : 'Buscar dirección'}</span>
                 </button>
               </div>
 
               {nominatimResults.length > 0 && (
                 <div className="p-2 bg-white rounded-lg border border-tm-border space-y-1 max-h-36 overflow-y-auto">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase">Selecciona para fijar el pin:</p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase">Elige la dirección correcta:</p>
                   {nominatimResults.map((item) => (
                     <button
                       key={item.place_id}
@@ -860,7 +853,7 @@ export default function RegisterBusinessModal({
               )}
               {nominatimSearched && nominatimResults.length === 0 && !isSearchingNominatim && (
                 <p className="text-[11px] text-slate-500 italic">
-                  No se encontraron calles exactas en OSM con ese texto. Usa el botón verde para colocar el punto en el mapa.
+                  No encontramos una coincidencia exacta. Prueba otra referencia o fija el punto manualmente en el mapa.
                 </p>
               )}
             </div>
@@ -878,7 +871,7 @@ export default function RegisterBusinessModal({
                 <div>
                   <div className="flex items-center gap-2">
                     <p className={`text-xs font-bold ${pinLocation ? 'text-emerald-950' : 'text-blue-950'}`}>
-                      {pinLocation ? '✓ Punto exacto fijado en el mapa' : '📍 Colocar ubicación visualmente en el mapa'}
+                      {pinLocation ? 'Ubicación precisa fijada' : 'Fija el punto exacto de tu local'}
                     </p>
                     {pinLocation && (
                       <span className="px-2 py-0.5 rounded-full bg-emerald-brand text-[10px] text-white font-bold">
@@ -889,46 +882,49 @@ export default function RegisterBusinessModal({
                   <p className={`text-[11px] mt-0.5 ${pinLocation ? 'text-emerald-700 font-mono' : 'text-cerulean-dark'}`}>
                     {pinLocation 
                       ? `Lat: ${pinLocation.lat.toFixed(5)}, Lng: ${pinLocation.lng.toFixed(5)}` 
-                      : `Si no marcas el punto, se posicionará en el centro de ${municipality}.`}
+                      : 'Un punto exacto ayuda a tus clientes a llegar sin pedir indicaciones.'}
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={onStartPinning}
-                className={`w-full sm:w-auto px-3.5 py-1.5 rounded-lg text-white text-xs font-semibold shadow-level-1 flex items-center justify-center gap-1.5 flex-shrink-0 transition-colors ${
+                className={`w-full sm:w-auto min-h-11 px-3.5 py-2 rounded-lg text-white text-xs font-semibold shadow-level-1 flex items-center justify-center gap-1.5 flex-shrink-0 transition-colors ${
                   pinLocation ? 'bg-emerald-700 hover:bg-emerald-800' : 'bg-cerulean hover:bg-cerulean-dark'
                 }`}
               >
                 <Crosshair className="w-3.5 h-3.5" />
-                <span>{pinLocation ? 'Modificar punto' : 'Marcar en el mapa'}</span>
+                <span>{pinLocation ? 'Mover punto' : 'Abrir mapa y fijar ubicación'}</span>
               </button>
             </div>
           </div>
 
           {/* Section 3: Payment Methods */}
           <div className={step === 2 ? `space-y-3 pt-3 border-t border-slate-100 ${stepAnimation}` : 'hidden'}>
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                3. Métodos de Pago Aceptados
-              </h3>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-base sm:text-lg font-extrabold text-navy">Muestra cómo pueden pagarte</h3>
+                <p className="text-xs sm:text-sm text-slate-500 mt-1 leading-relaxed">
+                  Selecciona todas las opciones que aceptas. Aparecerán en tu ficha y en los filtros del mapa.
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setAcceptsTransfer(!acceptsTransfer)}
-                className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md transition-colors ${
-                  acceptsTransfer 
-                    ? 'bg-emerald-100 text-emerald-800' 
+                className={`min-h-11 inline-flex items-center justify-center gap-1.5 text-xs font-bold px-3 rounded-lg transition-colors ${
+                  acceptsTransfer
+                    ? 'bg-emerald-100 text-emerald-800'
                     : 'bg-slate-100 text-slate-600'
                 }`}
               >
-                <ShieldCheck className="w-3.5 h-3.5" /> 
-                {acceptsTransfer ? 'Acepta transferencias' : 'Solo efectivo'}
+                <ShieldCheck className="w-3.5 h-3.5" />
+                {acceptsTransfer ? 'Acepto transferencias' : 'Mostrar solo efectivo'}
               </button>
             </div>
 
             {acceptsTransfer && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-                <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                <label className={`min-h-12 flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
                   transfermovil ? 'border-emerald-300 bg-emerald-50/50' : 'border-border-subtle hover:bg-slate-50'
                 }`}>
                   <input
@@ -943,7 +939,7 @@ export default function RegisterBusinessModal({
                   <span className="font-semibold text-slate-600">Transfermóvil</span>
                 </label>
 
-                <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                <label className={`min-h-12 flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
                   enzona ? 'border-tm-border bg-tm-bg/50' : 'border-border-subtle hover:bg-slate-50'
                 }`}>
                   <input
@@ -958,7 +954,7 @@ export default function RegisterBusinessModal({
                   <span className="font-semibold text-slate-600">EnZona</span>
                 </label>
 
-                <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                <label className={`min-h-12 flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
                   qrPayment ? 'border-indigo-300 bg-indigo-50/50' : 'border-border-subtle hover:bg-slate-50'
                 }`}>
                   <input
@@ -973,7 +969,7 @@ export default function RegisterBusinessModal({
                   <span className="font-semibold text-slate-600">Código QR en Caja</span>
                 </label>
 
-                <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                <label className={`min-h-12 flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
                   onlineGateway ? 'border-purple-300 bg-purple-50/50' : 'border-border-subtle hover:bg-slate-50'
                 }`}>
                   <input
@@ -988,7 +984,7 @@ export default function RegisterBusinessModal({
                   <span className="font-semibold text-slate-600">Pago en línea</span>
                 </label>
 
-                <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                <label className={`min-h-12 flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
                   cash ? 'border-border-strong bg-slate-100/50' : 'border-border-subtle hover:bg-slate-50'
                 }`}>
                   <input
@@ -1011,37 +1007,39 @@ export default function RegisterBusinessModal({
             )}
 
             {/* Real-time transfer status at moment of opening */}
-            <div className="p-3 rounded-xl bg-slate-50 border border-border-subtle flex items-center justify-between gap-3">
+            <div className="p-3 rounded-xl bg-slate-50 border border-border-subtle flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-3">
               <div>
-                <p className="text-xs font-bold text-slate-600">
-                  ¿Están recibiendo transferencia en este momento?
+                <p className="text-sm font-bold text-navy">
+                  ¿Pueden transferirte ahora mismo?
                 </p>
-                <p className="text-[11px] text-slate-500">
-                  Puedes cambiarlo cuando ocurran cortes eléctricos o caídas de red.
+                <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                  Mantén el estado actualizado para que tus clientes sepan si pueden pagar en este momento.
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="grid grid-cols-2 gap-2 w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={() => setTransferActiveNow(true)}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  className={`min-h-11 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
                     transferActiveNow
                       ? 'bg-emerald-brand text-white shadow-level-1'
                       : 'bg-white text-slate-600 border border-border-subtle'
                   }`}
                 >
-                  🟢 Sí, activa
+                  <span className={`w-2 h-2 rounded-full ${transferActiveNow ? 'bg-white' : 'bg-emerald-brand'}`} />
+                  Sí, está activa
                 </button>
                 <button
                   type="button"
                   onClick={() => setTransferActiveNow(false)}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  className={`min-h-11 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
                     !transferActiveNow
                       ? 'bg-saffron text-white shadow-level-1'
                       : 'bg-white text-slate-600 border border-border-subtle'
                   }`}
                 >
-                  🟡 No ahora
+                  <span className={`w-2 h-2 rounded-full ${!transferActiveNow ? 'bg-white' : 'bg-saffron'}`} />
+                  No por ahora
                 </button>
               </div>
             </div>
@@ -1049,36 +1047,27 @@ export default function RegisterBusinessModal({
 
           {/* Section 4: Contact and WhatsApp Validation (HIGHLIGHT FEATURE) */}
           <div className={step === 3 ? `space-y-3 pt-3 border-t border-slate-100 ${stepAnimation}` : 'hidden'}>
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                4. Contacto Directo & WhatsApp
-              </h3>
-              <span className="text-[11px] text-emerald-700 font-medium flex items-center gap-1">
-                <MessageCircle className="w-3.5 h-3.5" /> Enlace directo para clientes
-              </span>
+            <div className="mb-4">
+              <div className="flex items-center gap-2">
+                <MessageCircle className="w-5 h-5 text-emerald-brand" />
+                <h3 className="text-base sm:text-lg font-extrabold text-navy">Convierte visitas en contactos</h3>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1 leading-relaxed">
+                Comparte tu WhatsApp para que los clientes te escriban directamente desde tu ficha.
+              </p>
             </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* WHATSAPP INPUT WITH REAL-TIME VALIDATION */}
               <div className="sm:col-span-2">
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
-                    <span>Número de WhatsApp</span>
+                <div className="mb-1">
+                  <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                    <span>WhatsApp para recibir clientes</span>
                     <span className="text-rose-500">*</span>
-                    <span className="text-[11px] font-normal text-slate-400">
-                      (Móvil cubano: 8 dígitos iniciando con 5)
-                    </span>
                   </label>
-                  
-                  {/* Quick Preset / Demo Button */}
-                  <button
-                    type="button"
-                    onClick={handleApplyPresetWhatsApp}
-                    className="text-[11px] text-emerald-brand hover:text-emerald-800 font-semibold underline underline-offset-2 flex items-center gap-1"
-                  >
-                    <Sparkles className="w-3 h-3" />
-                    <span>Rellenar ejemplo (+53 5284 9102)</span>
-                  </button>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Usa un móvil cubano de 8 dígitos que empiece por 5 o 6.
+                  </p>
                 </div>
 
                 {/* Input with prefix badge */}
@@ -1098,7 +1087,7 @@ export default function RegisterBusinessModal({
                     }}
                     onBlur={() => markTouched('whatsapp')}
                     placeholder="5284 9102  o  +53 5284 9102"
-                    className={`flex-1 min-w-0 text-sm px-3 py-2.5 pr-10 rounded-r-xl border transition-all font-mono ${
+                    className={`flex-1 min-w-0 min-h-11 text-base sm:text-sm px-3 py-2.5 pr-10 rounded-r-xl border transition-all font-mono ${
                       (touched.whatsapp || showAllErrors) && !waValidation.isValid
                         ? 'border-crimson/50 focus:ring-2 focus:ring-crimson/25 bg-ez-bg/40'
                         : touched.whatsapp && waValidation.isValid
@@ -1138,7 +1127,7 @@ export default function RegisterBusinessModal({
                       <div className="flex items-center gap-1.5">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-brand flex-shrink-0" />
                         <span>
-                          Formato válido: <strong className="font-mono">{waValidation.formatted}</strong>
+                          WhatsApp listo para recibir mensajes: <strong className="font-mono">{waValidation.formatted}</strong>
                           {waValidation.isInternational && ' (Internacional)'}
                         </span>
                       </div>
@@ -1150,7 +1139,7 @@ export default function RegisterBusinessModal({
                           rel="noreferrer"
                           className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 hover:text-emerald-900 bg-white px-2 py-0.5 rounded border border-emerald-300"
                         >
-                          <span>Probar wa.me</span>
+                          <span>Abrir chat de prueba</span>
                           <ExternalLink className="w-2.5 h-2.5" />
                         </a>
                       )}
@@ -1164,7 +1153,7 @@ export default function RegisterBusinessModal({
                       onClick={handleAutoFormatWhatsApp}
                       className="text-[11px] text-emerald-700 hover:text-emerald-900 font-semibold underline underline-offset-2 flex items-center gap-1 mt-0.5"
                     >
-                      <span>Aplicar formato limpio internacional: {waValidation.formatted}</span>
+                      <span>Usar formato internacional: {waValidation.formatted}</span>
                     </button>
                   )}
                 </div>
@@ -1175,7 +1164,7 @@ export default function RegisterBusinessModal({
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
                     <Phone className="w-3 h-3 text-slate-400" />
-                    <span>Teléfono fijo alternativo (opcional)</span>
+                    <span>Teléfono fijo o alternativo (opcional)</span>
                   </label>
                 </div>
                 <input
@@ -1187,7 +1176,7 @@ export default function RegisterBusinessModal({
                   }}
                   onBlur={() => markTouched('phone')}
                   placeholder="ej. +53 7830 1234 o 78301234"
-                  className={`w-full text-sm px-3 py-2 rounded-lg border transition-all ${
+                  className={`w-full min-h-11 text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-lg border transition-all ${
                     touched.phone && !phoneValidation.isValid
                       ? 'border-crimson/50 bg-ez-bg/40'
                       : 'border-border-subtle focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean'
@@ -1203,7 +1192,7 @@ export default function RegisterBusinessModal({
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
                     <Clock className="w-3 h-3 text-slate-400" />
-                    <span>Horario de atención</span>
+                    <span>Horario de atención (opcional)</span>
                   </label>
                 </div>
                 <input
@@ -1211,7 +1200,7 @@ export default function RegisterBusinessModal({
                   value={hours}
                   onChange={(e) => setHours(e.target.value)}
                   placeholder="08:00 — 20:00 (Lunes a Sábado)"
-                  className="w-full text-sm px-3 py-2 rounded-lg border border-border-subtle focus:outline-none focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean"
+                  className="w-full min-h-11 text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-lg border border-border-subtle focus:outline-none focus:ring-2 focus:ring-cerulean/25 focus:border-cerulean"
                 />
               </div>
             </div>
@@ -1219,9 +1208,12 @@ export default function RegisterBusinessModal({
 
           {/* Photo upload */}
           <div className={step === 4 ? `space-y-2 pt-3 border-t border-slate-100 ${stepAnimation}` : 'hidden'}>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              5. Fotos del Negocio
-            </h3>
+            <div className="mb-4">
+              <h3 className="text-base sm:text-lg font-extrabold text-navy">Muestra lo mejor de tu negocio</h3>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1 leading-relaxed">
+                Las fotos ayudan a tus clientes a identificarte y reconocer tu local antes de llegar.
+              </p>
+            </div>
 
             {/* Uploaded photos grid */}
             {uploadedPhotos.length > 0 && (
@@ -1245,7 +1237,7 @@ export default function RegisterBusinessModal({
 
             {/* Upload button */}
             <label
-              className={`flex items-center justify-center gap-2 p-4 rounded-lg border-2 border-dashed transition-colors cursor-pointer
+              className={`min-h-24 flex items-center justify-center gap-2 p-4 rounded-lg border-2 border-dashed transition-colors cursor-pointer
                 ${isUploadingPhoto
                   ? 'border-cerulean/40 bg-cerulean/5'
                   : 'border-slate-200 hover:border-cerulean/40 hover:bg-slate-50'
@@ -1266,7 +1258,7 @@ export default function RegisterBusinessModal({
                 <ImagePlus className="w-5 h-5 text-slate-400" />
               )}
               <span className="text-xs text-slate-500">
-                {isUploadingPhoto ? 'Subiendo...' : 'Agregar fotos (opcional, máx. 5MB c/u)'}
+                {isUploadingPhoto ? 'Subiendo tus fotos…' : 'Añadir fotos (opcional, máx. 5 MB por imagen)'}
               </span>
             </label>
             {photoError && (
@@ -1275,7 +1267,7 @@ export default function RegisterBusinessModal({
               </p>
             )}
             <p className="text-[11px] text-slate-400">
-              Las fotos ayudan a los clientes a identificar tu negocio. Si no agregas ninguna, se usará el icono de tu categoría.
+              Si no añades fotos, usaremos el icono de tu categoría.
             </p>
           </div>
 
@@ -1284,7 +1276,7 @@ export default function RegisterBusinessModal({
             <div className="p-3 rounded-xl bg-ez-bg/50 border border-ez-border text-xs text-crimson space-y-1 animate-in fade-in">
               <p className="font-bold flex items-center gap-1.5">
                 <AlertCircle className="w-4 h-4 text-crimson flex-shrink-0" />
-                Por favor, corrige los siguientes campos antes de publicar:
+                Revisa estos datos antes de enviar tu solicitud:
               </p>
               <ul className="list-disc list-inside space-y-0.5 text-crimson pl-1 text-[11px]">
                 {!nameValidation.isValid && <li>Nombre comercial: {nameValidation.message}</li>}
@@ -1298,10 +1290,10 @@ export default function RegisterBusinessModal({
 
           {/* Submit CTA with Moderation Notice */}
           <div className="pt-4 border-t border-border-subtle space-y-3">
-            <div className="p-3 rounded-xl bg-saffron/10 border border-saffron/30 text-xs text-saffron flex items-start gap-2">
-              <span className="text-base leading-none">🛡️</span>
+            <div className="p-3 rounded-xl bg-cerulean/5 border border-tm-border text-xs text-slate-600 flex items-start gap-2">
+              <ShieldCheck className="w-4 h-4 text-cerulean-dark flex-shrink-0 mt-0.5" />
               <p className="leading-relaxed">
-                <strong>Aprobación de administrador:</strong> Tu negocio se guardará en estado <strong>Pendiente</strong>. Una vez revisado y aprobado por el administrador, aparecerá automáticamente en el mapa público y en las búsquedas.
+                <strong className="text-navy">Revisión antes de publicar.</strong> Comprobaremos tu información y, cuando se apruebe, tu negocio aparecerá en el mapa y en las búsquedas.
               </p>
             </div>
 
@@ -1311,21 +1303,21 @@ export default function RegisterBusinessModal({
                   stepValid[step] ? (
                     <span className="text-emerald-700 font-semibold flex items-center gap-1">
                       <CheckCircle2 className="w-4 h-4 text-emerald-brand" />
-                      Sección completa, puedes continuar
+                      Sección completa. Continúa cuando quieras.
                     </span>
                   ) : (
                     <span className="text-slate-400">
-                      Completa los campos obligatorios para continuar
+                      Completa lo obligatorio para continuar
                     </span>
                   )
                 ) : isFormValid ? (
                   <span className="text-emerald-700 font-semibold flex items-center gap-1">
                     <CheckCircle2 className="w-4 h-4 text-emerald-brand" />
-                    Formulario listo para enviar
+                    Todo listo para enviar tu solicitud
                   </span>
                 ) : (
                   <span className="text-slate-400">
-                    Revisa que los campos requeridos tengan formato correcto
+                    Revisa los datos antes de enviar
                   </span>
                 )}
               </div>
@@ -1353,37 +1345,37 @@ export default function RegisterBusinessModal({
                     type="button"
                     onClick={goNext}
                     disabled={!stepValid[step]}
-                    title={stepValid[step] ? `Continuar a ${STEPS[step + 1].title}` : 'Completa los campos obligatorios de esta sección para continuar'}
+                    title={stepValid[step] ? `Continuar a ${STEPS[step + 1].title}` : 'Completa lo obligatorio de esta sección para continuar'}
                     className={`flex-[1.5] sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl text-white font-bold text-sm shadow-level-2 transition-all flex items-center justify-center gap-2 w-full ${
                       stepValid[step]
                         ? 'bg-navy hover:bg-navy-hover'
                         : 'bg-slate-300 cursor-not-allowed'
                     }`}
                   >
-                    <span className="sm:hidden">Siguiente</span>
-                    <span className="hidden sm:inline">Siguiente: {STEPS[step + 1].title}</span>
+                    <span className="sm:hidden">Continuar</span>
+                    <span className="hidden sm:inline">Continuar: {STEPS[step + 1].title}</span>
                     <span aria-hidden="true">→</span>
                   </button>
                 ) : (
                   <button
                     type="submit"
                     id="btn-submit-biz"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || !isFormValid}
                     className={`flex-[1.5] sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl text-white font-bold text-sm shadow-level-2 transition-all flex items-center justify-center gap-2 w-full ${
                       isFormValid
-                        ? 'bg-emerald-brand hover:bg-emerald-brand shadow-emerald-600/20 hover:shadow-level-2'
-                        : 'bg-emerald-brand hover:bg-emerald-brand opacity-90'
+                        ? 'bg-emerald-brand hover:bg-emerald-brand shadow-emerald-600/20'
+                        : 'bg-slate-300 cursor-not-allowed'
                     } ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
                   >
                     {isSubmitting ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Enviando…</span>
+                        <span>Enviando tu negocio…</span>
                       </>
                     ) : (
                       <>
                         <Check className="w-4 h-4" />
-                        <span>Enviar para Aprobación</span>
+                        <span>Enviar para revisión</span>
                       </>
                     )}
                   </button>
