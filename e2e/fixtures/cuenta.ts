@@ -148,7 +148,7 @@ export const test = base.extend<FixturesDeCuenta>({
 
       const phone = telefonoDePrueba();
       const name = `E2E ${phone.slice(-4)}`;
-      const res = await api.post('/api/account/register', { data: { phone, pin: PIN, name } });
+      const res = await api.post('/api/account/register', { data: { phone, pin: PIN, name, acceptsTerms: true } });
       expect(res.status(), `alta de ${phone}: ${await res.text()}`).toBe(201);
 
       const cuerpo = (await res.json()) as { user?: { id?: string } };
@@ -224,7 +224,7 @@ export const test = base.extend<FixturesDeCuenta>({
       // `page.request` comparte almacenamiento con el contexto del navegador:
       // la cookie HttpOnly queda puesta y el siguiente `goto` va autenticado.
       const res = await page.request.post('/api/account/register', {
-        data: { phone, pin: PIN, name }
+        data: { phone, pin: PIN, name, acceptsTerms: true }
       });
 
       if (res.status() === 503) {

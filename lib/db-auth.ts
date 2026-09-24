@@ -144,8 +144,8 @@ export async function createUser(input: {
 }): Promise<UserRow> {
   const res = await run((p) =>
     p.query<UserRow>(
-      `INSERT INTO users (phone, name, pin_hash, role)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO users (phone, name, pin_hash, role, terms_accepted_at)
+       VALUES ($1, $2, $3, $4, NOW())
        RETURNING *`,
       [input.phone, input.name, input.pinHash, input.role ?? 'USER']
     )

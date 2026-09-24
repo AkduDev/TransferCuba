@@ -27,7 +27,7 @@ export interface AuthState {
   error: string | null;
   registeredAsMessenger: boolean;
   login: (phone: string, pin: string) => Promise<boolean>;
-  register: (name: string, phone: string, pin: string, wantsToBeMessenger?: boolean) => Promise<boolean>;
+  register: (name: string, phone: string, pin: string, wantsToBeMessenger?: boolean, acceptsTerms?: boolean) => Promise<boolean>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
   clearRegisteredAsMessenger: () => void;
@@ -79,13 +79,13 @@ export function useAuth(): AuthState {
     }
   }, []);
 
-  const register = useCallback(async (name: string, phone: string, pin: string, wantsToBeMessenger = false) => {
+  const register = useCallback(async (name: string, phone: string, pin: string, wantsToBeMessenger = false, acceptsTerms = false) => {
     setError(null);
     try {
       const res = await fetch('/api/account/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, phone, pin, wantsToBeMessenger })
+        body: JSON.stringify({ name, phone, pin, wantsToBeMessenger, acceptsTerms })
       });
       const data = (await res.json()) as ApiResponse;
       if (!res.ok || !data.success) {

@@ -10,7 +10,8 @@ const SECCIONES: { titulo: string; cuerpo: string[] }[] = [
   {
     titulo: '1. Quiénes somos',
     cuerpo: [
-      'TransferCuba es un mapa y directorio de negocios en Cuba que aceptan pagos por transferencia. Esta política explica qué datos recogemos, para qué los usamos y qué derechos tienes sobre ellos.'
+      'TransferCuba es un mapa y directorio de negocios en Cuba que aceptan pagos por transferencia. Esta política explica qué datos recogemos, para qué los usamos y qué derechos tienes sobre ellos.',
+      'Responsable: DevParadise (https://devparadise.vercel.app). Contacto: devparadise1102@gmail.com · WhatsApp +5355819421.'
     ]
   },
   {

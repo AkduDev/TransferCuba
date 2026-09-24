@@ -42,6 +42,7 @@ export default function AuthModal({ isOpen, onClose, auth }: AuthModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localError, setLocalError] = useState('');
   const [wantsToBeMessenger, setWantsToBeMessenger] = useState(false);
+  const [acceptsTerms, setAcceptsTerms] = useState(false);
   const [showMessengerSuccess, setShowMessengerSuccess] = useState(false);
 
   // Reset del formulario al cerrar/abrir para no arrastrar credenciales.
@@ -54,6 +55,7 @@ export default function AuthModal({ isOpen, onClose, auth }: AuthModalProps) {
       setMode('login');
       setLocalError('');
       setWantsToBeMessenger(false);
+      setAcceptsTerms(false);
       setShowMessengerSuccess(false);
     }
   }, [isOpen]);
@@ -63,13 +65,17 @@ export default function AuthModal({ isOpen, onClose, auth }: AuthModalProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
+    if (mode === 'register' && !acceptsTerms) {
+      setLocalError('Debes aceptar los Términos y Condiciones para crear tu cuenta.');
+      return;
+    }
     setIsSubmitting(true);
     setLocalError('');
     try {
       const ok =
         mode === 'login'
           ? await auth.login(phone, pin)
-          : await auth.register(name, phone, pin, wantsToBeMessenger);
+          : await auth.register(name, phone, pin, wantsToBeMessenger, acceptsTerms);
       if (ok) {
         if (mode === 'register' && wantsToBeMessenger) {
           setShowMessengerSuccess(true);
@@ -77,6 +83,7 @@ export default function AuthModal({ isOpen, onClose, auth }: AuthModalProps) {
           setPhone('');
           setPin('');
           setName('');
+          setAcceptsTerms(false);
           onClose();
         }
       }
@@ -324,9 +331,41 @@ export default function AuthModal({ isOpen, onClose, auth }: AuthModalProps) {
                   </label>
                 )}
 
+                {isRegister && (
+                  <label className="flex items-start gap-3 p-3 rounded-lg border border-border-subtle bg-slate-50/50 cursor-pointer hover:bg-slate-50 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={acceptsTerms}
+                      onChange={(e) => { setAcceptsTerms(e.target.checked); setLocalError(''); }}
+                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-brand focus:ring-emerald-brand/40"
+                    />
+                    <span className="text-[11px] text-slate-600 leading-relaxed">
+                      Acepto los{' '}
+                      <a
+                        href="/terminos"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-bold text-cerulean-dark hover:text-cerulean underline underline-offset-2"
+                      >
+                        Términos y Condiciones
+                      </a>{' '}
+                      y la{' '}
+                      <a
+                        href="/privacidad"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-bold text-cerulean-dark hover:text-cerulean underline underline-offset-2"
+                      >
+                        Política de Privacidad
+                      </a>{' '}
+                      de TransferCuba. Sin esta aceptación no puedo crear mi cuenta.
+                    </span>
+                  </label>
+                )}
+
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || (isRegister && !acceptsTerms)}
                   className="w-full py-2.5 px-4 bg-emerald-brand hover:bg-mint disabled:opacity-60 text-white font-bold text-sm rounded-xl shadow-level-2 transition-all flex items-center justify-center gap-2"
                 >
                   {isSubmitting ? (

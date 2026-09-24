@@ -27,6 +27,14 @@ export async function POST(req: NextRequest) {
   const name = typeof body.name === 'string' ? body.name.trim() : '';
   const pin = typeof body.pin === 'string' ? body.pin : '';
   const wantsToBeMessenger = body.wantsToBeMessenger === true;
+  const acceptsTerms = body.acceptsTerms === true;
+
+  if (!acceptsTerms) {
+    return NextResponse.json(
+      { success: false, error: 'Debes aceptar los Términos y Condiciones para registrarte' },
+      { status: 400 }
+    );
+  }
 
   if (!phone) {
     return NextResponse.json(

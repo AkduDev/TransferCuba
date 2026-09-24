@@ -157,11 +157,13 @@ sesión HttpOnly `tc_session` (30 días). BD caída → `503` (sin fallback).
 
 ```json
 POST /api/account/register
-{ "name": "Ana Pérez", "phone": "5355551234", "pin": "1234" }
+{ "name": "Ana Pérez", "phone": "5355551234", "pin": "1234", "acceptsTerms": true }
 ```
 
-- Errores comunes: `400` (validación), `409` (teléfono ya registrado,
-  incluida la carrera de doble registro → UNIQUE 23505).
+- Errores comunes: `400` (validación, incluido no aceptar los Términos con
+  `acceptsTerms: true`), `409` (teléfono ya registrado,
+  incluida la carrera de doble registro → UNIQUE 23505). El alta guarda
+  `users.terms_accepted_at`.
 
 ### Login / me / logout
 
