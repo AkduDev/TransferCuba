@@ -523,9 +523,11 @@ export default function RegisterBusinessModal({
             </p>
           </div>
           <button
+            type="button"
             onClick={handleClose}
-            aria-label="Cerrar"
-            className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            aria-label="Cerrar registro"
+            title="Cerrar registro"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/10 text-slate-200 hover:bg-white/20 hover:text-white active:scale-95 transition-all"
           >
             <X className="w-5 h-5" aria-hidden="true" />
           </button>
@@ -1323,15 +1325,7 @@ export default function RegisterBusinessModal({
               </div>
 
               <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-                {step === 0 ? (
-                  <button
-                    type="button"
-                    onClick={handleClose}
-                    className="flex-1 sm:flex-none px-3 py-2.5 text-sm text-slate-600 hover:text-text-primary font-medium"
-                  >
-                    Cancelar
-                  </button>
-                ) : (
+                {step > 0 && (
                   <button
                     type="button"
                     onClick={goBack}
@@ -1346,7 +1340,7 @@ export default function RegisterBusinessModal({
                     onClick={goNext}
                     disabled={!stepValid[step]}
                     title={stepValid[step] ? `Continuar a ${STEPS[step + 1].title}` : 'Completa lo obligatorio de esta sección para continuar'}
-                    className={`flex-[1.5] sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl text-white font-bold text-sm shadow-level-2 transition-all flex items-center justify-center gap-2 w-full ${
+                    className={`${step === 0 ? 'w-full' : 'flex-[1.5] sm:flex-none'} px-4 sm:px-6 py-2.5 rounded-xl text-white font-bold text-sm shadow-level-2 transition-all flex items-center justify-center gap-2 ${
                       stepValid[step]
                         ? 'bg-navy hover:bg-navy-hover'
                         : 'bg-slate-300 cursor-not-allowed'
