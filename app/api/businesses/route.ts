@@ -28,6 +28,21 @@ function isAllowedPhotoUrl(value: unknown): value is string {
 const sanitizePhotos = (photos: unknown): string[] =>
   Array.isArray(photos) ? photos.filter(isAllowedPhotoUrl) : [];
 
+// `includeAll` devuelve negocios PENDIENTES tras comprobar la sesión de
+// administración, así que su respuesta no puede ser pública: la CDN cachea por
+// URL y las cookies no entran en la clave, de modo que una respuesta guardada
+// se serviría a cualquiera sin que la comprobación de sesión llegue a correr.
+//
+// Para el resto, `max-age` es para el navegador: sin él la cabecera que llega
+// al cliente es solo `public`, sin TTL. Va corto porque una vez servida no hay
+// forma de purgarla; `s-maxage` puede ser más largo porque el catálogo solo
+// cambia cuando un administrador aprueba un negocio.
+function cacheControl(includeAll: boolean): string {
+  return includeAll
+    ? 'private, no-store'
+    : 'public, max-age=60, s-maxage=300, stale-while-revalidate=3600';
+}
+
 // GET /api/businesses — filtros + spatial queries (viewport bbox / nearby).
 // Sprint 2: PostGIS con ST_MakeEnvelope && / ST_DWithin / ST_Distance;
 // sin DATABASE_URL cae al fallback in-memory (dev).
@@ -90,12 +105,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(
       { success: true, total: results.length, businesses: results },
-      {
-        headers: {
-          // Vercel edge cache: barato para el viewport, refresca en background
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
-        }
-      }
+      { headers: { 'Cache-Control': cacheControl(includeAll) } }
     );
   } catch (err) {
     console.error('[api] error en GET /api/businesses:', (err as Error)?.message ?? err);
