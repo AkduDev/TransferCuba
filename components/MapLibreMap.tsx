@@ -56,7 +56,13 @@ interface MapLibreMapProps {
   pinFilters?: PinFilters;
 }
 
-const PMTILES_URL = process.env.NEXT_PUBLIC_PMTILES_URL || '/map/cuba.pmtiles';
+const PMTILES_BASE_URL = process.env.NEXT_PUBLIC_PMTILES_URL || '/map/cuba.pmtiles';
+const PMTILES_VERSION = process.env.NEXT_PUBLIC_PMTILES_VERSION;
+// La huella la calcula next.config al construir. Va en la URL para que el
+// `immutable` del mapa base sea seguro: si el fichero cambia, la URL cambia.
+const PMTILES_URL = PMTILES_VERSION
+  ? `${PMTILES_BASE_URL}${PMTILES_BASE_URL.includes('?') ? '&' : '?'}v=${PMTILES_VERSION}`
+  : PMTILES_BASE_URL;
 const FALLBACK_STYLE = 'https://tiles.openfreemap.org/styles/positron';
 
 let pmtilesProtocol: Protocol | null = null;
