@@ -85,9 +85,7 @@ test('la ficha móvil muestra el emoji de la categoría', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 740 });
   await page.goto('/');
 
-  // Por label, no por rol: el tirador es un <div> con onClick, sin role ni
-  // foco. Accesibilidad pendiente, ajena a esta prueba.
-  const tirador = page.getByLabel('Arrastrar o expandir panel');
+  const tirador = page.getByRole('button', { name: 'Expandir panel' });
   const hoja = tirador.locator('..');
   await tirador.click();
 

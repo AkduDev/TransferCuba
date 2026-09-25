@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useId } from 'react';
 import {
   ChevronUp, 
   ChevronDown, 
@@ -113,6 +113,18 @@ export default function BottomSheet({
     touchStartY.current = null;
   };
 
+  const contenidoId = useId();
+
+  // Tres estados, pero `aria-expanded` es booleano: 'peek' es el cerrado y la
+  // etiqueta dice lo que hará la pulsación, que es lo que necesita saber quien
+  // no ve el panel.
+  const etiquetaTirador =
+    sheetState === 'peek'
+      ? 'Expandir panel'
+      : sheetState === 'half'
+        ? 'Expandir panel del todo'
+        : 'Contraer panel';
+
   const toggleExpand = () => {
     if (sheetState === 'peek') setSheetState('half');
     else if (sheetState === 'half') setSheetState('full');
@@ -164,21 +176,24 @@ export default function BottomSheet({
       className={`md:hidden fixed bottom-0 inset-x-0 z-30 bg-white rounded-t-2xl shadow-level-4 border-t border-border-subtle flex flex-col transition-[height] duration-300 ease-out overflow-hidden pointer-events-auto pb-[env(safe-area-inset-bottom,0px)] ${heightClass}`}
     >
       {/* Google Maps Drag Pill Handle Header with enhanced touch target */}
-      <div
+      <button
+        type="button"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onClick={toggleExpand}
-        className="w-full pt-3 pb-2 flex flex-col items-center justify-center cursor-pointer select-none flex-shrink-0 bg-white active:bg-slate-50 touch-pan-y"
-        aria-label="Arrastrar o expandir panel"
+        aria-expanded={sheetState !== 'peek'}
+        aria-controls={contenidoId}
+        aria-label={etiquetaTirador}
+        className="w-full pt-3 pb-2 flex flex-col items-center justify-center cursor-pointer select-none flex-shrink-0 bg-white active:bg-slate-50 touch-pan-y focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-900"
       >
         <div className="w-12 h-1.5 bg-slate-300 rounded-full" />
-      </div>
+      </button>
 
       {/* =========================================================================
           SELECTED PLACE BOTTOM SHEET (Mobile Place Card)
       ========================================================================== */}
       {selectedBusiness ? (
-        <div className="flex-1 flex flex-col overflow-hidden px-3.5 sm:px-4 pb-2 sm:pb-3">
+        <div id={contenidoId} className="flex-1 flex flex-col overflow-hidden px-3.5 sm:px-4 pb-2 sm:pb-3">
           {/* Top Summary Row (Visible in Peek, Half, and Full) */}
           <div className="flex items-start justify-between gap-2 pb-2 border-b border-slate-100 flex-shrink-0">
             <div className="flex-1 min-w-0" onClick={toggleExpand}>
@@ -410,7 +425,7 @@ export default function BottomSheet({
         /* =========================================================================
             RESULTS LIST BOTTOM SHEET (Mobile Place List)
         ========================================================================== */
-        <div className="flex-1 flex flex-col overflow-hidden px-3.5 pb-2">
+        <div id={contenidoId} className="flex-1 flex flex-col overflow-hidden px-3.5 pb-2">
           {/* Peek Summary Bar */}
           <div
             onClick={toggleExpand}
