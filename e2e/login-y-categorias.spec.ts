@@ -85,17 +85,38 @@ test('la ficha móvil muestra el emoji de la categoría', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 740 });
   await page.goto('/');
 
-  const tirador = page.getByRole('button', { name: 'Expandir panel' });
+  // La decisión de si hay algo que abrir se toma contra la API, no contra el
+  // DOM: en desarrollo `useBusinessesData` cae a los negocios semilla cuando no
+  // hay datos, así que la lista oscila entre semilla y vacío según quién gane
+  // la carrera. Preguntando a la API la prueba deja de depender de esa carrera.
+  const listado = await page.request.get('/api/businesses?limit=1');
+  const { businesses = [] } = (await listado.json()) as { businesses?: unknown[] };
+  test.skip(businesses.length === 0, 'No hay negocios activos que abrir en esta base');
+
+  // Por regex: la etiqueta del tirador cambia con el estado del panel
+  // ("Expandir panel" -> "Expandir panel del todo" -> "Contraer panel"), así que
+  // un nombre exacto deja de casar en cuanto se pulsa y `hoja` se queda huérfana.
+  const tirador = page.getByRole('button', {
+    name: /^(Expandir panel|Expandir panel del todo|Contraer panel)$/
+  });
   const hoja = tirador.locator('..');
   await tirador.click();
 
-  // Acotado a la hoja: el ExplorePanel de escritorio sigue en el DOM a 360 px,
-  // oculto por CSS, y un `.first()` global aterriza ahí.
-  await hoja.getByRole('heading', { name: 'La Esquina Market' }).click();
+  // Sin nombre fijo: con base de pruebas no existen los negocios semilla, y
+  // atarse a uno hacía que esta prueba dependiera de qué base hubiera detrás.
+  const primera = hoja.getByRole('heading', { level: 4 }).first();
+  await expect(primera).toBeVisible();
+  await primera.click();
 
-  const resumen = hoja.getByRole('heading', { level: 3, name: 'La Esquina Market' }).locator('..');
+  // Sin acoplar al NOMBRE: en desarrollo `useBusinessesData` pinta los negocios
+  // semilla mientras llega la respuesta real, así que un nombre leído antes
+  // puede haber desaparecido al buscarlo después. Lo que importa es la ficha
+  // seleccionada, sea cual sea: su encabezado es el único `h3` de la hoja.
+  const resumen = hoja.getByRole('heading', { level: 3 }).first().locator('..');
   await expect(resumen).toBeVisible();
   const texto = await resumen.innerText();
-  expect(texto, 'la ficha pinta el nombre del icono de Lucide como texto').not.toContain('ShoppingBag');
-  expect(texto).toContain('🛒');
+  for (const icono of NOMBRES_DE_ICONO) {
+    expect(texto, 'la ficha pinta el nombre del icono de Lucide como texto').not.toContain(icono);
+  }
+  expect(texto, 'la ficha no muestra ningún emoji de categoría').toMatch(/\p{Extended_Pictographic}/u);
 });

@@ -15,6 +15,7 @@ import RouteInfoBar from '@/components/RouteInfoBar';
 import RegisterBusinessModal from '@/components/RegisterBusinessModal';
 import AdminDashboardModal from '@/components/AdminDashboardModal';
 import AuthModal from '@/components/AuthModal';
+import MyBusinessesModal from '@/components/MyBusinessesModal';
 import LocationPickerModal from '@/components/LocationPickerModal';
 import DeliveryModal from '@/components/DeliveryModal';
 import MessengerModal from '@/components/MessengerModal';
@@ -88,7 +89,7 @@ export default function Home() {
 
       {ui.isPinningMode && <PinningControls onConfirm={() => ui.handleConfirmPinLocation(showToast)} onCancel={() => { ui.setIsPinningMode(false); ui.setIsRegisterModalOpen(true); }} />}
 
-      <SideDrawer isOpen={ui.isSideDrawerOpen} onClose={() => ui.setIsSideDrawerOpen(false)} selectedProvince={fl.selectedProvince} onProvinceChange={fl.handleProvinceChange} onNearMeClick={geo.handleUseCurrentGps} onRegisterClick={() => ui.setIsRegisterModalOpen(true)} onAdminClick={() => ui.setIsAdminModalOpen(true)} onAccountClick={() => ui.setIsAuthModalOpen(true)} onDeliveryClick={() => ui.setIsDeliveryModalOpen(true)} onMessengerClick={() => ui.setIsMessengerModalOpen(true)} authUser={auth.user} totalBusinesses={data.businesses.length} />
+      <SideDrawer isOpen={ui.isSideDrawerOpen} onClose={() => ui.setIsSideDrawerOpen(false)} selectedProvince={fl.selectedProvince} onProvinceChange={fl.handleProvinceChange} onNearMeClick={geo.handleUseCurrentGps} onRegisterClick={() => ui.setIsRegisterModalOpen(true)} onAdminClick={() => ui.setIsAdminModalOpen(true)} onAccountClick={() => ui.setIsAuthModalOpen(true)} onMyBusinessesClick={() => ui.setIsMyBusinessesModalOpen(true)} onDeliveryClick={() => ui.setIsDeliveryModalOpen(true)} onMessengerClick={() => ui.setIsMessengerModalOpen(true)} authUser={auth.user} totalBusinesses={data.businesses.length} />
 
       <FiltersModal isOpen={ui.isFiltersModalOpen} onClose={() => ui.setIsFiltersModalOpen(false)} selectedProvince={fl.selectedProvince} onProvinceChange={fl.handleProvinceChange} selectedMunicipality={fl.selectedMunicipality} onMunicipalityChange={fl.setSelectedMunicipality} selectedCategory={fl.selectedCategory} onCategoryChange={fl.setSelectedCategory} onlyActiveNow={fl.onlyActiveNow} onToggleOnlyActiveNow={() => fl.setOnlyActiveNow(!fl.onlyActiveNow)} onlyTransfer={fl.onlyTransfer} onToggleOnlyTransfer={() => fl.setOnlyTransfer(!fl.onlyTransfer)} filterQr={fl.filterQr} onToggleFilterQr={() => fl.setFilterQr(!fl.filterQr)} filterOnline={fl.filterOnline} onToggleFilterOnline={() => fl.setFilterOnline(!fl.filterOnline)} filterVerification={fl.filterVerification} onFilterVerificationChange={fl.setFilterVerification} onResetFilters={fl.handleResetFilters} totalResults={data.filteredBusinesses.length} />
 
@@ -99,6 +100,7 @@ export default function Home() {
       <AdminDashboardModal isOpen={ui.isAdminModalOpen} onOpen={data.fetchAdminAll} onClose={() => { data.handleAdminClose(); ui.setIsAdminModalOpen(false); }} businesses={data.businesses} onToggleVerify={actions.handleToggleVerify} onToggleTransferActive={actions.handleToggleTransferActive} onDeleteBusiness={actions.handleDeleteBusiness} onSelectBusiness={actions.handleSelectBusiness} onApproveBusiness={actions.handleApproveBusiness} onRejectBusiness={actions.handleRejectBusiness} />
 
       <AuthModal isOpen={ui.isAuthModalOpen} onClose={() => ui.setIsAuthModalOpen(false)} auth={auth} />
+      <MyBusinessesModal isOpen={ui.isMyBusinessesModalOpen} onClose={() => ui.setIsMyBusinessesModalOpen(false)} user={auth.user} onOpenAuth={() => { ui.setIsMyBusinessesModalOpen(false); ui.setIsAuthModalOpen(true); }} />
 
       <DeliveryModal isOpen={ui.isDeliveryModalOpen} onClose={() => ui.setIsDeliveryModalOpen(false)} onOpenAuth={() => ui.setIsAuthModalOpen(true)} user={auth.user} userLocation={geo.userLocation} deliveries={deliveries} pickFromUserLocation={() => { if (geo.userLocation) deliveries.setPickupFromCoords(geo.userLocation); }} />
 

@@ -51,6 +51,11 @@ antes de dar por tuyo un error.
   que aporta la semántica de diálogo (role, aria-modal, Escape, trampa y
   devolución de foco, clic en el fondo, bloqueo de scroll y pila cuando hay
   varios abiertos). No volver a escribir el `div` de capa a mano.
+- Todo DAO nuevo toma sus envoltorios de `lib/db-runner.ts` (`crearEjecutor`):
+  circuit breaker, transacciones y la distinción entre error de dominio (409) y
+  base caída (503). No los vuelvas a copiar. `lib/db.ts` mantiene los suyos
+  aparte a propósito: allí una base caída devuelve datos en memoria en vez de
+  lanzar, y forzarlo a ese molde cambiaría su comportamiento.
 - Lógica de dominio y datos en `lib/`: `cuba-data.ts` (tipos, seed,
   provincias), `osrm.ts`, `nominatim.ts`, `cloudinary.ts`, `dto.ts`, `db.ts`;
   identidad en `auth.ts`/`db-auth.ts` (usuarios) y `admin-auth.ts` (panel, es
@@ -102,10 +107,18 @@ con gracia, pero deja el fichero huérfano en Cloudinary.
   `schema.sql` → `migrate_auth.sql` → `migrate_delivery.sql` →
   `migrate_promotions_index.sql` → `migrate_delivery_phase6.sql` →
   `migrate_has_delivery.sql` → `migrate_mvt_enhance.sql` →
-  `migrate_mvt_perf.sql` → `migrate_terms_accepted.sql`. (`migrate_v2.sql` y
+  `migrate_mvt_perf.sql` → `migrate_terms_accepted.sql` →
+  `migrate_business_ownership.sql`. (`migrate_v2.sql` y
   `migrate_1_9_drop_legacy.sql` son históricos, solo para bases anteriores a
   1.9.) Un cambio de esquema añade
   migración **y** actualiza `schema.sql`.
+- Propiedad de un negocio: publicar es GRATIS y ANÓNIMO; ser dueño se
+  solicita (`business_ownership_claims`) y lo confirma un administrador. La
+  autorización de dueño se decide por `businesses.owner_user_id`, **no** por
+  `users.role`: el rol es una sola columna y quien ya es mensajero perdería la
+  mensajería al hacerse dueño. `BUSINESS` se pone solo como señal para la UI.
+  Esas tablas viven en su migración y no en `schema.sql` porque dependen de
+  `users`, que crea `migrate_auth.sql` — y esa corre DESPUÉS.
 - Persistencia: `localStorage` clave `transfercuba_businesses_v2` como cache
   offline del frontend; fuente real es Postgres/Neon vía `lib/db.ts`
   (tablas normalizadas V2 desde el DAO — ver `db/schema.sql`; `hours` y los

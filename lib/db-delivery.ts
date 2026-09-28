@@ -8,6 +8,7 @@
 
 import { Pool } from 'pg';
 import { DbUnavailableError } from './db-auth';
+import { crearEjecutor } from './db-runner';
 import type { Role } from './db-auth';
 import { DEFAULT_PRICING } from './pricing';
 import type { PricingConfig } from './pricing';
@@ -93,12 +94,7 @@ export interface DeliveryCreationInput {
 
 /* ---------------- pool y breaker (compartidos con identidad) ---------------- */
 
-import {
-  getDbPool,
-  shouldAttemptDb,
-  markDbUnavailable,
-  markDbAvailable
-} from './db-auth';
+import { getDbPool } from './db-auth';
 
 export function isDeliveryDbConfigured(): boolean {
   return getDbPool() !== null;
@@ -111,52 +107,9 @@ function isDomainError(err: unknown): boolean {
     err instanceof InvalidReviewError;
 }
 
-async function run<T>(fn: (pool: Pool) => Promise<T>): Promise<T> {
-  const pool = getDbPool();
-  if (!pool || !shouldAttemptDb()) throw new DbUnavailableError();
-  try {
-    const out = await fn(pool);
-    markDbAvailable();
-    return out;
-  } catch (err) {
-    if (isDomainError(err)) throw err;
-    if ((err as { code?: string }).code) {
-      markDbAvailable();
-      throw err;
-    }
-    markDbUnavailable(err);
-    throw new DbUnavailableError();
-  }
-}
-
-async function withClient<T>(fn: (client: import('pg').PoolClient) => Promise<T>): Promise<T> {
-  const pool = getDbPool();
-  if (!pool || !shouldAttemptDb()) throw new DbUnavailableError();
-  let client: import('pg').PoolClient;
-  try {
-    client = await pool.connect();
-  } catch (err) {
-    markDbUnavailable(err);
-    throw new DbUnavailableError();
-  }
-  try {
-    await client.query('BEGIN');
-    const out = await fn(client);
-    await client.query('COMMIT');
-    return out;
-  } catch (err) {
-    await client.query('ROLLBACK').catch(() => undefined);
-    if (isDomainError(err)) throw err;
-    if ((err as { code?: string }).code) {
-      markDbAvailable();
-      throw err;
-    }
-    markDbUnavailable(err);
-    throw new DbUnavailableError();
-  } finally {
-    client.release();
-  }
-}
+// Envoltorios compartidos con los demás DAO: circuit breaker, transacciones y
+// la distinción entre error de dominio (409) y base caída (503).
+const { run, withClient } = crearEjecutor(isDomainError);
 
 /* ---------------- conversión de filas ---------------- */
 

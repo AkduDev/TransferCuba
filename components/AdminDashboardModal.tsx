@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 
 import ModalShell from '@/components/ModalShell';
@@ -22,10 +22,12 @@ import {
   EyeOff, 
   KeyRound, 
   XCircle,
-  Bike
+  Bike,
+  ShieldQuestion
 } from 'lucide-react';
 import { Business, CUBAN_PROVINCES } from '@/lib/cuba-data';
 import MessengerAdminPanel from '@/components/MessengerAdminPanel';
+import BusinessClaimsAdminPanel from '@/components/BusinessClaimsAdminPanel';
 
 interface AdminDashboardModalProps {
   isOpen: boolean;
@@ -73,22 +75,34 @@ export default function AdminDashboardModal({
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Dashboard state
-  const [filterTab, setFilterTab] = useState<'pending' | 'active' | 'all' | 'verified' | 'reported' | 'messengers'>('pending');
+  const [filterTab, setFilterTab] = useState<'pending' | 'active' | 'all' | 'verified' | 'reported' | 'messengers' | 'claims'>('pending');
   const [selectedProvinceFilter, setSelectedProvinceFilter] = useState('all');
 
   // Verifica la sesión real contra el servidor cuando se abre el modal;
   // localStorage solo es un hint de UX previo.
+  //
+  // La comprobación se descarta si entretanto alguien ha iniciado sesión: si no,
+  // una respuesta lenta que salió ANTES del login llega después con su
+  // `authenticated: false` y echa al administrador de vuelta a la pantalla de
+  // acceso recién entrado. Con una conexión lenta es fácil de provocar.
+  const loginSeqRef = useRef(0);
   useEffect(() => {
     if (!isOpen) return;
+    const seq = loginSeqRef.current;
+    let vigente = true;
     fetch('/api/auth/me')
       .then(async (res) => {
         const data = (await res.json()) as { authenticated: boolean };
+        if (!vigente || loginSeqRef.current !== seq) return;
         setIsAuthenticated(data.authenticated);
         if (!data.authenticated) localStorage.removeItem('tc_admin_session_auth');
       })
       .catch(() => {
-        setIsAuthenticated(false);
+        if (vigente && loginSeqRef.current === seq) setIsAuthenticated(false);
       });
+    return () => {
+      vigente = false;
+    };
   }, [isOpen]);
 
   // Compute counts
@@ -112,6 +126,7 @@ export default function AdminDashboardModal({
       });
 
       if (res.ok) {
+        loginSeqRef.current += 1;
         setIsAuthenticated(true);
         localStorage.setItem('tc_admin_session_auth', 'true');
         setAuthError('');
@@ -478,9 +493,21 @@ export default function AdminDashboardModal({
                   <Bike className="w-3.5 h-3.5" />
                   Mensajeros
                 </button>
+
+                <button
+                  onClick={() => setFilterTab('claims')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex-shrink-0 inline-flex items-center gap-1.5 ${
+                    filterTab === 'claims'
+                      ? 'bg-cerulean text-white shadow-level-1'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  <ShieldQuestion className="w-3.5 h-3.5" />
+                  Propiedad
+                </button>
               </div>
 
-              {filterTab !== 'messengers' && (
+              {filterTab !== 'messengers' && filterTab !== 'claims' && (
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className="text-xs text-slate-500 font-medium">Provincia:</span>
                   <select
@@ -499,6 +526,8 @@ export default function AdminDashboardModal({
 
             {filterTab === 'messengers' ? (
               <MessengerAdminPanel />
+            ) : filterTab === 'claims' ? (
+              <BusinessClaimsAdminPanel />
             ) : (
               <>
                 {/* List of Businesses (Dual responsive view) */}

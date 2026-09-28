@@ -19,6 +19,8 @@ export interface ModalsState {
   setIsDeliveryModalOpen: (v: boolean) => void;
   isMessengerModalOpen: boolean;
   setIsMessengerModalOpen: (v: boolean) => void;
+  isMyBusinessesModalOpen: boolean;
+  setIsMyBusinessesModalOpen: (v: boolean) => void;
   mobileSheetState: 'peek' | 'half' | 'full';
   setMobileSheetState: (s: 'peek' | 'half' | 'full') => void;
   isPinningMode: boolean;
@@ -38,6 +40,7 @@ export function useModals(): ModalsState {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
+  const [isMyBusinessesModalOpen, setIsMyBusinessesModalOpen] = useState(false);
   const [isMessengerModalOpen, setIsMessengerModalOpen] = useState(false);
   const [mobileSheetState, setMobileSheetState] = useState<'peek' | 'half' | 'full'>('peek');
   const [isPinningMode, setIsPinningMode] = useState(false);
@@ -69,6 +72,7 @@ export function useModals(): ModalsState {
     isLocationModalOpen, setIsLocationModalOpen,
     isDeliveryModalOpen, setIsDeliveryModalOpen,
     isMessengerModalOpen, setIsMessengerModalOpen,
+    isMyBusinessesModalOpen, setIsMyBusinessesModalOpen,
     mobileSheetState, setMobileSheetState,
     isPinningMode, setIsPinningMode, pinLocation, setPinLocation,
     handleStartPinning, handleConfirmPinLocation

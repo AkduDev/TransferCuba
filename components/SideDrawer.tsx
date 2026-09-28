@@ -20,7 +20,8 @@ import {
   User,
   Package,
   Bike,
-  Lock
+  Lock,
+  Store
 } from 'lucide-react';
 import { CUBAN_PROVINCES } from '@/lib/cuba-data';
 
@@ -33,6 +34,7 @@ interface SideDrawerProps {
   onRegisterClick: () => void;
   onAdminClick: () => void;
   onAccountClick: () => void;
+  onMyBusinessesClick: () => void;
   onDeliveryClick: () => void;
   onMessengerClick: () => void;
   authUser: { name: string; role: string } | null;
@@ -48,6 +50,7 @@ export default function SideDrawer({
   onRegisterClick,
   onAdminClick,
   onAccountClick,
+  onMyBusinessesClick,
   onDeliveryClick,
   onMessengerClick,
   authUser,
@@ -270,6 +273,27 @@ export default function SideDrawer({
                   </p>
                   <p className="text-[10px] text-slate-400 font-normal">
                     {authUser ? 'Ver perfil y sesión' : 'Entrar con teléfono y contraseña'}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+            </button>
+
+            <button
+              onClick={() => {
+                onClose();
+                onMyBusinessesClick();
+              }}
+              className="w-full mt-2 p-3.5 rounded-xl bg-white hover:bg-slate-50 border border-border-subtle text-slate-700 flex items-center justify-between text-xs font-bold transition-all shadow-level-1 group active:scale-[0.99]"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-xl bg-emerald-brand/10 border border-emerald-brand/30 text-emerald-brand flex items-center justify-center">
+                  <Store className="w-4 h-4" />
+                </div>
+                <div className="text-left">
+                  <p className="font-extrabold text-text-primary font-display">Mis negocios</p>
+                  <p className="text-[10px] text-slate-400 font-normal">
+                    Reclama el tuyo si ya está publicado
                   </p>
                 </div>
               </div>

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { queryBusinesses, queryBusinessesMap, insertBusiness, patchBusiness, PatchAction } from '@/lib/db';
 import { Business, CUBAN_PROVINCES, CATEGORIES } from '@/lib/cuba-data';
 import { sessionValidFromRequest } from '@/lib/admin-auth';
+import { getSessionUser } from '@/lib/auth';
+import { claimBusiness } from '@/lib/db-ownership';
 
 export const dynamic = 'force-dynamic';
 
@@ -223,7 +225,36 @@ export async function POST(req: NextRequest) {
 
   try {
     await insertBusiness(newBusiness);
-    return NextResponse.json({ success: true, business: newBusiness }, { status: 201 });
+
+    // Registrar con sesión iniciada deja además una solicitud de propiedad, que
+    // un administrador confirmará: registrar no convierte a nadie en dueño por
+    // sí solo, porque el alta es pública y no prueba nada.
+    //
+    // Deliberadamente fuera del camino crítico: el negocio YA está guardado, y
+    // que falle la solicitud no puede convertir un alta correcta en un 503. Si
+    // falla, se reclama después desde la cuenta.
+    let claimed = false;
+    const sesion = await getSessionUser(req).catch(() => null);
+    if (sesion) {
+      try {
+        await claimBusiness({
+          businessId: newBusiness.id,
+          userId: sesion.id,
+          evidence: 'Solicitud automática: registró el negocio desde su cuenta'
+        });
+        claimed = true;
+      } catch (error) {
+        console.error(
+          '[api] alta correcta pero no se pudo reclamar la propiedad:',
+          (error as Error)?.message ?? error
+        );
+      }
+    }
+
+    return NextResponse.json(
+      { success: true, business: newBusiness, ownershipClaimed: claimed },
+      { status: 201 }
+    );
   } catch (err) {
     // Producción: fallo real de BD → 503 (no un falso "registrado").
     console.error('[api] error registrando negocio:', (err as Error)?.message ?? err);
