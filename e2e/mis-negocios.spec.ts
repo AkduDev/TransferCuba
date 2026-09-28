@@ -145,3 +145,73 @@ test('el modal no desborda a 360 px', async ({ page }) => {
   );
   expect(desborda, 'el modal de dueño desborda a lo ancho en móvil').toBe(false);
 });
+
+test('un dueño pide un plan desde su panel', async ({ page, playwright, baseURL, crearCuenta }) => {
+  test.skip(!adminPassword, 'Requiere E2E_ADMIN_PASSWORD para publicar y confirmar');
+  test.slow();
+
+  const marca = `Cafetería Plan ${Date.now()}`;
+  const anonimo = await playwright.request.newContext({ baseURL });
+  const creado = await anonimo.post('/api/businesses', {
+    data: {
+      name: marca,
+      category: 'cafeterias',
+      categoryIcon: 'Coffee',
+      description: 'Negocio de prueba para los planes',
+      province: 'La Habana',
+      municipality: 'Plaza de la Revolución',
+      address: 'Calle 23 #100 e/ L y M',
+      whatsapp: '+5355512345',
+      phone: '+5355512345',
+      hours: '9:00 — 17:00',
+      acceptsTransfer: true,
+      lat: 23.1385,
+      lng: -82.3842
+    }
+  });
+  const { business } = (await creado.json()) as { business: { id: string } };
+
+  const apiAdmin = await playwright.request.newContext({ baseURL });
+  await apiAdmin.post('/api/auth/login', {
+    data: { username: adminUser, password: adminPassword }
+  });
+  await apiAdmin.patch('/api/businesses', { data: { id: business.id, action: 'approve' } });
+
+  // La cuenta reclama y el administrador la confirma: sin ser dueño no hay planes.
+  const cuenta = await crearCuenta();
+  await page.request.post(`/api/businesses/${business.id}/claim`, { data: {} });
+  const cola = await apiAdmin.get('/api/admin/business-claims');
+  const { claims } = (await cola.json()) as {
+    claims: { id: string; businessId: string; claimant?: { id: string } }[];
+  };
+  const suya = claims.find((c) => c.businessId === business.id && c.claimant?.id === cuenta.id);
+  expect(suya, 'la solicitud no llegó a la cola').toBeTruthy();
+  await apiAdmin.patch(`/api/admin/business-claims/${suya!.id}`, { data: { action: 'confirm' } });
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Menú principal TransferCuba' }).first().click();
+  await page.getByRole('dialog').getByRole('button', { name: /Mis negocios/ }).click();
+
+  const modal = page.getByRole('dialog');
+  // Acotado a SU tarjeta: el primer plan de la lista es el de un solo negocio,
+  // cuyo botón de confirmar está deshabilitado hasta elegir cuál — con razón.
+  const tarjeta = modal.locator('div.rounded-xl').filter({ hasText: 'Cuenta premium' }).first();
+  await expect(tarjeta, 'el plan de cuenta no aparece').toBeVisible({ timeout: 30_000 });
+
+  await tarjeta.getByRole('button', { name: /Pedir este plan/ }).click();
+  await tarjeta.getByRole('button', { name: /Confirmar pedido/ }).click();
+
+  await expect(modal.getByText(/Un administrador confirmará el pago/)).toBeVisible({
+    timeout: 30_000
+  });
+
+  // Y lo que cuenta: el pago existe y está pendiente, no activo.
+  const suscripciones = await page.request.get('/api/account/subscriptions');
+  const { subscriptions } = (await suscripciones.json()) as {
+    subscriptions: { planCode: string; status: string }[];
+  };
+  expect(subscriptions.find((x) => x.planCode === 'owner_account')?.status).toBe('PENDING');
+
+  await anonimo.dispose();
+  await apiAdmin.dispose();
+});

@@ -15,6 +15,7 @@ import {
   X
 } from 'lucide-react';
 import ModalShell from '@/components/ModalShell';
+import OwnerPlansSection from '@/components/OwnerPlansSection';
 
 /**
  * La casa del dueño de negocio.
@@ -270,6 +271,8 @@ export default function MyBusinessesModal({
               </ul>
             )}
           </section>
+
+          <OwnerPlansSection negocios={mios} />
 
           <section className="space-y-2 border-t border-border-subtle pt-4">
             <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider font-display">

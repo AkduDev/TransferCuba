@@ -108,7 +108,8 @@ con gracia, pero deja el fichero huérfano en Cloudinary.
   `migrate_promotions_index.sql` → `migrate_delivery_phase6.sql` →
   `migrate_has_delivery.sql` → `migrate_mvt_enhance.sql` →
   `migrate_mvt_perf.sql` → `migrate_terms_accepted.sql` →
-  `migrate_business_ownership.sql`. (`migrate_v2.sql` y
+  `migrate_business_ownership.sql` →
+  `migrate_plans.sql`. (`migrate_v2.sql` y
   `migrate_1_9_drop_legacy.sql` son históricos, solo para bases anteriores a
   1.9.) Un cambio de esquema añade
   migración **y** actualiza `schema.sql`.
@@ -119,6 +120,13 @@ con gracia, pero deja el fichero huérfano en Cloudinary.
   mensajería al hacerse dueño. `BUSINESS` se pone solo como señal para la UI.
   Esas tablas viven en su migración y no en `schema.sql` porque dependen de
   `users`, que crea `migrate_auth.sql` — y esa corre DESPUÉS.
+- Planes de pago: viven en la tabla `plans`, no en `platform_config` — un plan
+  nuevo es UNA FILA, no una migración. Dos productos: `business_promo` (destaca
+  un negocio) y `owner_account` (todos los del dueño, más estadísticas y más
+  fotos, y por eso cuesta más). El importe y el periodo se **congelan** en la
+  fila de `plan_payments` al pedirlo: cambiar el precio no reescribe lo ya
+  solicitado. Pedir no activa; lo confirma un administrador. La caducidad se
+  barre de forma perezosa al leer, sin cron.
 - Persistencia: `localStorage` clave `transfercuba_businesses_v2` como cache
   offline del frontend; fuente real es Postgres/Neon vía `lib/db.ts`
   (tablas normalizadas V2 desde el DAO — ver `db/schema.sql`; `hours` y los

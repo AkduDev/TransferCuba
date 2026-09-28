@@ -23,11 +23,13 @@ import {
   KeyRound, 
   XCircle,
   Bike,
-  ShieldQuestion
+  ShieldQuestion,
+  BadgeDollarSign
 } from 'lucide-react';
 import { Business, CUBAN_PROVINCES } from '@/lib/cuba-data';
 import MessengerAdminPanel from '@/components/MessengerAdminPanel';
 import BusinessClaimsAdminPanel from '@/components/BusinessClaimsAdminPanel';
+import PlansAdminPanel from '@/components/PlansAdminPanel';
 
 interface AdminDashboardModalProps {
   isOpen: boolean;
@@ -75,7 +77,7 @@ export default function AdminDashboardModal({
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Dashboard state
-  const [filterTab, setFilterTab] = useState<'pending' | 'active' | 'all' | 'verified' | 'reported' | 'messengers' | 'claims'>('pending');
+  const [filterTab, setFilterTab] = useState<'pending' | 'active' | 'all' | 'verified' | 'reported' | 'messengers' | 'claims' | 'plans'>('pending');
   const [selectedProvinceFilter, setSelectedProvinceFilter] = useState('all');
 
   // Verifica la sesión real contra el servidor cuando se abre el modal;
@@ -505,9 +507,21 @@ export default function AdminDashboardModal({
                   <ShieldQuestion className="w-3.5 h-3.5" />
                   Propiedad
                 </button>
+
+                <button
+                  onClick={() => setFilterTab('plans')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex-shrink-0 inline-flex items-center gap-1.5 ${
+                    filterTab === 'plans'
+                      ? 'bg-emerald-brand text-white shadow-level-1'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  <BadgeDollarSign className="w-3.5 h-3.5" />
+                  Planes
+                </button>
               </div>
 
-              {filterTab !== 'messengers' && filterTab !== 'claims' && (
+              {filterTab !== 'messengers' && filterTab !== 'claims' && filterTab !== 'plans' && (
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className="text-xs text-slate-500 font-medium">Provincia:</span>
                   <select
@@ -528,6 +542,8 @@ export default function AdminDashboardModal({
               <MessengerAdminPanel />
             ) : filterTab === 'claims' ? (
               <BusinessClaimsAdminPanel />
+            ) : filterTab === 'plans' ? (
+              <PlansAdminPanel />
             ) : (
               <>
                 {/* List of Businesses (Dual responsive view) */}
