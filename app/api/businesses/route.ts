@@ -4,6 +4,7 @@ import { Business, CUBAN_PROVINCES, CATEGORIES } from '@/lib/cuba-data';
 import { sessionValidFromRequest } from '@/lib/admin-auth';
 import { getSessionUser } from '@/lib/auth';
 import { claimBusiness } from '@/lib/db-ownership';
+import { FOTOS_PLAN_GRATIS } from '@/lib/plans-validate';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,8 +28,13 @@ function isAllowedPhotoUrl(value: unknown): value is string {
   }
 }
 
+// Un negocio recién registrado todavía no tiene dueño, así que no puede tener
+// plan: el tope es el del plan gratis. Para subir más hay que reclamarlo y
+// contratar, que es justo lo que vende el plan.
 const sanitizePhotos = (photos: unknown): string[] =>
-  Array.isArray(photos) ? photos.filter(isAllowedPhotoUrl) : [];
+  Array.isArray(photos)
+    ? photos.filter(isAllowedPhotoUrl).slice(0, FOTOS_PLAN_GRATIS)
+    : [];
 
 // `includeAll` devuelve negocios PENDIENTES tras comprobar la sesión de
 // administración, así que su respuesta no puede ser pública: la CDN cachea por

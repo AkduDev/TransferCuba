@@ -424,12 +424,11 @@ export async function queryBusinesses(filters: BusinessFilters): Promise<Busines
     b.accepts_transfer, b.transfer_active_now, b.transfer_verified, b.status,
     b.confirmations_count, b.reports_count, b.rating, b.reviews_count,
     b.last_status_update, b.last_updated_date, b.has_delivery,
-    -- V2: featured deriva de business_promotions (columna legacy eliminada en 1.9)
+    -- featured lo decide la vista business_featured: promoción manual del
+    -- administrador O suscripción activa a un plan que lo incluya. Una sola
+    -- definición, para que el mapa y las fichas no puedan discrepar.
     COALESCE(
-      (SELECT bp.active FROM business_promotions bp
-       WHERE bp.business_id = b.id AND bp.type = 'featured'
-       AND (bp.ends_at IS NULL OR bp.ends_at > NOW())
-       ORDER BY bp.priority DESC LIMIT 1),
+      (SELECT f.featured FROM business_featured f WHERE f.business_id = b.id),
       FALSE
     ) AS featured,
     -- V2: transferDetails se reconstruye desde business_payment_methods
@@ -499,10 +498,7 @@ export async function queryBusinessesMap(filters: BusinessFilters): Promise<MapB
 
   const select = `SELECT b.id, b.name, b.category,
     COALESCE(
-      (SELECT bp.active FROM business_promotions bp
-       WHERE bp.business_id = b.id AND bp.type = 'featured'
-       AND (bp.ends_at IS NULL OR bp.ends_at > NOW())
-       ORDER BY bp.priority DESC LIMIT 1),
+      (SELECT f.featured FROM business_featured f WHERE f.business_id = b.id),
       FALSE
     ) AS featured,
     b.transfer_active_now,
@@ -810,10 +806,7 @@ export async function queryBusinessesByIds(ids: string[]): Promise<Map<string, B
         b.confirmations_count, b.reports_count, b.rating, b.reviews_count,
         b.last_status_update, b.last_updated_date, b.has_delivery,
         COALESCE(
-          (SELECT bp.active FROM business_promotions bp
-           WHERE bp.business_id = b.id AND bp.type = 'featured'
-           AND (bp.ends_at IS NULL OR bp.ends_at > NOW())
-           ORDER BY bp.priority DESC LIMIT 1),
+          (SELECT f.featured FROM business_featured f WHERE f.business_id = b.id),
           FALSE
         ) AS featured,
         COALESCE(
@@ -858,7 +851,11 @@ export async function queryBusinessDetails(id: string): Promise<BusinessDetails 
         `SELECT b.id, b.name, b.description, b.address, b.province, b.municipality,
                 b.neighborhood, b.whatsapp, b.phone, b.status,
                 b.transfer_active_now, b.transfer_verified, b.accepts_transfer,
-                b.last_updated_date
+                b.last_updated_date,
+                COALESCE(
+                  (SELECT f.featured FROM business_featured f WHERE f.business_id = b.id),
+                  FALSE
+                ) AS featured
          FROM businesses b WHERE b.id = $1`,
         [id]
       ),
@@ -954,6 +951,7 @@ export async function queryBusinessDetails(id: string): Promise<BusinessDetails 
       promotions: promosRes.rows.map(
         (pr): BusinessPromotion => ({ type: pr.type, active: pr.active })
       ),
+      featured: b.featured === true,
       status: b.status,
       transferActiveNow: b.transfer_active_now,
       transferVerified: b.transfer_verified,
@@ -1001,6 +999,7 @@ function legacyToDetails(b: Business): BusinessDetails {
       { id: 'onlineGateway', name: 'Pago online', slug: 'onlineGateway', icon: 'CreditCard', isActive: b.transferDetails.onlineGateway }
     ],
     promotions: b.featured ? [{ type: 'featured', active: true }] : [],
+    featured: b.featured,
     status: b.status,
     transferActiveNow: b.transferActiveNow,
     transferVerified: b.transferVerified,

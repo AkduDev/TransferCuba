@@ -59,3 +59,18 @@ export function toPeriodDays(v: unknown): number | null {
   if (!Number.isInteger(n) || n < 1 || n > 365) return null;
   return n;
 }
+
+/**
+ * Cuántas fotos admite un negocio.
+ *
+ * Hasta la Fase 3 no había límite ninguno, así que "más fotos" exigía primero
+ * que existiera un tope. Se mide sobre las funciones desbloqueadas y no sobre
+ * el rol: la cuenta premium del dueño y la promoción del propio negocio dan lo
+ * mismo por caminos distintos.
+ */
+export const FOTOS_PLAN_GRATIS = 3;
+export const FOTOS_PLAN_PREMIUM = 10;
+
+export function limiteDeFotos(features: readonly string[]): number {
+  return features.includes('photos') ? FOTOS_PLAN_PREMIUM : FOTOS_PLAN_GRATIS;
+}

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import ModalShell from '@/components/ModalShell';
 import OwnerPlansSection from '@/components/OwnerPlansSection';
+import BusinessViewsStat from '@/components/BusinessViewsStat';
 
 /**
  * La casa del dueño de negocio.
@@ -256,6 +257,7 @@ export default function MyBusinessesModal({
                         </span>
                       </p>
                       <p className="text-[10px] text-slate-400 mt-0.5">{etiquetaDeEstado(n.status)}</p>
+                      {n.ownership === 'CONFIRMED' && <BusinessViewsStat businessId={n.id} />}
                     </div>
                     {n.ownership === 'CONFIRMED' ? (
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-brand bg-emerald-brand/10 border border-emerald-brand/30 px-2 py-1 rounded-full flex-shrink-0">

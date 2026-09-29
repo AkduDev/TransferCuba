@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { getDbPool } from '@/lib/db-auth';
 import { randomUUID } from 'node:crypto';
+import { activeFeaturesForBusiness } from '@/lib/db-plans';
+import { limiteDeFotos } from '@/lib/plans-validate';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,12 +54,36 @@ export async function POST(
   if (!pool) return err('Base de datos no disponible', 503);
 
   try {
+    // Solo el dueño confirmado. Antes bastaba con tener cuenta, así que
+    // cualquiera podía colgar fotos en el negocio de otro.
+    const duenoRes = await pool.query(
+      'SELECT 1 FROM businesses WHERE id = $1 AND owner_user_id = $2',
+      [businessId, auth.user.id]
+    );
+    if (!duenoRes.rowCount) return err('Ese negocio no es tuyo', 403);
+
+    // El tope depende de lo que tenga desbloqueado, no de su rol.
+    const [features, actuales] = await Promise.all([
+      activeFeaturesForBusiness(businessId),
+      pool.query<{ n: string }>(
+        'SELECT count(*)::int AS n FROM business_images WHERE business_id = $1',
+        [businessId]
+      )
+    ]);
+    const tope = limiteDeFotos(features);
+    if (Number(actuales.rows[0]?.n ?? 0) >= tope) {
+      return err(
+        `Has llegado al límite de ${tope} fotos. Con un plan premium puedes subir más.`,
+        409
+      );
+    }
+
     await pool.query(
       `INSERT INTO business_images (id, business_id, url, alt, sort_order, is_cover)
        VALUES ($1, $2, $3, $4, 0, FALSE)`,
       [randomUUID(), businessId, body.url, alt]
     );
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, remaining: tope - Number(actuales.rows[0]?.n ?? 0) - 1 });
   } catch (error) {
     console.error('[api] POST images:', (error as Error)?.message ?? error);
     return err('No se pudo guardar la imagen', 500);

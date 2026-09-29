@@ -26,13 +26,36 @@ export function useBusinessActions({
   const [clusterView, setClusterView] = useState<ClusterInfo | null>(null);
   const [clusterVisibleCount, setClusterVisibleCount] = useState(8);
 
+  /**
+   * Cuenta la apertura de ficha para las estadísticas del dueño.
+   *
+   * Una vez por negocio y sesión: sin esa guarda, volver a la misma ficha
+   * inflaría el número. Va sin `await` y tragándose el fallo — un contador no
+   * puede retrasar ni romper la apertura de una ficha.
+   */
+  const contarApertura = useCallback((business: Business) => {
+    if (typeof window === 'undefined') return;
+    const clave = `tc_visto_${business.id}`;
+    try {
+      if (sessionStorage.getItem(clave)) return;
+      sessionStorage.setItem(clave, '1');
+    } catch {
+      // Navegación privada o almacenamiento bloqueado: se cuenta igual.
+    }
+    void fetch(`/api/businesses/${business.id}/view`, {
+      method: 'POST',
+      keepalive: true
+    }).catch(() => undefined);
+  }, []);
+
   const handleSelectBusiness = useCallback((business: Business | null) => {
     setSelectedBusiness(business);
     setClusterView(null);
     if (business) {
       centerOn(business.lat, business.lng, 16);
+      contarApertura(business);
     }
-  }, [centerOn]);
+  }, [centerOn, contarApertura]);
 
   const handleSelectSearchBusiness = useCallback((b: Business) => {
     handleSelectBusiness(b);

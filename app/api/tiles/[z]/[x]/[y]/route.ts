@@ -7,11 +7,15 @@ const MVT_CONTENT_TYPE = 'application/vnd.mapbox-vector-tile';
 
 // `max-age` es para el navegador: sin él la cabecera que llega al cliente es
 // solo `public`, sin TTL, y volver a una zona ya vista puede tocar la red otra
-// vez. Se queda corto a propósito (5 min) porque una vez servida no hay forma
-// de purgarla. `s-maxage` sí puede ser largo: los negocios solo cambian cuando
-// un administrador aprueba uno, y `stale-while-revalidate` evita que nadie
-// espere a la revalidación.
-const CACHE_TESELAS = 'public, max-age=300, s-maxage=3600, stale-while-revalidate=86400';
+// vez. Se queda corto a propósito porque una vez servida no hay forma de
+// purgarla.
+//
+// `s-maxage` bajó de 1 h a 5 min al entrar los planes: la tesela ya no cambia
+// solo cuando un administrador aprueba un negocio, también cuando confirma un
+// pago — y hacer esperar una hora a quien acaba de pagar por destacarse no se
+// sostiene. El coste es asumible: get_businesses_mvt tarda ~5 ms.
+// `stale-while-revalidate` sigue largo, así que nadie espera a la revalidación.
+const CACHE_TESELAS = 'public, max-age=120, s-maxage=300, stale-while-revalidate=86400';
 
 const CABECERAS_MVT = {
   'Content-Type': MVT_CONTENT_TYPE,

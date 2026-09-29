@@ -22,6 +22,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { Business, CUBAN_PROVINCES, CATEGORIES } from '@/lib/cuba-data';
+import { FOTOS_PLAN_GRATIS } from '@/lib/plans-validate';
 import { searchNominatimAddress, NominatimResult } from '@/lib/nominatim';
 
 interface RegisterBusinessModalProps {
@@ -1263,7 +1264,7 @@ export default function RegisterBusinessModal({
                 <ImagePlus className="w-5 h-5 text-slate-400" />
               )}
               <span className="text-xs text-slate-500">
-                {isUploadingPhoto ? 'Subiendo tus fotos…' : 'Añadir fotos (opcional, máx. 5 MB por imagen)'}
+                {isUploadingPhoto ? 'Subiendo tus fotos…' : `Añadir fotos (opcional, hasta ${FOTOS_PLAN_GRATIS}, máx. 5 MB cada una)`}
               </span>
             </label>
             {photoError && (

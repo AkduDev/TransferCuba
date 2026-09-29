@@ -56,6 +56,12 @@ export interface BusinessDetails {
   images: BusinessImage[];
   paymentMethods: PaymentMethod[];
   promotions: BusinessPromotion[];
+  /**
+   * Verdad resuelta: promoción manual del administrador O plan activo. Se
+   * publica aparte de `promotions`, que son las filas manuales en crudo: un
+   * negocio puede estar destacado por su plan sin tener ninguna.
+   */
+  featured: boolean;
   status: string;
   transferActiveNow: boolean;
   transferVerified: boolean;

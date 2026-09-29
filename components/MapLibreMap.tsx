@@ -111,6 +111,9 @@ const COLOR_REPORTED = '#e11d48';
 const COLOR_DEFAULT = '#0f2942';
 const COLOR_SELECTED_HALO = '#10b981';
 const COLOR_CERULEAN = '#0284c7';
+// Ámbar para lo destacado: no colisiona con el verde de transferencia activa
+// ni con el carmín de reportado, así que un pin puede decir las dos cosas.
+const COLOR_FEATURED = '#f59e0b';
 
 const CLUSTER_MAX_ZOOM = 14;
 const LABEL_MIN_ZOOM = 11;
@@ -207,6 +210,10 @@ function pinColorExpr(): maplibregl.ExpressionSpecification {
 function pinStrokeColorExpr(): maplibregl.ExpressionSpecification {
   return [
     'case',
+    // El destacado se marca en el ANILLO y no en el relleno: el relleno ya
+    // significa "transferencia activa" o "reportado", y pisarlo perdería esa
+    // información justo en los negocios que pagan por verse.
+    ['==', ['get', 'featured'], true], COLOR_FEATURED,
     ['==', ['get', 'has_delivery'], true], COLOR_TRANSFER_ACTIVE,
     '#ffffff'
   ] as unknown as maplibregl.ExpressionSpecification;
@@ -216,6 +223,8 @@ function pinRadiusExpr(): maplibregl.ExpressionSpecification {
   return [
     'case',
     ['coalesce', ['feature-state', 'selected'], false], 13,
+    ['==', ['get', 'featured'], true],
+    ['interpolate', ['linear'], ['zoom'], 10, 7, 16, 11],
     ['interpolate', ['linear'], ['zoom'], 10, 5, 16, 9]
   ] as unknown as maplibregl.ExpressionSpecification;
 }
@@ -224,6 +233,7 @@ function pinStrokeWidthExpr(): maplibregl.ExpressionSpecification {
   return [
     'case',
     ['coalesce', ['feature-state', 'selected'], false], 3,
+    ['==', ['get', 'featured'], true], 3,
     1.5
   ] as unknown as maplibregl.ExpressionSpecification;
 }
@@ -243,6 +253,9 @@ function labelLayout(): Record<string, unknown> {
     'text-allow-overlap': false,
     'text-ignore-placement': false,
     'text-optional': true,
+    // Los destacados ganan la disputa por el hueco de etiqueta: es justo lo que
+    // se paga cuando el mapa va apretado.
+    'symbol-sort-key': ['case', ['==', ['get', 'featured'], true], 0, 1],
     'text-max-width': 7,
     'text-line-height': 1.1,
     'text-padding': 2
