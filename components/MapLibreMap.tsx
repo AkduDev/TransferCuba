@@ -63,6 +63,65 @@ const PMTILES_VERSION = process.env.NEXT_PUBLIC_PMTILES_VERSION;
 const PMTILES_URL = PMTILES_VERSION
   ? `${PMTILES_BASE_URL}${PMTILES_BASE_URL.includes('?') ? '&' : '?'}v=${PMTILES_VERSION}`
   : PMTILES_BASE_URL;
+
+// Misma idea para el estilo y las fuentes de emoji que declara: se sirven
+// `immutable` durante un año, y eso solo es seguro si la URL cambia cuando
+// cambia el contenido. La huella la calcula next.config al construir.
+const MAP_ASSETS_VERSION = process.env.NEXT_PUBLIC_MAP_ASSETS_VERSION;
+const conVersion = (url: string): string =>
+  MAP_ASSETS_VERSION ? `${url}${url.includes('?') ? '&' : '?'}v=${MAP_ASSETS_VERSION}` : url;
+
+/**
+ * Los únicos emoji que el mapa llega a pintar en una etiqueta: las categorías
+ * de negocio, más el comodín. Medido en producción, el estilo venía pidiendo
+ * 667 KB de fuentes de emoji en 6 ficheros para esto.
+ */
+const EMOJI_DEL_MAPA = ['1F354', '1F6D2', '1F48A', '2615', '1F527', '1F3E0', '1F455', '1F3EA', '1F3EC', '1F4CD'];
+
+interface CaraDeFuente {
+  url: string;
+  'unicode-range'?: string[];
+}
+
+function cubre(rango: string, punto: number): boolean {
+  const limpio = rango.replace(/^U\+/i, '');
+  if (limpio.includes('-')) {
+    const [a, b] = limpio.split('-');
+    return parseInt(a, 16) <= punto && punto <= parseInt(b, 16);
+  }
+  return parseInt(limpio, 16) === punto;
+}
+
+/**
+ * Acota las caras de emoji a lo que el mapa usa de verdad.
+ *
+ * Se hace aquí y no editando `transfercuba-style.json` porque ese fichero es
+ * generado: una edición a mano se perdería al regenerarlo.
+ *
+ * Lo que más pesaba no era un emoji: una de las caras declaraba cubrir los
+ * DÍGITOS (`U+30-39`) —por los emoji de teclado tipo 1️⃣— así que cualquier
+ * etiqueta con un número ("Calle 23") arrastraba 63 KB de fuente de emoji para
+ * pintar cifras que Noto Sans ya trae.
+ */
+function acotarFuentesDeEmoji(estilo: maplibregl.StyleSpecification): maplibregl.StyleSpecification {
+  const caras = (estilo as unknown as { 'font-faces'?: Record<string, CaraDeFuente[]> })['font-faces'];
+  if (!caras) return estilo;
+
+  const puntos = EMOJI_DEL_MAPA.map((h) => parseInt(h, 16));
+  const rangoAcotado = EMOJI_DEL_MAPA.map((h) => `U+${h.toLowerCase()}`);
+
+  for (const stack of Object.keys(caras)) {
+    caras[stack] = caras[stack]
+      .filter((cara) => (cara['unicode-range'] ?? []).some((r) => puntos.some((p) => cubre(r, p))))
+      .map((cara) => ({
+        ...cara,
+        'unicode-range': rangoAcotado.filter((r) =>
+          (cara['unicode-range'] ?? []).some((orig) => cubre(orig, parseInt(r.slice(2), 16)))
+        )
+      }));
+  }
+  return estilo;
+}
 const FALLBACK_STYLE = 'https://tiles.openfreemap.org/styles/positron';
 
 let pmtilesProtocol: Protocol | null = null;
@@ -585,11 +644,18 @@ export default function MapLibreMap({
       let styleUrl: string | maplibregl.StyleSpecification = FALLBACK_STYLE;
       for (const path of ['/map/transfercuba-style.json', '/map/style.json']) {
         try {
-          const styleRes = await fetch(path);
+          const styleRes = await fetch(conVersion(path));
           if (!styleRes.ok) continue;
           const styleJson = (await styleRes.json()) as maplibregl.StyleSpecification;
-          const raw = JSON.stringify(styleJson).replace('__PMTILES_URL__', PMTILES_URL);
-          styleUrl = JSON.parse(raw) as maplibregl.StyleSpecification;
+          const raw = JSON.stringify(styleJson)
+            .replace('__PMTILES_URL__', PMTILES_URL)
+            // Las fuentes van declaradas DENTRO del estilo (`font-faces`), así
+            // que su huella hay que ponerla aquí: MapLibre pide esas URLs tal
+            // cual vengan.
+            .replace(/\/map\/fonts\/([A-Za-z0-9._-]+\.woff2)/g, (_m, f) =>
+              conVersion(`/map/fonts/${f}`)
+            );
+          styleUrl = acotarFuentesDeEmoji(JSON.parse(raw) as maplibregl.StyleSpecification);
           break;
         } catch {
           // estilo local no disponible -> siguiente fallback
