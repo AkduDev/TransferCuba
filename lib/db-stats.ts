@@ -60,3 +60,45 @@ export async function businessViewStats(
     return { total: series.reduce((s, r) => s + r.views, 0), series };
   });
 }
+
+/** Rutas que se cuentan. Cerrado a propósito: sin lista, cualquiera podría
+ *  llenar la tabla inventando rutas. */
+const RUTAS_CONTABLES = new Set(['/', '/terminos', '/privacidad']);
+
+export function esRutaContable(path: string): boolean {
+  return RUTAS_CONTABLES.has(path);
+}
+
+/** Suma una apertura de página. Sin IP, sin cookie, sin identificador. */
+export async function recordSiteVisit(path: string): Promise<void> {
+  return run(async (pool) => {
+    await pool.query(
+      `INSERT INTO site_visit_daily (day, path, visits)
+       VALUES (CURRENT_DATE, $1, 1)
+       ON CONFLICT (day, path)
+       DO UPDATE SET visits = site_visit_daily.visits + 1`,
+      [path]
+    );
+  });
+}
+
+export interface VisitDayRow {
+  day: string;
+  path: string;
+  visits: number;
+}
+
+/** Serie de los últimos `days` días, por ruta. */
+export async function siteVisitStats(days = 30): Promise<{ total: number; series: VisitDayRow[] }> {
+  const ventana = Math.min(Math.max(Math.trunc(days) || 0, 1), 365);
+  return run(async (pool) => {
+    const res = await pool.query<VisitDayRow>(
+      `SELECT to_char(day, 'YYYY-MM-DD') AS day, path, visits
+       FROM site_visit_daily
+       WHERE day > CURRENT_DATE - $1::int
+       ORDER BY day DESC, visits DESC`,
+      [ventana]
+    );
+    return { total: res.rows.reduce((s, r) => s + r.visits, 0), series: res.rows };
+  });
+}

@@ -110,7 +110,7 @@ con gracia, pero deja el fichero huérfano en Cloudinary.
   `migrate_mvt_perf.sql` → `migrate_terms_accepted.sql` →
   `migrate_business_ownership.sql` →
   `migrate_plans.sql` → `migrate_featured_from_plans.sql` →
-  `migrate_business_stats.sql`. (`migrate_v2.sql` y
+  `migrate_business_stats.sql` → `migrate_site_visits.sql`. (`migrate_v2.sql` y
   `migrate_1_9_drop_legacy.sql` son históricos, solo para bases anteriores a
   1.9.) Un cambio de esquema añade
   migración **y** actualiza `schema.sql`.

@@ -100,6 +100,7 @@ db/migrate_business_ownership.sql
 db/migrate_plans.sql
 db/migrate_featured_from_plans.sql
 db/migrate_business_stats.sql
+db/migrate_site_visits.sql
 ```
 
 `migrate_v2.sql` y `migrate_1_9_drop_legacy.sql` son históricos: solo para bases

@@ -3,6 +3,7 @@ import {Plus_Jakarta_Sans} from 'next/font/google';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './globals.css'; // Global styles
 import ServiceWorkerRegister from '@/components/ServiceWorkerRegister';
+import ContadorDeVisitas from '@/components/ContadorDeVisitas';
 
 // next/font: las fuentes se auto-alojan en build (sin dependencia de Google
 // Fonts en runtime — clave para Cuba, donde los CDNs externos son lentos).
@@ -34,6 +35,7 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
     <html lang="es" className={jakarta.variable}>
       <body suppressHydrationWarning className="bg-canvas text-text-primary antialiased selection:bg-cerulean selection:text-white font-sans">
         {children}
+        <ContadorDeVisitas />
         <ServiceWorkerRegister />
       </body>
     </html>

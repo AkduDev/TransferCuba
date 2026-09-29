@@ -1,3 +1,10 @@
+-- ⚠ SOLO PARA DESARROLLO. NO EJECUTAR CONTRA PRODUCCIÓN.
+--
+-- Estos 12 negocios son inventados. Estuvieron en producción hasta el
+-- 2026-09-29 y se borraron a propósito: un dueño real que se registra y ve
+-- competencia falsa pierde la confianza, y alguien puede llamar a un teléfono
+-- que no existe. El catálogo vacío es honesto; uno lleno de mentiras no.
+--
 -- Seed data for businesses table + tablas V2.
 -- Generated from INITIAL_BUSINESSES (12 negocios).
 -- Compatible con 'db/schema.sql': requiere postgis + tabla businesses.
