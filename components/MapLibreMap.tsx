@@ -103,6 +103,39 @@ function cubre(rango: string, punto: number): boolean {
  * etiqueta con un número ("Calle 23") arrastraba 63 KB de fuente de emoji para
  * pintar cifras que Noto Sans ya trae.
  */
+/**
+ * Trae glifos y sprites a nuestro origen, y colapsa la itálica.
+ *
+ * Medido desde Cuba: conectar con `tiles.openfreemap.org` cuesta ~0,38 s frente
+ * a ~0,18 s con nuestro origen, y son un dominio más que resolver y negociar en
+ * TLS. No se ahorran bytes —ese CDN ya cachea una semana— pero sí latencia, y
+ * se deja de depender de un tercero que desde aquí puede ir mal o no ir.
+ *
+ * La itálica solo la usaban los nombres de agua y las etiquetas de estado: pasa
+ * a Regular y con ella desaparece un tercer juego de glifos entero. La negrita
+ * se queda, porque las etiquetas de negocio la usan.
+ */
+function servirTipografiaPropia(
+  estilo: maplibregl.StyleSpecification,
+  origen: string
+): maplibregl.StyleSpecification {
+  const con = (ruta: string) => conVersion(`${origen}${ruta}`);
+  estilo.glyphs = con('/map/glyphs/{fontstack}/{range}.pbf');
+  // Absoluta a propósito: MapLibre construye las URLs del sprite con `new URL`
+  // y una relativa le hace lanzar.
+  estilo.sprite = con('/map/sprite/ofm');
+
+  for (const capa of estilo.layers) {
+    const layout = (capa as { layout?: Record<string, unknown> }).layout;
+    const fuente = layout?.['text-font'];
+    if (!Array.isArray(fuente)) continue;
+    layout!['text-font'] = fuente.map((f) =>
+      f === 'Noto Sans Italic' ? 'Noto Sans Regular' : f
+    );
+  }
+  return estilo;
+}
+
 function acotarFuentesDeEmoji(estilo: maplibregl.StyleSpecification): maplibregl.StyleSpecification {
   const caras = (estilo as unknown as { 'font-faces'?: Record<string, CaraDeFuente[]> })['font-faces'];
   if (!caras) return estilo;
@@ -655,7 +688,10 @@ export default function MapLibreMap({
             .replace(/\/map\/fonts\/([A-Za-z0-9._-]+\.woff2)/g, (_m, f) =>
               conVersion(`/map/fonts/${f}`)
             );
-          styleUrl = acotarFuentesDeEmoji(JSON.parse(raw) as maplibregl.StyleSpecification);
+          styleUrl = servirTipografiaPropia(
+            acotarFuentesDeEmoji(JSON.parse(raw) as maplibregl.StyleSpecification),
+            window.location.origin
+          );
           break;
         } catch {
           // estilo local no disponible -> siguiente fallback

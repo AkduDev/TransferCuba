@@ -1,6 +1,6 @@
 import type {NextConfig} from 'next';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 // Huella del mapa base, para poder cachearlo un año.
@@ -34,11 +34,33 @@ const PMTILES_VERSION = huella('public/map/cuba.pmtiles');
 // estilo. Una huella común basta porque se regeneran juntos: el estilo declara
 // las caras y los rangos de esas fuentes, así que cambiar una sin la otra
 // sería incoherente de todos modos.
-const MAP_ASSETS_VERSION = huella(
-  'public/map/transfercuba-style.json',
-  'public/map/style.json',
-  ...Array.from({ length: 10 }, (_, i) => `public/map/fonts/emoji-${i}.woff2`)
-);
+// Se recorre el directorio en vez de listar ficheros: ahora ahí viven también
+// los glifos y los sprites auto-hospedados, y una lista a mano se quedaría
+// desfasada en silencio — justo el fallo que el versionado viene a evitar.
+function huellaDeDirectorio(relativo: string, excluir: string[] = []): string | undefined {
+  try {
+    const raiz = join(process.cwd(), ...relativo.split('/'));
+    const h = createHash('sha256');
+    const recorrer = (dir: string) => {
+      for (const entrada of readdirSync(dir, { withFileTypes: true }).sort((a, b) =>
+        a.name.localeCompare(b.name)
+      )) {
+        const ruta = join(dir, entrada.name);
+        if (excluir.includes(entrada.name)) continue;
+        if (entrada.isDirectory()) recorrer(ruta);
+        else h.update(entrada.name).update(readFileSync(ruta));
+      }
+    };
+    recorrer(raiz);
+    return h.digest('hex').slice(0, 12);
+  } catch {
+    return undefined;
+  }
+}
+
+// `cuba.pmtiles` queda fuera: tiene su propia huella y son 85 MB que no hace
+// falta releer cada vez que cambie una fuente.
+const MAP_ASSETS_VERSION = huellaDeDirectorio('public/map', ['cuba.pmtiles']);
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -62,6 +84,8 @@ const nextConfig: NextConfig = {
     if (MAP_ASSETS_VERSION) {
       reglas.push(
         { source: '/map/fonts/:fichero*', headers: [{ key: 'Cache-Control', value: UN_ANIO }] },
+        { source: '/map/glyphs/:ruta*', headers: [{ key: 'Cache-Control', value: UN_ANIO }] },
+        { source: '/map/sprite/:fichero*', headers: [{ key: 'Cache-Control', value: UN_ANIO }] },
         { source: '/map/:estilo(transfercuba-style.json|style.json)', headers: [{ key: 'Cache-Control', value: UN_ANIO }] }
       );
     }
