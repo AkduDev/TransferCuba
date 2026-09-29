@@ -136,6 +136,33 @@ function servirTipografiaPropia(
   return estilo;
 }
 
+/**
+ * Capas del mapa base que se descartan al cargar el estilo.
+ *
+ * La lista es CORTA a propósito, y conviene no alargarla sin medir. Se probó
+ * podar también `building`, `label_poi` y las cuatro de aeropuerto: compraba un
+ * ~10 % del tiempo de tareas del hilo principal (12,9 s -> 11,6 s) y NADA claro
+ * en el tiempo hasta el lienzo, a cambio de perder los edificios y todas las
+ * etiquetas de contexto de la ciudad. Mal negocio.
+ *
+ * El coste real no son las capas del estilo: son los ~880 KB de teselas
+ * vectoriales que hay que decodificar. Bajarlo de verdad exige REGENERAR el
+ * .pmtiles sin `building`/`poi`/`housenumber`, no tocar el estilo.
+ *
+ * Lo que queda aquí solo son capas que en Cuba no pueden dibujarse nunca: el
+ * estilo viene de un planeta entero.
+ */
+const CAPAS_PODADAS = new Set<string>([
+  'landcover_ice_shelf',
+  'landcover_glacier',
+  'boundary_disputed'
+]);
+
+function podarCapas(estilo: maplibregl.StyleSpecification): maplibregl.StyleSpecification {
+  estilo.layers = estilo.layers.filter((c) => !CAPAS_PODADAS.has(c.id));
+  return estilo;
+}
+
 function acotarFuentesDeEmoji(estilo: maplibregl.StyleSpecification): maplibregl.StyleSpecification {
   const caras = (estilo as unknown as { 'font-faces'?: Record<string, CaraDeFuente[]> })['font-faces'];
   if (!caras) return estilo;
@@ -689,7 +716,7 @@ export default function MapLibreMap({
               conVersion(`/map/fonts/${f}`)
             );
           styleUrl = servirTipografiaPropia(
-            acotarFuentesDeEmoji(JSON.parse(raw) as maplibregl.StyleSpecification),
+            podarCapas(acotarFuentesDeEmoji(JSON.parse(raw) as maplibregl.StyleSpecification)),
             window.location.origin
           );
           break;
