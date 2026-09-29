@@ -23,8 +23,18 @@ export default defineConfig({
   workers: 1,
 
   reporter: process.env.CI ? [['github'], ['list']] : [['list']],
-  timeout: 60_000,
-  expect: { timeout: 10_000 },
+
+  // Medido, no elegido a ojo: una prueba de interfaz de este proyecto tarda
+  // entre 10 y 25 s contra el dev server (la portada sola son ~6 s con el mapa,
+  // y cada ruta se compila al primer golpe). Con los 10 s por aserción que
+  // traía, cualquier carga extra producía fallos que NO eran del producto: las
+  // mismas pruebas pasaban aisladas. Una suite que miente bajo carga es peor
+  // que una lenta, así que el presupuesto se ajusta a lo que cuesta de verdad.
+  //
+  // Si algún día la suite corre contra `next build` en vez del dev server, esto
+  // se puede volver a bajar.
+  timeout: 120_000,
+  expect: { timeout: 20_000 },
 
   use: {
     baseURL,

@@ -134,6 +134,7 @@ function ApplicationForm({
   const [vehicle, setVehicle] = React.useState<MessengerApplicationInput['vehicle']>(defaults?.vehicle ?? 'moto');
   const [serviceAreas, setServiceAreas] = React.useState((defaults?.serviceAreas ?? []).join(', '));
   const [reference, setReference] = React.useState('');
+  const [errorDelFormulario, setErrorDelFormulario] = React.useState('');
   const [method, setMethod] = React.useState<MessengerPaymentMethod>('transferencia');
 
   const esRenovacion = kind === 'renovacion';
@@ -142,6 +143,14 @@ function ApplicationForm({
   return (
     <form onSubmit={async (e) => {
       e.preventDefault();
+      // En transferencia la referencia es lo único que el administrador puede
+      // cotejar contra el banco, así que sin ella no se envía. Se comprueba al
+      // pulsar y se dice por qué, en vez de bloquear el botón en silencio.
+      if (!esEfectivo && reference.trim().length < 3) {
+        setErrorDelFormulario('Escribe la referencia de tu transferencia (mínimo 3 caracteres)');
+        return;
+      }
+      setErrorDelFormulario('');
       const areas = serviceAreas.split(/[,\n]/).map((area) => area.trim()).filter(Boolean);
       await onSubmit({ vehicle, serviceAreas: areas, reference, method });
     }} className="space-y-3">
@@ -271,10 +280,22 @@ function ApplicationForm({
         />
       </label>
 
+      {errorDelFormulario && (
+        <p role="alert" className="rounded-lg border border-ez-border bg-ez-bg/50 px-3 py-2 text-[11px] font-bold text-crimson">
+          {errorDelFormulario}
+        </p>
+      )}
+
+      {/*
+        El botón NO se deshabilita por falta de referencia. Un botón
+        deshabilitado no recibe foco, así que quien va con lector de pantalla
+        nunca llega a él ni se entera de por qué está atascado; y la
+        explicación vivía en un `title`, invisible en móvil — justo el público
+        de esto. Ahora se pulsa, y el motivo se anuncia en un role="alert".
+      */}
       <button
         type="submit"
-        disabled={isSubmitting || (!esEfectivo && reference.trim().length < 3)}
-        title={!esEfectivo && reference.trim().length < 3 ? 'Escribe la referencia de tu transferencia (mínimo 3 caracteres)' : undefined}
+        disabled={isSubmitting}
         className="w-full inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-emerald-brand px-4 py-2.5 text-xs font-extrabold text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
       >
         {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Send className="w-4 h-4" aria-hidden="true" />}
