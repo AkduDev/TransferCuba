@@ -106,6 +106,31 @@ db/migrate_business_stats.sql
 anteriores a 1.9. Todas son idempotentes. Un cambio de esquema añade migración
 **y** actualiza `schema.sql`.
 
+### Qué añadió el módulo de dueños
+
+Tres migraciones seguidas (`business_ownership`, `plans`, `featured_from_plans`,
+`business_stats`) montaron esto, y todo está aplicado en `production` y en
+`preview`:
+
+| Tabla / vista | Para qué |
+|---|---|
+| `businesses.owner_user_id` | Dueño confirmado. NULL mientras nadie lo reclame |
+| `business_ownership_claims` | Solicitudes de propiedad, que confirma un administrador |
+| `plans` | Catálogo y **precios**. Un plan nuevo es una FILA, no una migración |
+| `plan_subscriptions` | Qué tiene contratado cada quien, con su vencimiento |
+| `plan_payments` | Pagos, con el importe y el periodo **congelados** al pedirlos |
+| `business_view_daily` | Contador de aperturas por negocio y día |
+| `business_featured` (vista) | La ÚNICA definición de "está destacado" |
+
+Dos cosas que no son obvias:
+
+- **Los precios se cambian desde el panel** (pestaña «Planes»), no tocando SQL.
+  Cambiarlos no reescribe lo ya pedido, porque cada pago guardó su propio
+  importe.
+- **`business_featured` la consultan el DAO y la función MVT.** Si añades otro
+  sitio que necesite saber si un negocio está destacado, úsala; no repitas la
+  regla, que es justo lo que se vino a arreglar.
+
 ### Deriva entre `schema.sql` y producción
 
 `schema.sql` y la base real **no coinciden del todo**: producción ha ido
@@ -141,6 +166,45 @@ curl -s -X POST "https://$HOST/sql" \
 
 Comprueba siempre el estado **antes** de escribir: varias de estas migraciones
 ya estaban aplicadas y el `ALTER` resultó un no-op.
+
+## Caché
+
+Lo que se cachea, dónde y por qué. Vercel **recorta `s-maxage` y
+`stale-while-revalidate`** de la cabecera que llega al navegador —son
+directivas de CDN— así que al comprobar con `curl` solo verás el `max-age`.
+
+| Recurso | Navegador | CDN | Motivo |
+|---|---|---|---|
+| `/map/cuba.pmtiles` (85 MB) | 1 año, `immutable` | 1 año | Lleva la huella del contenido en la URL |
+| `/api/tiles/{z}/{x}/{y}` | 120 s | 300 s + SWR 1 día | Cambia al aprobar un negocio **y al confirmar un pago** |
+| `/api/businesses` público | 60 s | 300 s + SWR 1 h | El catálogo cambia poco |
+| `/api/businesses?includeAll=true` | — | **`private, no-store`** | Lleva negocios pendientes tras comprobar sesión |
+| `/api/plans` | 30 s | 60 s | El precio lo cambia el administrador; TTL corto a propósito |
+| Todo lo de `/api/admin/*` y `/api/account/*` | — | **`private, no-store`** | Depende de la sesión o lleva teléfonos |
+
+Tres reglas que conviene no romper:
+
+- **Una respuesta que dependa de la sesión jamás lleva `public`.** La CDN cachea
+  por URL y las cookies no entran en la clave: una respuesta guardada por un
+  administrador se serviría a cualquiera, sin que el control de sesión llegue a
+  ejecutarse. Ya pasó con `includeAll=true`.
+- **El `max-age` del navegador va corto**, porque una vez servido no hay forma de
+  purgarlo. El `s-maxage` sí puede ser largo: la CDN se purga sola al desplegar.
+- **El mapa base es `immutable` SOLO porque la URL lleva su huella**
+  (`?v=<sha256[0:12]>`, calculada en `next.config.ts` al construir). Si alguna vez
+  se quita el versionado, hay que quitar el `immutable` a la vez: si no, quien lo
+  tenga cacheado se queda con el mapa viejo un año y no hay manera de avisarle.
+  Lo vigila `e2e/mapa-base.spec.ts`.
+
+### El TTL de las teselas y los pagos
+
+`s-maxage` de las teselas bajó de 1 h a 5 min al entrar los planes: una tesela ya
+no cambia solo cuando un administrador aprueba un negocio, también cuando
+confirma un pago — y hacer esperar una hora a quien acaba de pagar por destacarse
+no se sostiene. El coste es asumible porque `get_businesses_mvt` tarda ~5 ms.
+
+Si algún día el catálogo crece y ese TTL pesa, la salida NO es volver a subirlo:
+es versionar la URL de las teselas como se hizo con el mapa base.
 
 ## Rarezas del CLI de Vercel
 
@@ -205,14 +269,51 @@ E2E_DATABASE_URL='postgresql://…' bun run test:e2e
 Lo natural es una rama de Neon (`neonctl branches create`), que nace con el
 esquema puesto. La moderación de valoraciones pide además `E2E_ADMIN_PASSWORD`.
 
-Alternativa sin tocar Neon: un contenedor desechable con las migraciones
-aplicadas en el orden de arriba.
+Alternativa sin tocar Neon: un contenedor desechable. **Ahora mismo no hay
+ninguno levantado**, así que 73 pruebas se saltan solas y quedan 21 efectivas,
+frente a las 94 que corren con base. Para recrearlo:
 
 ```bash
 docker run -d --name tc-e2e-pg \
   -e POSTGRES_PASSWORD=e2e -e POSTGRES_USER=e2e -e POSTGRES_DB=transfercuba_e2e \
   -p 5433:5432 postgis/postgis:16-3.4-alpine
+
+# Esperar a que TERMINE de inicializarse (ver aviso más abajo)
+until docker logs tc-e2e-pg 2>&1 | grep -q "PostgreSQL init process complete"; do sleep 2; done
+sleep 3
+
+# Las 13 migraciones, en orden. `ON_ERROR_STOP=1` para que no siga a ciegas.
+for f in schema migrate_auth migrate_delivery migrate_promotions_index \
+         migrate_delivery_phase6 migrate_has_delivery \
+         migrate_business_last_updated_default migrate_mvt_enhance \
+         migrate_mvt_perf migrate_terms_accepted migrate_business_ownership \
+         migrate_plans migrate_featured_from_plans migrate_business_stats; do
+  docker exec -i tc-e2e-pg psql -U e2e -d transfercuba_e2e -v ON_ERROR_STOP=1 -q \
+    < "db/$f.sql" && echo "✔ $f" || echo "✘ $f"
+done
+
+# El panel de mensajería deja el botón de renovar sin tarjeta a la que pagar
+# si esto está vacío, y tres pruebas fallan sin decir por qué.
+docker exec tc-e2e-pg psql -U e2e -d transfercuba_e2e -qc \
+  "update platform_config set messenger_pay_card='9227000000000000',
+                              messenger_whatsapp='55500000' where id=1"
 ```
+
+Y para correrla:
+
+```bash
+E2E_DATABASE_URL='postgresql://e2e:e2e@127.0.0.1:5433/transfercuba_e2e' \
+E2E_ADMIN_USER=<el de .env.local> E2E_ADMIN_PASSWORD=<el de .env.local> \
+  bun run test:e2e
+```
+
+Al terminar, `docker rm -f -v tc-e2e-pg`. El `-v` importa: sin él queda un
+volumen anónimo ocupando disco que nadie reclama.
+
+**La suite ensucia esa base a propósito y no la limpia**: cada pasada deja
+negocios creados y aprobados. Es desechable, pero conviene recrearla de vez en
+cuando — con cientos de negocios acumulados algunas pruebas de interfaz empiezan
+a comportarse distinto.
 
 Espera a la línea `PostgreSQL init process complete` del log **antes** de
 conectar: el contenedor arranca un servidor temporal para sus scripts de inicio
@@ -235,3 +336,22 @@ El repo arrastra 3 errores de lint previos (`react-hooks/set-state-in-effect`) y
 ```bash
 git show HEAD:<fichero> | bunx eslint --stdin --stdin-filename <fichero>
 ```
+
+### Presupuestos de tiempo de las pruebas
+
+`playwright.config.ts` usa **20 s por aserción y 120 s por prueba**, no los
+valores por defecto. Está medido, no elegido a ojo: una prueba de interfaz de
+este proyecto tarda entre 10 y 25 s contra el dev server (la portada sola son
+~6 s con el mapa, y cada ruta se compila al primer golpe).
+
+Con los 10 s que traía, las mismas pruebas **pasaban aisladas y fallaban en
+tanda**, y eso costó varias sesiones de diagnósticos falsos: parecían
+regresiones y eran presupuesto. Una suite que miente bajo carga es peor que una
+lenta.
+
+`workers: 1` también es deliberado: en el disco NTFS de desarrollo varios
+workers contra un único `next dev` compiten por I/O y producen timeouts, no
+paralelismo.
+
+La mejora de fondo sería correr la suite contra `next build` en vez del dev
+server; entonces estos presupuestos se pueden volver a bajar.
